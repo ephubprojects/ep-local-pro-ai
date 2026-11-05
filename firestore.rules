@@ -1,0 +1,65 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Admin email
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'ezperfilsystem@gmail.com';
+    }
+
+    // Authenticated user
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Business owner owns this doc
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // ── Businesses ──────────────────────────────────────────────────────
+    match /businesses/{slug} {
+      allow read: if true;  // public — customer ordering page needs this
+      allow write: if isAdmin() || isOwner(resource.data.ownerUid);
+    }
+
+    // ── Demos ────────────────────────────────────────────────────────────
+    match /demos/{demoId} {
+      allow read: if true;  // public — demo page needs this
+      allow write: if isAdmin();
+    }
+
+    // ── Orders ───────────────────────────────────────────────────────────
+    match /orders/{orderId} {
+      allow create: if true;  // customers create orders
+      allow read, update: if isAdmin()
+        || (isAuth() && resource.data.ownerUid == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // ── Documents (invoices, estimates, contracts) ────────────────────────
+    match /documents/{docId} {
+      allow read, write: if isAdmin()
+        || (isAuth() && resource.data.ownerUid == request.auth.uid);
+    }
+
+    // ── Business owners (user profiles) ──────────────────────────────────
+    match /owners/{uid} {
+      allow read: if isAdmin() || isOwner(uid);
+      allow write: if isAdmin() || isOwner(uid);
+    }
+
+    // ── EP HUB referral tracking ──────────────────────────────────────────
+    match /ep_referrals/{refId} {
+      allow read: if isAdmin();
+      allow create: if true;  // system writes on conversion
+      allow update, delete: if isAdmin();
+    }
+
+    // ── Category templates (read-only for business owners) ────────────────
+    match /categories/{catId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

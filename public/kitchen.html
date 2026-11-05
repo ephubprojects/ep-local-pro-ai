@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Kitchen Display — EP Local Pro AI</title>
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="/css/kitchen.css" />
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="kds-loading">
+  <div class="kds-spinner"></div>
+  <span id="kds-loading-msg">Connecting to kitchen…</span>
+</div>
+
+<!-- Full-screen KDS root -->
+<div id="kds-root">
+
+  <!-- ── Header ─────────────────────────────────────────── -->
+  <div id="kds-header">
+    <div id="kds-biz-name">Loading…</div>
+    <div id="kds-label">KITCHEN DISPLAY</div>
+    <div id="kds-time-block">
+      <span id="kds-time"></span>
+      <span id="kds-date"></span>
+    </div>
+    <div id="kds-status">
+      <span class="dot"></span>
+      <span id="kds-status-text">Online</span>
+    </div>
+    <button id="kds-sound-toggle" title="Toggle sound alerts">🔔</button>
+  </div>
+
+  <!-- ── Three columns ──────────────────────────────────── -->
+  <div id="kds-columns">
+
+    <!-- NEW -->
+    <div class="kds-col" id="col-new">
+      <div class="kds-col-header">
+        <span>NEW</span>
+        <span class="kds-count" id="count-new">0</span>
+      </div>
+      <div class="kds-col-body" id="orders-new">
+        <div class="kds-empty">No orders</div>
+      </div>
+    </div>
+
+    <!-- PREPARING -->
+    <div class="kds-col" id="col-preparing">
+      <div class="kds-col-header">
+        <span>PREPARING</span>
+        <span class="kds-count" id="count-preparing">0</span>
+      </div>
+      <div class="kds-col-body" id="orders-preparing">
+        <div class="kds-empty">No orders</div>
+      </div>
+    </div>
+
+    <!-- READY -->
+    <div class="kds-col" id="col-ready">
+      <div class="kds-col-header">
+        <span>READY</span>
+        <span class="kds-count" id="count-ready">0</span>
+      </div>
+      <div class="kds-col-body" id="orders-ready">
+        <div class="kds-empty">No orders</div>
+      </div>
+    </div>
+
+  </div><!-- /#kds-columns -->
+
+</div><!-- /#kds-root -->
+
+<script type="module" src="/js/kitchen.js"></script>
+</body>
+</html>

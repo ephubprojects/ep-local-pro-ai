@@ -1,0 +1,703 @@
+/* ============================================================
+   EP Local Pro AI — order.css
+   Customer-facing AI order page styles.
+   Mobile-first. System fonts only. No external dependencies.
+   ============================================================ */
+
+/* ── 1. Page layout ─────────────────────────────────────── */
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--light);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--text-base);
+  -webkit-font-smoothing: antialiased;
+}
+
+.order-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ── 2. Header ──────────────────────────────────────────── */
+#biz-header {
+  background: var(--navy);
+  color: var(--white);
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 20px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.biz-emoji {
+  font-size: 2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.biz-info {
+  text-align: center;
+}
+
+.biz-name {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold, 700);
+  line-height: 1.2;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60vw;
+}
+
+.biz-category {
+  font-size: var(--text-sm);
+  color: rgba(255,255,255,0.65);
+  margin: 2px 0 0;
+}
+
+/* ── 3. Main content area ───────────────────────────────── */
+.order-main {
+  flex: 1;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px 16px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@media (min-width: 700px) {
+  .order-main {
+    flex-direction: row;
+    align-items: flex-start;
+    padding: 32px 24px 40px;
+    gap: 28px;
+  }
+
+  #ai-card {
+    flex: 0 0 340px;
+    position: sticky;
+    top: 100px;
+  }
+
+  #cart-section {
+    flex: 1;
+  }
+}
+
+/* ── 4. AI Assistant card ───────────────────────────────── */
+#ai-card {
+  background: var(--white);
+  border-radius: 20px;
+  box-shadow: 0 4px 24px rgba(15,23,42,0.1);
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  text-align: center;
+}
+
+/* Mic button */
+.mic-btn-wrap {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#mic-btn {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--indigo);
+  border: none;
+  cursor: pointer;
+  font-size: 2rem;
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+  transition: background 0.2s, transform 0.15s;
+  box-shadow: 0 4px 16px rgba(79,70,229,0.4);
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+#mic-btn:hover {
+  background: var(--indigo-600);
+  transform: scale(1.05);
+}
+
+#mic-btn:active {
+  transform: scale(0.96);
+}
+
+#mic-btn:disabled {
+  background: var(--muted);
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Pulse ring animation — plays when .active */
+.mic-btn-wrap::before,
+.mic-btn-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--indigo);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mic-btn-wrap.active::before {
+  animation: pulse 1.8s ease-out infinite;
+}
+
+.mic-btn-wrap.active::after {
+  animation: pulse 1.8s ease-out 0.6s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
+/* AI status text */
+#ai-status {
+  font-size: var(--text-base);
+  color: var(--muted);
+  font-weight: var(--weight-medium);
+  min-height: 24px;
+  transition: color 0.2s;
+}
+
+#ai-status.listening {
+  color: var(--indigo);
+}
+
+#ai-status.speaking {
+  color: var(--green);
+}
+
+#ai-status.ready {
+  color: var(--gold-700, #b45309);
+}
+
+/* Transcript area */
+#transcript {
+  width: 100%;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--light);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  font-size: var(--text-sm);
+  text-align: left;
+  display: none;
+  scroll-behavior: smooth;
+}
+
+#transcript.visible {
+  display: block;
+}
+
+.transcript-msg {
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.transcript-msg:last-child {
+  margin-bottom: 0;
+}
+
+.transcript-msg .role {
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.transcript-msg.user .role { color: var(--indigo); }
+.transcript-msg.assistant .role { color: var(--green-700, #047857); }
+
+.transcript-msg .text {
+  color: var(--ink);
+}
+
+/* End call button */
+#end-call-btn {
+  display: none;
+  background: var(--red-50, #fef2f2);
+  color: var(--red);
+  border: 1.5px solid var(--red-100, #fee2e2);
+  border-radius: 10px;
+  padding: 10px 24px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#end-call-btn.visible {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#end-call-btn:hover {
+  background: var(--red-100, #fee2e2);
+  border-color: var(--red);
+}
+
+/* ── 5. Cart section ────────────────────────────────────── */
+#cart-section {
+  display: none;
+  flex-direction: column;
+  gap: 16px;
+}
+
+#cart-section.visible {
+  display: flex;
+}
+
+.cart-card {
+  background: var(--white);
+  border-radius: 20px;
+  box-shadow: 0 4px 24px rgba(15,23,42,0.08);
+  padding: 24px;
+}
+
+.cart-card h2 {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  margin: 0 0 16px;
+  color: var(--navy);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Cart items list */
+#cart-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.cart-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.cart-item:last-child {
+  border-bottom: none;
+}
+
+.cart-item-emoji {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  width: 32px;
+  text-align: center;
+}
+
+.cart-item-name {
+  flex: 1;
+  font-weight: var(--weight-medium);
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.qty-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.qty-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: var(--light);
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  line-height: 1;
+  padding: 0;
+}
+
+.qty-btn:hover {
+  background: var(--indigo-50, #eef2ff);
+  border-color: var(--indigo);
+  color: var(--indigo);
+}
+
+.qty-num {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  min-width: 20px;
+  text-align: center;
+}
+
+.cart-item-price {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--navy);
+  min-width: 56px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Order total */
+.cart-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0 0;
+  border-top: 2px solid var(--navy);
+  margin-top: 4px;
+}
+
+.cart-total-label {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.cart-total-amount {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--navy);
+}
+
+/* Order type tabs */
+.order-type-wrap {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.order-type-btn {
+  flex: 1;
+  min-width: 80px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--light);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.order-type-btn.active {
+  border-color: var(--indigo);
+  background: var(--indigo-50, #eef2ff);
+  color: var(--indigo);
+  font-weight: var(--weight-semibold);
+}
+
+.order-type-btn:hover:not(.active) {
+  border-color: var(--indigo);
+  color: var(--indigo);
+}
+
+/* Notes textarea */
+#order-notes {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: var(--font);
+  font-size: var(--text-sm);
+  color: var(--ink);
+  background: var(--white);
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+  outline: none;
+}
+
+#order-notes:focus {
+  border-color: var(--indigo);
+}
+
+#order-notes::placeholder {
+  color: var(--muted);
+}
+
+/* Place order button */
+#place-order-btn {
+  width: 100%;
+  padding: 16px;
+  border-radius: 14px;
+  border: none;
+  background: var(--green);
+  color: var(--white);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 4px 16px rgba(16,185,129,0.35);
+}
+
+#place-order-btn:hover {
+  background: var(--green-700, #047857);
+}
+
+#place-order-btn:active {
+  transform: scale(0.98);
+}
+
+#place-order-btn:disabled {
+  background: var(--muted);
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* ── 6. Payment / Confirmation section ──────────────────── */
+#payment-section {
+  display: none;
+}
+
+#payment-section.visible {
+  display: block;
+}
+
+.payment-card {
+  background: var(--white);
+  border-radius: 20px;
+  box-shadow: 0 4px 24px rgba(15,23,42,0.08);
+  padding: 32px 24px;
+  text-align: center;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.payment-card .confirm-heading {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--navy);
+  margin: 0 0 8px;
+}
+
+.payment-card .confirm-sub {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  margin: 0 0 20px;
+}
+
+.order-number {
+  display: inline-block;
+  background: var(--indigo-50, #eef2ff);
+  color: var(--indigo);
+  border: 1.5px solid var(--indigo-100, #e0e7ff);
+  border-radius: 10px;
+  padding: 8px 20px;
+  font-size: var(--text-xl);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-bottom: 24px;
+}
+
+.payment-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 12px;
+}
+
+.payment-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pay-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-radius: 14px;
+  border: 1.5px solid var(--border);
+  background: var(--light);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--navy);
+  cursor: pointer;
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pay-btn:hover {
+  border-color: var(--indigo);
+  background: var(--indigo-50, #eef2ff);
+}
+
+.pay-btn .pay-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--text-lg);
+}
+
+.pay-btn .pay-amount {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--indigo);
+}
+
+/* ── 7. Loading skeleton ────────────────────────────────── */
+#loading-skeleton {
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+@media (min-width: 700px) {
+  #loading-skeleton {
+    flex-direction: row;
+    padding: 32px 24px;
+    gap: 28px;
+  }
+  .skel-col-1 { flex: 0 0 340px; }
+  .skel-col-2 { flex: 1; }
+}
+
+.skel {
+  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 12px;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skel-card {
+  border-radius: 20px;
+  height: 300px;
+}
+
+.skel-line {
+  height: 18px;
+  margin-bottom: 10px;
+}
+
+.skel-line.short { width: 60%; }
+.skel-line.medium { width: 80%; }
+
+/* ── 8. Error state ─────────────────────────────────────── */
+#error-state {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 40px 24px;
+  text-align: center;
+  gap: 12px;
+}
+
+#error-state.visible {
+  display: flex;
+}
+
+.error-icon {
+  font-size: 3rem;
+}
+
+.error-heading {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--navy);
+  margin: 0;
+}
+
+.error-sub {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  margin: 0;
+  max-width: 300px;
+}
+
+/* ── 9. Footer ──────────────────────────────────────────── */
+.order-footer {
+  text-align: center;
+  padding: 16px;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+}
+
+.order-footer a {
+  color: var(--indigo);
+  text-decoration: none;
+}
+
+.order-footer a:hover {
+  text-decoration: underline;
+}
+
+/* ── 10. Utility ────────────────────────────────────────── */
+.hidden { display: none !important; }
+
+label.field-label {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--muted);
+  margin-bottom: 6px;
+}

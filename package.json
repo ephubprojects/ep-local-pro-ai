@@ -1,0 +1,9 @@
+{
+  "name": "ep-local-pro-ai",
+  "version": "1.0.0",
+  "description": "EP Local Pro AI — AI-powered platform for local businesses",
+  "scripts": {
+    "dev": "npx serve public -p 3000"
+  },
+  "dependencies": {}
+}

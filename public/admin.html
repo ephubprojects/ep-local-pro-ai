@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — EP Local Pro AI</title>
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="/css/admin.css" />
+</head>
+<body class="admin-body">
+
+<!-- Sidebar backdrop (mobile) -->
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<!-- ══════════════ SIDEBAR ══════════════ -->
+<aside class="admin-sidebar" id="adminSidebar">
+  <div class="sidebar-logo">
+    <span class="logo-name">EP Local Pro AI</span>
+    <span class="admin-badge">Admin</span>
+  </div>
+
+  <nav class="sidebar-nav" id="sidebarNav">
+    <a data-nav="dashboard" class="active">
+      <span class="nav-icon">📊</span> Dashboard
+    </a>
+    <a data-nav="demos">
+      <span class="nav-icon">🎪</span> Demos
+    </a>
+    <a data-nav="businesses">
+      <span class="nav-icon">🏢</span> Businesses
+    </a>
+    <a data-nav="categories">
+      <span class="nav-icon">📂</span> Categories
+    </a>
+    <a data-nav="settings">
+      <span class="nav-icon">⚙️</span> Settings
+    </a>
+  </nav>
+
+  <div class="sidebar-user">
+    <div class="sidebar-user-info">
+      <div class="user-avatar" id="userAvatar">ED</div>
+      <div class="user-email" id="userEmail">loading...</div>
+    </div>
+    <a class="sidebar-logout" id="logoutBtn">Sign out</a>
+  </div>
+</aside>
+
+<!-- ══════════════ MAIN ══════════════ -->
+<main class="admin-main">
+
+  <!-- Top bar -->
+  <header class="admin-topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">☰</button>
+      <h1 id="pageTitle">Dashboard</h1>
+    </div>
+    <button class="btn-create-demo" id="topCreateDemoBtn">
+      <span>＋</span><span> Create Demo</span>
+    </button>
+  </header>
+
+  <div class="admin-content">
+
+    <!-- ════════════ SECTION: Dashboard ════════════ -->
+    <div data-section="dashboard">
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Demos</div>
+          <div class="stat-value" id="statDemos">—</div>
+          <div class="stat-trend" id="statDemosTrend">loading…</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Active Businesses</div>
+          <div class="stat-value" id="statBiz">—</div>
+          <div class="stat-trend" id="statBizTrend">loading…</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Orders</div>
+          <div class="stat-value" id="statOrders">—</div>
+          <div class="stat-trend" id="statOrdersTrend">loading…</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">This Month Revenue</div>
+          <div class="stat-value" id="statRevenue">—</div>
+          <div class="stat-trend" id="statRevenueTrend">loading…</div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Recent Activity</h2>
+        </div>
+        <div class="activity-feed" id="activityFeed">
+          <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <p>Loading activity…</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Quick Actions</h2>
+        </div>
+        <div class="quick-actions">
+          <button class="btn-create-demo" id="dashCreateDemoBtn">＋ Create New Demo</button>
+          <button class="btn-secondary" id="dashViewBizBtn">🏢 View All Businesses</button>
+        </div>
+      </div>
+
+    </div><!-- /dashboard -->
+
+
+    <!-- ════════════ SECTION: Demos ════════════ -->
+    <div data-section="demos" class="hidden">
+
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Demo Management</h2>
+          <button class="btn-create-demo" id="demosCreateBtn">＋ Create New Demo</button>
+        </div>
+
+        <div class="filter-bar">
+          <input type="text" id="demoSearch" placeholder="Search business name or slug…" />
+          <select id="demoCatFilter">
+            <option value="">All Categories</option>
+            <option value="coffee_shop">☕ Coffee Shop</option>
+            <option value="restaurant">🍽️ Restaurant</option>
+            <option value="plumber">🔧 Plumber</option>
+            <option value="electrician">⚡ Electrician</option>
+            <option value="salon">💇 Salon &amp; Spa</option>
+            <option value="roofer">🏠 Roofing</option>
+            <option value="painter">🎨 Painter</option>
+            <option value="carpenter">🪚 Carpenter / Handyman</option>
+            <option value="retail">🛍️ Retail Store</option>
+            <option value="florist">💐 Florist</option>
+          </select>
+        </div>
+
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Business Name</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Slug / URL</th>
+                <th>Referrer</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="demosTableBody">
+              <tr>
+                <td colspan="7">
+                  <div class="empty-state">
+                    <div class="empty-state-icon">🎪</div>
+                    <p>Loading demos…</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /demos -->
+
+
+    <!-- ════════════ SECTION: Businesses ════════════ -->
+    <div data-section="businesses" class="hidden">
+
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Business Accounts</h2>
+        </div>
+
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Business Name</th>
+                <th>Owner Email</th>
+                <th>Category</th>
+                <th>Plan</th>
+                <th>Joined</th>
+                <th>Orders / Mo</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="bizTableBody">
+              <tr>
+                <td colspan="7">
+                  <div class="empty-state">
+                    <div class="empty-state-icon">🏢</div>
+                    <p>Loading businesses…</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /businesses -->
+
+
+    <!-- ════════════ SECTION: Categories ════════════ -->
+    <div data-section="categories" class="hidden">
+
+      <div class="category-info-msg">
+        ℹ️ Categories are configured in <code>data/categories.json</code>. This view is read-only.
+      </div>
+
+      <div class="category-grid" id="categoryGrid">
+        <!-- Rendered by JS -->
+      </div>
+
+    </div><!-- /categories -->
+
+
+    <!-- ════════════ SECTION: Settings ════════════ -->
+    <div data-section="settings" class="hidden">
+
+      <div class="section-card">
+        <div class="settings-section">
+          <h3>Admin Profile</h3>
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="settingName" placeholder="Your name" />
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="settingEmail" readonly />
+          </div>
+        </div>
+
+        <div class="settings-section mt-4" style="margin-top:28px;">
+          <h3>Platform Settings</h3>
+          <div class="form-group">
+            <label>Platform Name</label>
+            <input type="text" id="settingPlatformName" value="EP Local Pro AI" />
+          </div>
+          <div class="form-group">
+            <label>Support Email</label>
+            <input type="email" id="settingSupportEmail" placeholder="support@eplocalproai.com" />
+          </div>
+        </div>
+
+        <button class="btn-save" id="saveSettingsBtn">Save Settings</button>
+      </div>
+
+    </div><!-- /settings -->
+
+  </div><!-- /admin-content -->
+</main>
+
+
+<!-- ══════════════ MODAL: Create / Edit Demo ══════════════ -->
+<div class="modal-overlay hidden" id="demoModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 id="demoModalTitle">Create Demo</h3>
+      <button class="modal-close" data-close="demoModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="demoModalId" />
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Business Name <span style="color:var(--red)">*</span></label>
+          <input type="text" id="dmBizName" placeholder="e.g. Joe's Coffee" required />
+        </div>
+        <div class="form-group">
+          <label>Category <span style="color:var(--red)">*</span></label>
+          <select id="dmCategory">
+            <option value="">Select category…</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Slug</label>
+          <input type="text" id="dmSlug" placeholder="auto-generated" />
+          <div class="form-hint">URL: eplocalproai.com/demo/<span id="dmSlugPreview">…</span></div>
+        </div>
+        <div class="form-group">
+          <label>Language</label>
+          <div class="radio-group">
+            <label><input type="radio" name="dmLang" value="en" checked /> EN</label>
+            <label><input type="radio" name="dmLang" value="es" /> ES</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Referrer EP HUB Username</label>
+        <input type="text" id="dmReferrer" placeholder="e.g. eddieeph (optional)" />
+      </div>
+
+      <div class="form-group">
+        <label>Custom Greeting Override</label>
+        <textarea id="dmGreeting" placeholder="Leave blank to use the default greeting for this category"></textarea>
+      </div>
+
+      <div class="form-group">
+        <div class="menu-editor">
+          <div class="menu-editor-header">
+            <span>Menu / Services</span>
+            <button class="btn-add-item" id="addMenuItemBtn" type="button">＋ Add Item</button>
+          </div>
+          <div class="menu-items-list" id="menuItemsList"></div>
+          <div class="text-xs text-muted" style="margin-top:4px;">Name · Price · Emoji · Description</div>
+        </div>
+      </div>
+
+    </div><!-- /modal-body -->
+    <div class="modal-footer">
+      <button class="btn-secondary" data-close="demoModal">Cancel</button>
+      <button class="btn-create-demo" id="saveDemoBtn">Save Demo</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════ MODAL: Invite Link ══════════════ -->
+<div class="modal-overlay hidden" id="inviteModal">
+  <div class="modal-card modal-sm">
+    <div class="modal-header">
+      <h3>Convert to Account</h3>
+      <button class="modal-close" data-close="inviteModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="text-sm" style="margin:0 0 8px;">Share this invite link with the business owner to let them create their account:</p>
+      <div class="invite-link-box">
+        <input type="text" id="inviteLinkInput" readonly />
+        <button class="btn-copy" id="copyInviteBtn">Copy</button>
+      </div>
+      <p class="form-hint" style="margin-top:10px;">The demo status has been updated to <strong>invited</strong>.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" data-close="inviteModal">Close</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════ MODAL: Confirm Delete ══════════════ -->
+<div class="modal-overlay hidden" id="confirmModal">
+  <div class="modal-card modal-sm">
+    <div class="modal-header">
+      <h3>Confirm Delete</h3>
+      <button class="modal-close" data-close="confirmModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="text-sm" style="margin:0;" id="confirmMsg">Are you sure you want to delete this demo? This cannot be undone.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" data-close="confirmModal">Cancel</button>
+      <button class="btn-action danger" id="confirmDeleteBtn" style="padding:7px 16px;font-size:0.875rem;">Delete</button>
+    </div>
+  </div>
+</div>
+
+
+<script type="module" src="/js/admin.js"></script>
+</body>
+</html>

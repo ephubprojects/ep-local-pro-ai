@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — EP Local Pro AI</title>
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="/css/dashboard.css" />
+</head>
+<body class="dash-body">
+
+<!-- Page loading overlay -->
+<div class="page-loading" id="pageLoading">
+  <div class="page-loading-logo">EP Local Pro AI</div>
+  <div><span class="spinner"></span> Loading your dashboard…</div>
+</div>
+
+<!-- Sidebar backdrop (mobile) -->
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ══════════════ SIDEBAR ══════════════ -->
+<aside class="dash-sidebar" id="dashSidebar">
+  <div class="sidebar-logo">
+    <span class="logo-name">EP Local Pro AI</span>
+    <span class="biz-name" id="sidebarBizName">Loading…</span>
+  </div>
+
+  <nav class="sidebar-nav" id="sidebarNav">
+    <a data-nav="dashboard" class="active">
+      <span class="nav-icon">📊</span> Dashboard
+    </a>
+    <a data-nav="orders">
+      <span class="nav-icon">📦</span> Orders
+    </a>
+    <a data-nav="menu">
+      <span class="nav-icon">🍽️</span> Menu
+    </a>
+    <a data-nav="documents">
+      <span class="nav-icon">📄</span> Documents
+    </a>
+    <a data-nav="ai-settings">
+      <span class="nav-icon">🎙️</span> AI Settings
+    </a>
+    <a data-nav="account">
+      <span class="nav-icon">👤</span> Account
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <span class="plan-badge trial" id="planBadge">Trial</span><br />
+    <a class="sidebar-upgrade hidden" id="upgradeLink" href="/pricing.html">⚡ Upgrade Plan</a>
+    <a class="sidebar-logout" id="logoutBtn">Sign out</a>
+  </div>
+</aside>
+
+<!-- ══════════════ MAIN ══════════════ -->
+<main class="dash-main">
+
+  <!-- Top bar -->
+  <header class="dash-topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">☰</button>
+      <h1 id="pageTitle">Dashboard</h1>
+    </div>
+    <button class="btn-open-page" id="openAiPageBtn" title="Open your public AI page">
+      🤖 <span>Open My AI Page →</span>
+    </button>
+  </header>
+
+  <div class="dash-content">
+
+    <!-- ════════════ SECTION: Dashboard ════════════ -->
+    <div data-section="dashboard">
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Today's Orders</div>
+          <div class="stat-value" id="statToday">—</div>
+          <div class="stat-trend" id="statTodayTrend">loading…</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">This Week</div>
+          <div class="stat-value" id="statWeek">—</div>
+          <div class="stat-trend" id="statWeekTrend">loading…</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">This Month</div>
+          <div class="stat-value" id="statMonth">—</div>
+          <div class="stat-trend" id="statMonthTrend">loading…</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Revenue</div>
+          <div class="stat-value" id="statRevenue">—</div>
+          <div class="stat-trend" id="statRevenueTrend">loading…</div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Recent Orders</h2>
+        </div>
+        <div class="orders-list" id="recentOrdersList">
+          <div class="empty-state">
+            <div class="empty-state-icon">📦</div>
+            <p>Loading recent orders…</p>
+          </div>
+        </div>
+        <a class="view-all-link" data-nav="orders" id="viewAllOrdersLink">View all orders →</a>
+      </div>
+
+    </div><!-- /dashboard -->
+
+
+    <!-- ════════════ SECTION: Orders ════════════ -->
+    <div data-section="orders" class="hidden">
+
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Orders</h2>
+        </div>
+
+        <div class="filter-tabs" id="orderFilterTabs">
+          <button class="filter-tab active" data-filter="all">All</button>
+          <button class="filter-tab" data-filter="new">New</button>
+          <button class="filter-tab" data-filter="preparing">Preparing</button>
+          <button class="filter-tab" data-filter="ready">Ready</button>
+          <button class="filter-tab" data-filter="completed">Completed</button>
+        </div>
+
+        <div class="orders-list" id="ordersList">
+          <div class="empty-state">
+            <div class="empty-state-icon">📦</div>
+            <p>No orders yet.</p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /orders -->
+
+
+    <!-- ════════════ SECTION: Menu ════════════ -->
+    <div data-section="menu" class="hidden">
+
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>My Menu</h2>
+          <button class="btn-primary" id="addMenuItemBtn">＋ Add Item</button>
+        </div>
+
+        <div class="menu-grid" id="menuGrid">
+          <div class="empty-state" style="grid-column:1/-1;">
+            <div class="empty-state-icon">🍽️</div>
+            <p>No menu items yet. Add your first item!</p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /menu -->
+
+
+    <!-- ════════════ SECTION: Documents ════════════ -->
+    <div data-section="documents" class="hidden">
+
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Documents</h2>
+          <div class="btn-dropdown-wrap">
+            <button class="btn-primary" id="generateDocBtn">📄 Generate Document ▾</button>
+            <div class="btn-dropdown-menu" id="generateDocMenu">
+              <button data-doc-type="invoice">🧾 Generate Invoice</button>
+              <button data-doc-type="estimate">📋 Generate Estimate</button>
+              <button data-doc-type="contract">📝 Generate Contract</button>
+              <button data-doc-type="receipt">🧾 Generate Receipt</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="docs-table-wrap">
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Customer / Job</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="docsTableBody">
+              <tr>
+                <td colspan="5">
+                  <div class="empty-state">
+                    <div class="empty-state-icon">📄</div>
+                    <p>No documents yet.</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /documents -->
+
+
+    <!-- ════════════ SECTION: AI Settings ════════════ -->
+    <div data-section="ai-settings" class="hidden">
+
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>AI Settings</h2>
+        </div>
+
+        <div class="ai-settings-section">
+
+          <div class="form-group">
+            <label for="agentIdInput">ElevenLabs Agent ID</label>
+            <input type="text" id="agentIdInput" placeholder="e.g. agent_01jxxxxxxxxxxxxxxx" />
+            <div class="form-hint">
+              Find this in your
+              <a href="https://elevenlabs.io/docs/conversational-ai/guides/quickstart" target="_blank" rel="noopener">ElevenLabs Conversational AI dashboard</a>.
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Language Preference</label>
+            <div class="lang-toggle">
+              <button class="active" data-lang="en" id="langEN">EN English</button>
+              <button data-lang="es" id="langES">ES Español</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="greetingInput">Custom Greeting Override</label>
+            <textarea id="greetingInput" placeholder="e.g. Hi there! Welcome to Mario's Pizza. How can I help you today?"></textarea>
+            <div class="form-hint">Leave blank to use the default AI greeting.</div>
+          </div>
+
+          <div class="form-group">
+            <label for="hoursInput">Business Hours (optional)</label>
+            <textarea id="hoursInput" placeholder="e.g. Mon–Fri 9am–6pm, Sat 10am–4pm, Sun Closed"></textarea>
+            <div class="form-hint">The AI will reference these when customers ask about your hours.</div>
+          </div>
+
+          <div>
+            <button class="btn-primary" id="saveAiSettingsBtn">Save AI Settings</button>
+          </div>
+
+          <div class="form-group" style="margin:0;">
+            <label>Your AI Page URL</label>
+            <div class="ai-url-row">
+              <div class="ai-url-display" id="aiUrlDisplay">https://eplocalproai.com/—</div>
+              <button class="btn-copy" id="copyUrlBtn">📋 Copy</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /ai-settings -->
+
+
+    <!-- ════════════ SECTION: Account ════════════ -->
+    <div data-section="account" class="hidden">
+
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Account Settings</h2>
+        </div>
+
+        <div class="account-section">
+
+          <!-- Business info -->
+          <div>
+            <h3>Business Info</h3>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="accBizName">Business Name</label>
+                <input type="text" id="accBizName" placeholder="Mario's Pizza" />
+              </div>
+              <div class="form-group">
+                <label for="accCategory">Category</label>
+                <input type="text" id="accCategory" readonly />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="accAddress">Address</label>
+              <input type="text" id="accAddress" placeholder="123 Main St, City, State 12345" />
+            </div>
+            <div class="form-group">
+              <label for="accPhone">Business Phone</label>
+              <input type="tel" id="accPhone" placeholder="(555) 123-4567" />
+            </div>
+          </div>
+
+          <!-- Owner info -->
+          <div>
+            <h3>Owner Info</h3>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="accOwnerName">Owner Name</label>
+                <input type="text" id="accOwnerName" placeholder="Mario Rossi" />
+              </div>
+              <div class="form-group">
+                <label for="accEmail">Email</label>
+                <input type="email" id="accEmail" readonly />
+              </div>
+            </div>
+          </div>
+
+          <!-- Payment options -->
+          <div>
+            <h3>Payment Options</h3>
+            <div class="form-hint" style="margin-bottom:14px;">
+              Add your payment links so customers can pay after their order. Leave blank any you don't use.
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="accStripe">Stripe Payment Link</label>
+                <input type="url" id="accStripe" placeholder="https://buy.stripe.com/…" />
+              </div>
+              <div class="form-group">
+                <label for="accPaypal">PayPal.me Link</label>
+                <input type="url" id="accPaypal" placeholder="https://paypal.me/yourname" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="accCashapp">CashApp $Cashtag</label>
+                <input type="text" id="accCashapp" placeholder="$YourCashTag" />
+              </div>
+              <div class="form-group">
+                <label for="accZelle">Zelle Phone / Email</label>
+                <input type="text" id="accZelle" placeholder="(555) 123-4567 or email" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Plan info -->
+          <div>
+            <h3>Plan &amp; Billing</h3>
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+              <span class="badge badge-trial" id="accPlanBadge">Trial</span>
+              <span style="font-size:0.875rem;color:var(--muted);" id="accPlanDesc">Free trial — limited features.</span>
+              <a href="/pricing.html" class="btn-secondary" style="margin-left:auto;">⚡ Upgrade</a>
+            </div>
+          </div>
+
+          <div>
+            <button class="btn-primary" id="saveAccountBtn">Save Changes</button>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /account -->
+
+  </div><!-- /.dash-content -->
+</main><!-- /.dash-main -->
+
+
+<!-- ══════════════ MODAL: Add / Edit Menu Item ══════════════ -->
+<div class="modal-overlay hidden" id="menuItemModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 id="menuItemModalTitle">Add Menu Item</h3>
+      <button class="modal-close" data-close="menuItemModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="menuItemIndex" value="-1" />
+      <div class="form-row">
+        <div class="form-group">
+          <label for="menuItemName">Item Name *</label>
+          <input type="text" id="menuItemName" placeholder="e.g. Margherita Pizza" />
+        </div>
+        <div class="form-group">
+          <label for="menuItemEmoji">Emoji</label>
+          <input type="text" id="menuItemEmoji" placeholder="🍕" maxlength="4" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="menuItemPrice">Price *</label>
+        <input type="number" id="menuItemPrice" placeholder="12.99" step="0.01" min="0" />
+      </div>
+      <div class="form-group">
+        <label for="menuItemDesc">Description</label>
+        <textarea id="menuItemDesc" placeholder="Fresh tomato sauce, mozzarella, basil…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" data-close="menuItemModal">Cancel</button>
+      <button class="btn-primary" id="saveMenuItemBtn">Save Item</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════ MODAL: Generate Document ══════════════ -->
+<div class="modal-overlay hidden" id="generateDocModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 id="genDocModalTitle">Generate Invoice</h3>
+      <button class="modal-close" data-close="generateDocModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="genDocType" value="invoice" />
+      <div class="form-group">
+        <label for="genDocCustomer">Customer / Job Name *</label>
+        <input type="text" id="genDocCustomer" placeholder="John Smith" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="genDocAmount">Amount ($) *</label>
+          <input type="number" id="genDocAmount" placeholder="250.00" step="0.01" min="0" />
+        </div>
+        <div class="form-group">
+          <label for="genDocDate">Date</label>
+          <input type="text" id="genDocDate" placeholder="e.g. November 4, 2026" />
+        </div>
+      </div>
+      <div class="form-group" id="genDocDescGroup">
+        <label for="genDocDesc">Description / Work Performed</label>
+        <textarea id="genDocDesc" placeholder="e.g. Plumbing repair — kitchen sink and garbage disposal replacement…"></textarea>
+      </div>
+      <!-- Contract-specific fields -->
+      <div class="form-group hidden" id="genDocTermsGroup">
+        <label for="genDocTerms">Contract Terms</label>
+        <textarea id="genDocTerms" placeholder="Enter contract terms and conditions…" style="min-height:100px;"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" data-close="generateDocModal">Cancel</button>
+      <button class="btn-primary" id="confirmGenDocBtn">Generate</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════ MODAL: Kitchen Display ══════════════ -->
+<div class="modal-overlay hidden" id="kitchenModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>Kitchen Display</h3>
+      <button class="modal-close" data-close="kitchenModal">✕</button>
+    </div>
+    <div class="modal-body" id="kitchenModalBody">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" data-close="kitchenModal">Close</button>
+    </div>
+  </div>
+</div>
+
+
+<script type="module" src="/js/dashboard.js"></script>
+</body>
+</html>

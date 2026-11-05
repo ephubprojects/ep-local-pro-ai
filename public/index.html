@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EP Local Pro AI — AI-Powered Platform for Local Businesses</title>
+  <meta name="description" content="EP Local Pro AI helps local businesses take orders, book appointments, and generate invoices — all powered by AI voice technology. Built for coffee shops, restaurants, contractors, salons, and more.">
+  <link rel="stylesheet" href="/css/main.css">
+  <style>
+    /* ── Reset & Base ───────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy: #0f172a;
+      --indigo: #4f46e5;
+      --gold: #f59e0b;
+      --green: #10b981;
+      --red: #ef4444;
+      --slate-100: #f1f5f9;
+      --slate-600: #475569;
+      --white: #ffffff;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--navy);
+      background: var(--white);
+      line-height: 1.6;
+    }
+
+    a { text-decoration: none; color: inherit; }
+
+    /* ── Nav ────────────────────────────────────────────────────────── */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .nav-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+    }
+
+    .nav-logo {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--indigo);
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--slate-600);
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--indigo); }
+
+    .nav-cta {
+      background: var(--indigo);
+      color: var(--white) !important;
+      padding: 0.5rem 1.25rem;
+      border-radius: 8px;
+      font-weight: 600 !important;
+      font-size: 0.875rem !important;
+      transition: background 0.2s !important;
+    }
+
+    .nav-cta:hover { background: #4338ca !important; color: var(--white) !important; }
+
+    .hamburger {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 4px;
+    }
+
+    .hamburger span {
+      display: block;
+      width: 24px;
+      height: 2px;
+      background: var(--navy);
+      border-radius: 2px;
+      transition: transform 0.3s, opacity 0.3s;
+    }
+
+    .nav-mobile {
+      display: none;
+      flex-direction: column;
+      background: var(--white);
+      border-top: 1px solid #e2e8f0;
+      padding: 1rem 1.5rem;
+      gap: 0.75rem;
+    }
+
+    .nav-mobile a {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--slate-600);
+      padding: 0.375rem 0;
+    }
+
+    .nav-mobile a:last-child {
+      background: var(--indigo);
+      color: var(--white);
+      padding: 0.625rem 1rem;
+      border-radius: 8px;
+      font-weight: 600;
+      text-align: center;
+      margin-top: 0.25rem;
+    }
+
+    .nav-mobile.open { display: flex; }
+
+    /* ── Hero ───────────────────────────────────────────────────────── */
+    .hero {
+      background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+      padding: 5rem 1.5rem 4rem;
+      text-align: center;
+    }
+
+    .hero-inner {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: #ede9fe;
+      color: var(--indigo);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.35rem 0.9rem;
+      border-radius: 999px;
+      margin-bottom: 1.5rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.25rem);
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      color: var(--navy);
+      margin-bottom: 1.25rem;
+    }
+
+    .hero h1 span { color: var(--indigo); }
+
+    .hero p {
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      color: var(--slate-600);
+      max-width: 580px;
+      margin: 0 auto 2.25rem;
+      line-height: 1.65;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-indigo {
+      background: var(--indigo);
+      color: var(--white);
+      padding: 0.8rem 1.75rem;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      display: inline-block;
+    }
+
+    .btn-indigo:hover { background: #4338ca; color: var(--white); }
+    .btn-indigo:active { transform: scale(0.98); }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--indigo);
+      padding: 0.8rem 1.75rem;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      border: 2px solid var(--indigo);
+      cursor: pointer;
+      transition: background 0.2s;
+      display: inline-block;
+    }
+
+    .btn-outline:hover { background: #ede9fe; }
+
+    /* ── Section common ─────────────────────────────────────────────── */
+    section { padding: 4.5rem 1.5rem; }
+
+    .section-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--indigo);
+      margin-bottom: 0.75rem;
+    }
+
+    .section-title {
+      font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--navy);
+      margin-bottom: 0.75rem;
+    }
+
+    .section-sub {
+      font-size: 1rem;
+      color: var(--slate-600);
+      max-width: 560px;
+      margin-bottom: 3rem;
+    }
+
+    /* ── Business Categories ────────────────────────────────────────── */
+    .categories { background: var(--slate-100); }
+
+    .categories-header { text-align: center; margin-bottom: 2.5rem; }
+    .categories-header .section-sub { margin: 0 auto; }
+
+    .categories-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1rem;
+    }
+
+    .category-card {
+      background: var(--white);
+      border-radius: 12px;
+      padding: 1.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+      text-decoration: none;
+      color: var(--navy);
+    }
+
+    .category-card:hover {
+      border-color: var(--indigo);
+      box-shadow: 0 4px 16px rgba(79, 70, 229, 0.12);
+      transform: translateY(-2px);
+    }
+
+    .category-card .emoji {
+      font-size: 2rem;
+      display: block;
+      margin-bottom: 0.6rem;
+    }
+
+    .category-card .cat-name {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--navy);
+      line-height: 1.3;
+    }
+
+    /* ── Features ───────────────────────────────────────────────────── */
+    .features { background: var(--white); }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2rem;
+    }
+
+    .feature-card {
+      background: var(--slate-100);
+      border-radius: 14px;
+      padding: 2rem 1.75rem;
+    }
+
+    .feature-icon {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    .feature-card h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 0.5rem;
+    }
+
+    .feature-card p {
+      font-size: 0.9rem;
+      color: var(--slate-600);
+      line-height: 1.6;
+    }
+
+    /* ── How it works ───────────────────────────────────────────────── */
+    .how-it-works { background: var(--slate-100); }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2rem;
+      position: relative;
+    }
+
+    .step {
+      background: var(--white);
+      border-radius: 14px;
+      padding: 2rem 1.75rem;
+      text-align: center;
+      position: relative;
+    }
+
+    .step-number {
+      width: 44px;
+      height: 44px;
+      background: var(--indigo);
+      color: var(--white);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      font-weight: 800;
+      margin: 0 auto 1.25rem;
+    }
+
+    .step h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 0.5rem;
+    }
+
+    .step p {
+      font-size: 0.875rem;
+      color: var(--slate-600);
+      line-height: 1.6;
+    }
+
+    /* ── Pricing ────────────────────────────────────────────────────── */
+    .pricing { background: var(--white); }
+
+    .pricing-header { text-align: center; margin-bottom: 3rem; }
+    .pricing-header .section-sub { margin: 0 auto; }
+
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    .pricing-card {
+      border: 2px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 2.25rem 2rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .pricing-card:hover {
+      border-color: var(--indigo);
+      box-shadow: 0 8px 32px rgba(79, 70, 229, 0.1);
+    }
+
+    .pricing-card.featured {
+      border-color: var(--indigo);
+      background: linear-gradient(135deg, #faf9ff 0%, #f5f3ff 100%);
+    }
+
+    .plan-badge {
+      display: inline-block;
+      background: var(--gold);
+      color: #78350f;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.75rem;
+    }
+
+    .plan-name {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--navy);
+      margin-bottom: 0.5rem;
+    }
+
+    .plan-price {
+      display: flex;
+      align-items: flex-end;
+      gap: 0.25rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .plan-price .amount {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: var(--navy);
+      line-height: 1;
+    }
+
+    .plan-price .period {
+      font-size: 0.875rem;
+      color: var(--slate-600);
+      padding-bottom: 0.25rem;
+    }
+
+    .plan-features {
+      list-style: none;
+      margin-bottom: 2rem;
+    }
+
+    .plan-features li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      font-size: 0.875rem;
+      color: var(--slate-600);
+      padding: 0.35rem 0;
+    }
+
+    .plan-features li::before {
+      content: '✓';
+      color: var(--green);
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 0.05rem;
+    }
+
+    .btn-indigo-full {
+      display: block;
+      width: 100%;
+      background: var(--indigo);
+      color: var(--white);
+      padding: 0.8rem 1rem;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      border: none;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.2s;
+      text-decoration: none;
+    }
+
+    .btn-indigo-full:hover { background: #4338ca; color: var(--white); }
+
+    /* ── Footer ─────────────────────────────────────────────────────── */
+    footer {
+      background: var(--navy);
+      color: #94a3b8;
+      padding: 3rem 1.5rem;
+      text-align: center;
+    }
+
+    .footer-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+
+    .footer-brand {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 0.5rem;
+    }
+
+    .footer-tagline {
+      font-size: 0.8rem;
+      color: #64748b;
+      margin-bottom: 1.25rem;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+
+    .footer-links a {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover { color: var(--white); }
+
+    .footer-copy {
+      font-size: 0.75rem;
+      color: #475569;
+    }
+
+    /* ── Responsive ─────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .hamburger { display: flex; }
+
+      .categories-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .features-grid,
+      .steps {
+        grid-template-columns: 1fr;
+      }
+
+      .pricing-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero { padding: 3.5rem 1.25rem 3rem; }
+    }
+
+    @media (min-width: 769px) and (max-width: 1024px) {
+      .categories-grid {
+        grid-template-columns: repeat(5, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Navigation ──────────────────────────────────────────────────── -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <span class="nav-logo">EP Local Pro AI</span>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="#how-it-works">Demo</a></li>
+        <li><a href="/auth.html" class="nav-cta">Get Started</a></li>
+      </ul>
+      <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="toggleMobileMenu()">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div class="nav-mobile" id="nav-mobile">
+      <a href="#features" onclick="closeMobileMenu()">Features</a>
+      <a href="#pricing" onclick="closeMobileMenu()">Pricing</a>
+      <a href="#how-it-works" onclick="closeMobileMenu()">Demo</a>
+      <a href="/auth.html">Get Started</a>
+    </div>
+  </nav>
+
+  <!-- ── Hero ────────────────────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-badge">🤖 Powered by AI</div>
+      <h1>AI That Works For Your<br><span>Business 24/7</span></h1>
+      <p>Take orders, book appointments, generate invoices — all powered by AI voice technology. Built for local businesses.</p>
+      <div class="hero-buttons">
+        <a href="/auth.html" class="btn-indigo">Start Free Trial</a>
+        <a href="#how-it-works" class="btn-outline">Watch Demo</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Business Categories ─────────────────────────────────────────── -->
+  <section class="categories" id="categories">
+    <div class="section-inner">
+      <div class="categories-header">
+        <div class="section-label">Who it's for</div>
+        <h2 class="section-title">Built for Every Local Business</h2>
+        <p class="section-sub">Select your business type to see a live demo of your AI-powered customer experience.</p>
+      </div>
+      <div class="categories-grid">
+        <a class="category-card" href="/order.html?demo=coffee-shop">
+          <span class="emoji">☕</span>
+          <span class="cat-name">Coffee Shop</span>
+        </a>
+        <a class="category-card" href="/order.html?demo=restaurant">
+          <span class="emoji">🍽️</span>
+          <span class="cat-name">Restaurant</span>
+        </a>
+        <a class="category-card" href="/order.html?demo=plumber">
+          <span class="emoji">🔧</span>
+          <span class="cat-name">Plumber</span>
+        </a>
+        <a class="category-card" href="/order.html?demo=electrician">
+          <span class="emoji">⚡</span>
+          <span class="cat-name">Electrician</span>
+        </a>
+        <a class="category-card" href="/order.html?demo=salon-spa">
+          <span class="emoji">💇</span>
+          <span class="cat-name">Salon &amp; Spa</span>
+        </a>
+        <a class="category-card" href="/order.html?demo=roofing">
+          <span class="emoji">🏠</span>
+          <span class="cat-name">Roofing</span>
+        </a>
+        <a class="category-card" href="/order.html?demo=painter">
+          <span class="emoji">🎨</span>
+          <span class="cat-name">Painter</span>
+        </a>
+        <a class="category-card" href="/order.html?demo=carpenter-handyman">
+          <span class="emoji">🪚</span>
+          <span class="cat-name">Carpenter / Handyman</span>
+        </a>
+        <a class="category-card" href="/order.html?demo=retail-store">
+          <span class="emoji">🛍️</span>
+          <span class="cat-name">Retail Store</span>
+        </a>
+        <a class="category-card" href="/order.html?demo=florist">
+          <span class="emoji">💐</span>
+          <span class="cat-name">Florist</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Features ────────────────────────────────────────────────────── -->
+  <section class="features" id="features">
+    <div class="section-inner">
+      <div class="section-label">Features</div>
+      <h2 class="section-title">Everything your business needs</h2>
+      <p class="section-sub">From the moment a customer speaks to the moment you get paid — fully automated.</p>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🎙️</div>
+          <h3>AI Voice Ordering</h3>
+          <p>Customers speak naturally. AI takes orders and displays payment options automatically — no typing, no apps, no friction.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🧾</div>
+          <h3>Smart Documents</h3>
+          <p>Generate invoices, estimates, contracts, and receipts with one click. Professional documents ready to send in seconds.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📺</div>
+          <h3>Kitchen Display</h3>
+          <p>Real-time order display for restaurant kitchens. No paper tickets needed — orders appear instantly on any screen.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── How it works ────────────────────────────────────────────────── -->
+  <section class="how-it-works" id="how-it-works">
+    <div class="section-inner">
+      <div class="section-label">How it works</div>
+      <h2 class="section-title">Up and running in minutes</h2>
+      <p class="section-sub">Three simple steps from setup to your first AI-powered order.</p>
+      <div class="steps">
+        <div class="step">
+          <div class="step-number">1</div>
+          <h3>Create Your Demo</h3>
+          <p>Admin creates your personalized business demo page by selecting your category and adding your menu, services, or products.</p>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <h3>Customer Speaks Their Order</h3>
+          <p>Customer visits your AI page and speaks naturally — "I'd like a large coffee and a muffin." The AI understands and confirms.</p>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <h3>Order Confirmed + Payment</h3>
+          <p>Order is confirmed instantly and payment options are displayed on screen. No app download. No account needed.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Pricing ──────────────────────────────────────────────────────── -->
+  <section class="pricing" id="pricing">
+    <div class="section-inner">
+      <div class="pricing-header">
+        <div class="section-label">Pricing</div>
+        <h2 class="section-title">Simple, transparent pricing</h2>
+        <p class="section-sub">Start free. Upgrade when you're ready. No contracts, cancel anytime.</p>
+      </div>
+      <div class="pricing-grid">
+        <!-- Starter -->
+        <div class="pricing-card">
+          <div class="plan-name">Starter</div>
+          <div class="plan-price">
+            <span class="amount">$49</span>
+            <span class="period">/mo</span>
+          </div>
+          <ul class="plan-features">
+            <li>AI voice ordering</li>
+            <li>1 business location</li>
+            <li>Up to 100 orders/month</li>
+            <li>Document generation</li>
+            <li>Email support</li>
+          </ul>
+          <a href="/auth.html" class="btn-indigo-full">Get Started</a>
+        </div>
+
+        <!-- Pro -->
+        <div class="pricing-card featured">
+          <div class="plan-badge">Most Popular</div>
+          <div class="plan-name">Pro</div>
+          <div class="plan-price">
+            <span class="amount">$99</span>
+            <span class="period">/mo</span>
+          </div>
+          <ul class="plan-features">
+            <li>Everything in Starter</li>
+            <li>Kitchen display system</li>
+            <li>Unlimited orders</li>
+            <li>Priority support</li>
+            <li>Multi-language (EN / ES)</li>
+          </ul>
+          <a href="/auth.html" class="btn-indigo-full">Get Started</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Footer ───────────────────────────────────────────────────────── -->
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-brand">EP Local Pro AI</div>
+      <div class="footer-tagline">Powered by EP HUB</div>
+      <div class="footer-links">
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="mailto:support@eplocalproai.com">Contact</a>
+      </div>
+      <div class="footer-copy">&copy; 2026 EP Local Pro AI · All rights reserved</div>
+    </div>
+  </footer>
+
+  <script>
+    function toggleMobileMenu() {
+      document.getElementById('nav-mobile').classList.toggle('open');
+    }
+
+    function closeMobileMenu() {
+      document.getElementById('nav-mobile').classList.remove('open');
+    }
+
+    // Close mobile menu on outside click
+    document.addEventListener('click', function (e) {
+      const nav = document.getElementById('nav-mobile');
+      const btn = document.getElementById('hamburger');
+      if (nav.classList.contains('open') && !nav.contains(e.target) && !btn.contains(e.target)) {
+        nav.classList.remove('open');
+      }
+    });
+  </script>
+</body>
+</html>

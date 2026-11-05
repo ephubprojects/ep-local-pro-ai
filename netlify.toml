@@ -1,0 +1,85 @@
+[build]
+  publish = "public"
+  command = "npm install"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+[functions."ai-session"]
+  timeout = 26
+
+[functions."invoice-generate"]
+  timeout = 26
+
+[functions."estimate-generate"]
+  timeout = 26
+
+[functions."contract-generate"]
+  timeout = 26
+
+# ── Admin ─────────────────────────────────────────────
+[[redirects]]
+  from   = "/admin"
+  to     = "/admin.html"
+  status = 200
+
+# ── Business owner dashboard ──────────────────────────
+[[redirects]]
+  from   = "/dashboard"
+  to     = "/dashboard.html"
+  status = 200
+
+# ── Auth ──────────────────────────────────────────────
+[[redirects]]
+  from   = "/login"
+  to     = "/auth.html"
+  status = 200
+
+[[redirects]]
+  from   = "/signup"
+  to     = "/auth.html"
+  status = 200
+
+# ── Kitchen display ───────────────────────────────────
+[[redirects]]
+  from   = "/kitchen/:slug"
+  to     = "/kitchen.html"
+  status = 200
+
+# ── Customer AI ordering page (must be last) ──────────
+[[redirects]]
+  from   = "/:slug"
+  to     = "/order.html"
+  status = 200
+
+# ── Security headers ──────────────────────────────────
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy        = "strict-origin-when-cross-origin"
+    Permissions-Policy     = "camera=(self), microphone=(self)"
+
+# HTML — always fresh
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# JS/CSS — 1 hour browser, 24h CDN
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
+
+# Assets — 1 year (logos, icons never change)
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

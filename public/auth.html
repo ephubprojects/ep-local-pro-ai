@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In — EP Local Pro AI</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f1f5f9;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 1rem;
+      box-sizing: border-box;
+    }
+
+    .auth-wrapper {
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .auth-logo {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .auth-logo h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #4f46e5;
+      margin: 0;
+      letter-spacing: -0.02em;
+    }
+
+    .auth-logo p {
+      font-size: 0.8rem;
+      color: #475569;
+      margin: 0.25rem 0 0;
+    }
+
+    .auth-card {
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+    }
+
+    .tab-bar {
+      display: flex;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 0.875rem 1rem;
+      background: none;
+      border: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #475569;
+      cursor: pointer;
+      transition: color 0.2s, border-bottom 0.2s;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+
+    .tab-btn.active {
+      color: #4f46e5;
+      border-bottom-color: #4f46e5;
+      font-weight: 600;
+    }
+
+    .tab-btn:hover:not(.active) {
+      color: #0f172a;
+    }
+
+    .auth-form-section {
+      padding: 1.75rem;
+      display: none;
+    }
+
+    .auth-form-section.active {
+      display: block;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #0f172a;
+      margin-bottom: 0.375rem;
+      letter-spacing: 0.01em;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 0.625rem 0.75rem;
+      font-size: 0.9rem;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #0f172a;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      box-sizing: border-box;
+    }
+
+    .form-group input:focus {
+      border-color: #4f46e5;
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    }
+
+    .btn-primary {
+      display: block;
+      width: 100%;
+      padding: 0.75rem;
+      background: #4f46e5;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      margin-top: 1.25rem;
+    }
+
+    .btn-primary:hover {
+      background: #4338ca;
+    }
+
+    .btn-primary:active {
+      transform: scale(0.99);
+    }
+
+    .btn-primary:disabled {
+      background: #a5b4fc;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .forgot-link {
+      display: block;
+      text-align: center;
+      margin-top: 0.75rem;
+      font-size: 0.8rem;
+      color: #475569;
+      text-decoration: none;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: inherit;
+    }
+
+    .forgot-link:hover {
+      color: #4f46e5;
+      text-decoration: underline;
+    }
+
+    .message-area {
+      display: none;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-top: 1rem;
+    }
+
+    .message-area.error {
+      display: block;
+      background: #fef2f2;
+      color: #ef4444;
+      border: 1px solid #fecaca;
+    }
+
+    .message-area.success {
+      display: block;
+      background: #f0fdf4;
+      color: #10b981;
+      border: 1px solid #a7f3d0;
+    }
+
+    .auth-footer {
+      text-align: center;
+      margin-top: 1.25rem;
+      font-size: 0.78rem;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+
+    .auth-footer a {
+      color: #475569;
+      text-decoration: underline;
+    }
+
+    /* Spinner overlay */
+    .spinner-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.75);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .spinner-overlay.active {
+      display: flex;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #e2e8f0;
+      border-top-color: #4f46e5;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="spinner-overlay" id="spinner">
+    <div class="spinner"></div>
+  </div>
+
+  <div class="auth-wrapper">
+    <div class="auth-logo">
+      <h1>EP Local Pro AI</h1>
+      <p>Business Owner Portal</p>
+    </div>
+
+    <div class="auth-card">
+      <div class="tab-bar">
+        <button class="tab-btn active" id="tab-signin" onclick="switchTab('signin')">Sign In</button>
+        <button class="tab-btn" id="tab-signup" onclick="switchTab('signup')">Create Account</button>
+      </div>
+
+      <!-- Sign In Form -->
+      <div class="auth-form-section active" id="section-signin">
+        <div class="form-group">
+          <label for="signin-email">Email Address</label>
+          <input type="email" id="signin-email" placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label for="signin-password">Password</label>
+          <input type="password" id="signin-password" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button class="btn-primary" id="signin-btn" onclick="handleSignIn()">Sign In</button>
+        <button class="forgot-link" onclick="handleForgotPassword()">Forgot password?</button>
+        <div class="message-area" id="signin-message"></div>
+      </div>
+
+      <!-- Create Account Form -->
+      <div class="auth-form-section" id="section-signup">
+        <div class="form-group">
+          <label for="signup-name">Full Name</label>
+          <input type="text" id="signup-name" placeholder="Jane Smith" autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label for="signup-email">Email Address</label>
+          <input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label for="signup-password">Password</label>
+          <input type="password" id="signup-password" placeholder="Min. 6 characters" autocomplete="new-password">
+        </div>
+        <div class="form-group">
+          <label for="signup-confirm">Confirm Password</label>
+          <input type="password" id="signup-confirm" placeholder="Repeat password" autocomplete="new-password">
+        </div>
+        <button class="btn-primary" id="signup-btn" onclick="handleSignUp()">Create Account</button>
+        <div class="message-area" id="signup-message"></div>
+      </div>
+    </div>
+
+    <p class="auth-footer">
+      For business owners only.<br>
+      Looking for a demo? <a href="/order.html">Visit your business page.</a>
+    </p>
+  </div>
+
+  <script type="module">
+    import { auth, db } from '/js/firebase.js';
+    import {
+      signInWithEmailAndPassword,
+      createUserWithEmailAndPassword,
+      sendPasswordResetEmail
+    } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+    import {
+      doc,
+      getDoc,
+      setDoc,
+      serverTimestamp
+    } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+    // ── Tab switching ─────────────────────────────────────────────────────────
+    window.switchTab = function (tab) {
+      const isSignin = tab === 'signin';
+      document.getElementById('tab-signin').classList.toggle('active', isSignin);
+      document.getElementById('tab-signup').classList.toggle('active', !isSignin);
+      document.getElementById('section-signin').classList.toggle('active', isSignin);
+      document.getElementById('section-signup').classList.toggle('active', !isSignin);
+      clearMessages();
+    };
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function showSpinner() {
+      document.getElementById('spinner').classList.add('active');
+    }
+
+    function hideSpinner() {
+      document.getElementById('spinner').classList.remove('active');
+    }
+
+    function showMessage(elementId, text, type) {
+      const el = document.getElementById(elementId);
+      el.textContent = text;
+      el.className = `message-area ${type}`;
+    }
+
+    function clearMessages() {
+      ['signin-message', 'signup-message'].forEach(id => {
+        const el = document.getElementById(id);
+        el.textContent = '';
+        el.className = 'message-area';
+      });
+    }
+
+    function setButtonLoading(id, loading) {
+      const btn = document.getElementById(id);
+      btn.disabled = loading;
+    }
+
+    // ── Sign In ───────────────────────────────────────────────────────────────
+    window.handleSignIn = async function () {
+      const email = document.getElementById('signin-email').value.trim();
+      const password = document.getElementById('signin-password').value;
+
+      if (!email || !password) {
+        showMessage('signin-message', 'Please enter your email and password.', 'error');
+        return;
+      }
+
+      showSpinner();
+      setButtonLoading('signin-btn', true);
+
+      try {
+        const credential = await signInWithEmailAndPassword(auth, email, password);
+        const uid = credential.user.uid;
+
+        // Check Firestore role
+        const ownerRef = doc(db, 'owners', uid);
+        const ownerSnap = await getDoc(ownerRef);
+
+        if (ownerSnap.exists() && ownerSnap.data().role === 'admin') {
+          window.location.href = '/admin.html';
+        } else {
+          window.location.href = '/dashboard.html';
+        }
+      } catch (err) {
+        hideSpinner();
+        setButtonLoading('signin-btn', false);
+        showMessage('signin-message', friendlyError(err.code), 'error');
+      }
+    };
+
+    // ── Create Account ────────────────────────────────────────────────────────
+    window.handleSignUp = async function () {
+      const name = document.getElementById('signup-name').value.trim();
+      const email = document.getElementById('signup-email').value.trim();
+      const password = document.getElementById('signup-password').value;
+      const confirm = document.getElementById('signup-confirm').value;
+
+      if (!name || !email || !password || !confirm) {
+        showMessage('signup-message', 'Please fill in all fields.', 'error');
+        return;
+      }
+
+      if (password !== confirm) {
+        showMessage('signup-message', 'Passwords do not match.', 'error');
+        return;
+      }
+
+      if (password.length < 6) {
+        showMessage('signup-message', 'Password must be at least 6 characters.', 'error');
+        return;
+      }
+
+      showSpinner();
+      setButtonLoading('signup-btn', true);
+
+      try {
+        const credential = await createUserWithEmailAndPassword(auth, email, password);
+        const uid = credential.user.uid;
+
+        await setDoc(doc(db, 'owners', uid), {
+          name,
+          email,
+          role: 'owner',
+          createdAt: serverTimestamp(),
+          plan: 'trial'
+        });
+
+        window.location.href = '/dashboard.html';
+      } catch (err) {
+        hideSpinner();
+        setButtonLoading('signup-btn', false);
+        showMessage('signup-message', friendlyError(err.code), 'error');
+      }
+    };
+
+    // ── Forgot Password ───────────────────────────────────────────────────────
+    window.handleForgotPassword = async function () {
+      const email = document.getElementById('signin-email').value.trim();
+
+      if (!email) {
+        showMessage('signin-message', 'Enter your email address above, then click "Forgot password?".', 'error');
+        return;
+      }
+
+      showSpinner();
+
+      try {
+        await sendPasswordResetEmail(auth, email);
+        hideSpinner();
+        showMessage('signin-message', 'Reset email sent! Check your inbox.', 'success');
+      } catch (err) {
+        hideSpinner();
+        showMessage('signin-message', friendlyError(err.code), 'error');
+      }
+    };
+
+    // ── Error messages ────────────────────────────────────────────────────────
+    function friendlyError(code) {
+      const map = {
+        'auth/user-not-found': 'No account found with that email.',
+        'auth/wrong-password': 'Incorrect password. Please try again.',
+        'auth/invalid-credential': 'Invalid email or password.',
+        'auth/email-already-in-use': 'An account with this email already exists.',
+        'auth/weak-password': 'Password must be at least 6 characters.',
+        'auth/invalid-email': 'Please enter a valid email address.',
+        'auth/too-many-requests': 'Too many attempts. Please wait a moment and try again.',
+        'auth/network-request-failed': 'Network error. Check your connection.',
+      };
+      return map[code] || 'Something went wrong. Please try again.';
+    }
+
+    // ── Enter key support ─────────────────────────────────────────────────────
+    document.getElementById('signin-password').addEventListener('keydown', e => {
+      if (e.key === 'Enter') window.handleSignIn();
+    });
+    document.getElementById('signup-confirm').addEventListener('keydown', e => {
+      if (e.key === 'Enter') window.handleSignUp();
+    });
+  </script>
+</body>
+</html>

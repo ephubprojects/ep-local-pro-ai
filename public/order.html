@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Order — EP Local Pro AI</title>
+  <meta name="robots" content="noindex" />
+
+  <!-- Stylesheets (no render-blocking JS) -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="/css/order.css" />
+</head>
+<body class="order-page">
+
+  <!-- ── Loading skeleton (shown until biz data loads) ──── -->
+  <div id="loading-skeleton" aria-hidden="true">
+    <div class="skel-col-1">
+      <div class="skel skel-card"></div>
+    </div>
+    <div class="skel-col-2">
+      <div class="skel skel-line medium"></div>
+      <div class="skel skel-line short"></div>
+      <div class="skel skel-card" style="height:200px;margin-top:12px;"></div>
+    </div>
+  </div>
+
+  <!-- ── Business header ───────────────────────────────── -->
+  <header id="biz-header" class="hidden" role="banner">
+    <span class="biz-emoji" id="biz-emoji" aria-hidden="true">🏪</span>
+    <div class="biz-info">
+      <h1 class="biz-name" id="biz-name">Loading…</h1>
+      <p class="biz-category" id="biz-category"></p>
+    </div>
+  </header>
+
+  <!-- ── Error state ───────────────────────────────────── -->
+  <div id="error-state" role="alert" aria-live="assertive">
+    <div class="error-icon">😕</div>
+    <h2 class="error-heading">Business not found</h2>
+    <p class="error-sub">We couldn't find this ordering page. Please check the link and try again.</p>
+  </div>
+
+  <!-- ── Main content ──────────────────────────────────── -->
+  <main class="order-main hidden" id="order-main">
+
+    <!-- Left / top: AI assistant card -->
+    <div id="ai-card" role="region" aria-label="AI assistant">
+
+      <!-- Mic button with pulse ring -->
+      <div class="mic-btn-wrap" id="mic-btn-wrap">
+        <button id="mic-btn" aria-label="Start talking to place your order" title="Start talking">
+          🎙️
+        </button>
+      </div>
+
+      <!-- Status text -->
+      <p id="ai-status" aria-live="polite">Tap to start talking</p>
+
+      <!-- Live transcript -->
+      <div id="transcript" role="log" aria-live="polite" aria-label="Conversation transcript"></div>
+
+      <!-- End call button (hidden until active) -->
+      <button id="end-call-btn" aria-label="End call">
+        📵 End Call
+      </button>
+
+    </div><!-- /#ai-card -->
+
+    <!-- Right / bottom: Cart -->
+    <div id="cart-section" aria-label="Your order">
+
+      <div class="cart-card">
+        <h2>🛒 Your Order</h2>
+
+        <!-- Cart item rows injected here -->
+        <div id="cart-items" role="list" aria-label="Cart items"></div>
+
+        <!-- Order total -->
+        <div class="cart-total">
+          <span class="cart-total-label">Total</span>
+          <span class="cart-total-amount" id="cart-total">$0.00</span>
+        </div>
+      </div>
+
+      <!-- Order type selector -->
+      <div class="cart-card">
+        <label class="field-label">Order type</label>
+        <div class="order-type-wrap" id="order-type-wrap" role="group" aria-label="Order type"></div>
+      </div>
+
+      <!-- Notes -->
+      <div class="cart-card">
+        <label class="field-label" for="order-notes">Special instructions <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+        <textarea
+          id="order-notes"
+          placeholder="Allergies, substitutions, special requests…"
+          rows="3"
+          aria-label="Special instructions"
+        ></textarea>
+      </div>
+
+      <!-- Place order -->
+      <button id="place-order-btn" aria-label="Place your order">
+        Place Order →
+      </button>
+
+    </div><!-- /#cart-section -->
+
+  </main><!-- /#order-main -->
+
+  <!-- ── Payment / Confirmation section ───────────────── -->
+  <div id="payment-section" role="region" aria-label="Order confirmation" aria-live="polite">
+    <div class="payment-card">
+      <h2 class="confirm-heading">Order Confirmed! 🎉</h2>
+      <p class="confirm-sub">Your order has been received. Please complete payment below.</p>
+
+      <div class="order-number" id="order-number" aria-label="Order number">#—</div>
+
+      <p class="payment-label">Pay with</p>
+      <div class="payment-buttons" id="payment-buttons"></div>
+    </div>
+  </div>
+
+  <!-- ── Footer ────────────────────────────────────────── -->
+  <footer class="order-footer hidden" id="order-footer">
+    Powered by <a href="https://eplocalproai.com" target="_blank" rel="noopener">EP Local Pro AI</a>
+  </footer>
+
+  <!-- ── Module script (all logic, lazy ElevenLabs) ────── -->
+  <script type="module" src="/js/order.js"></script>
+
+</body>
+</html>

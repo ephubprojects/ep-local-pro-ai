@@ -1,0 +1,228 @@
+{
+  "categories": [
+    {
+      "id": "coffee_shop",
+      "name": "Coffee Shop",
+      "emoji": "☕",
+      "color": "#6f4e37",
+      "aiGreeting": {
+        "en": "Welcome! I'm your AI assistant. What can I get for you today?",
+        "es": "¡Bienvenido! Soy tu asistente de IA. ¿Qué puedo hacer por ti hoy?"
+      },
+      "aiPromptBase": "You are a friendly AI assistant for {bizName}, a coffee shop. Help customers place orders from the menu. Be warm, conversational, and suggest popular items. When customer finishes ordering call place_order.",
+      "menuItems": [
+        { "name": "Espresso", "price": 3.50, "emoji": "☕", "desc": "Single shot" },
+        { "name": "Cappuccino", "price": 5.50, "emoji": "☕", "desc": "Espresso with steamed milk foam" },
+        { "name": "Latte", "price": 5.99, "emoji": "🥛", "desc": "Espresso with steamed milk" },
+        { "name": "Cold Brew", "price": 4.99, "emoji": "🧊", "desc": "Smooth slow-steeped coffee" },
+        { "name": "Coffee Bag - Black", "price": 12.99, "emoji": "📦", "desc": "1lb whole bean dark roast" },
+        { "name": "Coffee Bag - Medium", "price": 12.99, "emoji": "📦", "desc": "1lb whole bean medium roast" },
+        { "name": "Tea Box", "price": 8.99, "emoji": "🍵", "desc": "Assorted tea packets (20 count)" },
+        { "name": "Croissant", "price": 3.99, "emoji": "🥐", "desc": "Fresh baked butter croissant" }
+      ],
+      "orderConfirmMsg": "Your order is being prepared! Thank you for choosing {bizName}. We'll have it ready for you shortly.",
+      "orderTypes": ["pickup", "delivery", "dine-in"],
+      "docTypes": ["invoice", "receipt"]
+    },
+    {
+      "id": "restaurant",
+      "name": "Restaurant",
+      "emoji": "🍽️",
+      "color": "#dc2626",
+      "aiGreeting": {
+        "en": "Welcome to {bizName}! I can take your order or help you with our menu. What would you like?",
+        "es": "¡Bienvenido a {bizName}! Puedo tomar tu pedido o ayudarte con nuestro menú. ¿Qué deseas?"
+      },
+      "aiPromptBase": "You are a friendly AI server for {bizName} restaurant. Take food and drink orders from the menu. When the customer is done ordering call place_order. For dine-in ask for the table number.",
+      "menuItems": [
+        { "name": "House Salad", "price": 8.99, "emoji": "🥗", "desc": "Fresh garden salad" },
+        { "name": "Soup of the Day", "price": 6.99, "emoji": "🍲", "desc": "Ask server for today's selection" },
+        { "name": "Grilled Chicken", "price": 16.99, "emoji": "🍗", "desc": "With seasonal vegetables" },
+        { "name": "Pasta Marinara", "price": 13.99, "emoji": "🍝", "desc": "Fresh pasta with house sauce" },
+        { "name": "Ribeye Steak", "price": 32.99, "emoji": "🥩", "desc": "12oz with mashed potatoes" },
+        { "name": "Fish Tacos", "price": 14.99, "emoji": "🌮", "desc": "3 tacos with slaw and salsa" },
+        { "name": "Soft Drinks", "price": 2.99, "emoji": "🥤", "desc": "Coke, Diet Coke, Sprite, Water" },
+        { "name": "Dessert of the Day", "price": 7.99, "emoji": "🍰", "desc": "Ask server for selection" }
+      ],
+      "orderConfirmMsg": "Your order is in! Our kitchen is preparing it now. Thank you for dining with {bizName}!",
+      "orderTypes": ["dine-in", "pickup", "delivery"],
+      "docTypes": ["invoice", "receipt"],
+      "hasKitchenDisplay": true
+    },
+    {
+      "id": "plumber",
+      "name": "Plumber",
+      "emoji": "🔧",
+      "color": "#2563eb",
+      "aiGreeting": {
+        "en": "Hi! This is {bizName}. I can help you schedule a service call or get a free estimate. What's the issue?",
+        "es": "¡Hola! Soy el asistente de {bizName}. Puedo ayudarte a programar una visita o conseguir un presupuesto gratis. ¿Cuál es el problema?"
+      },
+      "aiPromptBase": "You are a professional AI assistant for {bizName}, a plumbing company. Help customers describe their plumbing issue, collect their address and contact info, and schedule a service call or request an estimate. Call save_booking when you have all the info.",
+      "menuItems": [
+        { "name": "Service Call / Diagnostic", "price": 89.00, "emoji": "🔍", "desc": "On-site diagnosis of plumbing issue" },
+        { "name": "Drain Cleaning", "price": 149.00, "emoji": "🚿", "desc": "Clear clogged drains" },
+        { "name": "Leak Repair", "price": 199.00, "emoji": "💧", "desc": "Fix pipe or fixture leaks" },
+        { "name": "Water Heater Install", "price": 899.00, "emoji": "🌡️", "desc": "Install new water heater (parts extra)" },
+        { "name": "Toilet Repair/Replace", "price": 249.00, "emoji": "🚽", "desc": "Repair or replace toilet" },
+        { "name": "Emergency Service", "price": 199.00, "emoji": "🚨", "desc": "After-hours emergency call" }
+      ],
+      "orderConfirmMsg": "We've received your service request! {bizName} will contact you within 2 hours to confirm your appointment. Thank you!",
+      "orderTypes": ["appointment", "estimate"],
+      "docTypes": ["estimate", "invoice", "contract", "receipt"]
+    },
+    {
+      "id": "electrician",
+      "name": "Electrician",
+      "emoji": "⚡",
+      "color": "#d97706",
+      "aiGreeting": {
+        "en": "Hello! You've reached {bizName}. I can help you schedule electrical service or get a free estimate. What do you need?",
+        "es": "¡Hola! Llegaste a {bizName}. Puedo ayudarte a programar un servicio eléctrico o un presupuesto gratis. ¿Qué necesitas?"
+      },
+      "aiPromptBase": "You are a professional AI assistant for {bizName}, an electrical contractor. Help customers describe their electrical issue, collect their address and contact info, and book a service call or estimate. Call save_booking when you have all info.",
+      "menuItems": [
+        { "name": "Service Call / Inspection", "price": 99.00, "emoji": "🔍", "desc": "On-site electrical inspection" },
+        { "name": "Outlet Installation", "price": 149.00, "emoji": "🔌", "desc": "Install new electrical outlet" },
+        { "name": "Panel Upgrade", "price": 1500.00, "emoji": "⚡", "desc": "Electrical panel replacement (200A)" },
+        { "name": "Ceiling Fan Install", "price": 199.00, "emoji": "💨", "desc": "Install ceiling fan with wiring" },
+        { "name": "EV Charger Install", "price": 599.00, "emoji": "🚗", "desc": "Level 2 EV charger installation" },
+        { "name": "Emergency Service", "price": 249.00, "emoji": "🚨", "desc": "After-hours emergency electrical" }
+      ],
+      "orderConfirmMsg": "Service request received! {bizName} will call you within 1 hour to confirm. Thank you for choosing us!",
+      "orderTypes": ["appointment", "estimate"],
+      "docTypes": ["estimate", "invoice", "contract", "receipt"]
+    },
+    {
+      "id": "salon",
+      "name": "Salon & Spa",
+      "emoji": "💇",
+      "color": "#db2777",
+      "aiGreeting": {
+        "en": "Welcome to {bizName}! I can help you book an appointment or learn about our services. What are you looking for today?",
+        "es": "¡Bienvenido a {bizName}! Puedo ayudarte a reservar una cita o informarte sobre nuestros servicios. ¿Qué buscas hoy?"
+      },
+      "aiPromptBase": "You are a friendly AI receptionist for {bizName} salon and spa. Help clients book appointments, choose services, and collect their name, phone, and preferred time. Call save_booking when you have all the details.",
+      "menuItems": [
+        { "name": "Haircut - Women", "price": 55.00, "emoji": "✂️", "desc": "Wash, cut and blow dry" },
+        { "name": "Haircut - Men", "price": 35.00, "emoji": "✂️", "desc": "Fade or scissor cut" },
+        { "name": "Color - Full", "price": 120.00, "emoji": "🎨", "desc": "Full hair color treatment" },
+        { "name": "Highlights", "price": 95.00, "emoji": "✨", "desc": "Partial highlights" },
+        { "name": "Manicure", "price": 35.00, "emoji": "💅", "desc": "Classic manicure" },
+        { "name": "Pedicure", "price": 50.00, "emoji": "🦶", "desc": "Classic pedicure with soak" },
+        { "name": "Facial", "price": 85.00, "emoji": "🌿", "desc": "60-minute rejuvenating facial" },
+        { "name": "Massage - 60min", "price": 90.00, "emoji": "💆", "desc": "Swedish or deep tissue" }
+      ],
+      "orderConfirmMsg": "Your appointment is booked! {bizName} will send you a confirmation shortly. We look forward to seeing you!",
+      "orderTypes": ["appointment"],
+      "docTypes": ["invoice", "receipt"]
+    },
+    {
+      "id": "roofer",
+      "name": "Roofing",
+      "emoji": "🏠",
+      "color": "#7c3aed",
+      "aiGreeting": {
+        "en": "Hi, you've reached {bizName} Roofing. I can schedule a free roof inspection or estimate. What can I help you with?",
+        "es": "Hola, llegaste a {bizName} Techos. Puedo programar una inspección gratuita o presupuesto. ¿En qué puedo ayudarte?"
+      },
+      "aiPromptBase": "You are a professional AI assistant for {bizName}, a roofing company. Help customers schedule a free roof inspection or get an estimate. Collect their address, contact info, and describe the issue. Call save_booking when complete.",
+      "menuItems": [
+        { "name": "Free Roof Inspection", "price": 0.00, "emoji": "🔍", "desc": "No-cost visual roof assessment" },
+        { "name": "Roof Repair", "price": 450.00, "emoji": "🔨", "desc": "Minor repair — final price on inspection" },
+        { "name": "Full Roof Replacement", "price": 8500.00, "emoji": "🏠", "desc": "Starting price — varies by size/material" },
+        { "name": "Gutter Cleaning", "price": 199.00, "emoji": "🌧️", "desc": "Full gutter cleanout" },
+        { "name": "Gutter Installation", "price": 1200.00, "emoji": "🏗️", "desc": "New gutter system installation" },
+        { "name": "Emergency Tarping", "price": 350.00, "emoji": "🚨", "desc": "Emergency storm damage tarping" }
+      ],
+      "orderConfirmMsg": "Inspection scheduled! {bizName} will contact you to confirm the date and time. Thank you for trusting us with your roof!",
+      "orderTypes": ["appointment", "estimate"],
+      "docTypes": ["estimate", "invoice", "contract", "receipt"]
+    },
+    {
+      "id": "painter",
+      "name": "Painter",
+      "emoji": "🎨",
+      "color": "#059669",
+      "aiGreeting": {
+        "en": "Hello! This is {bizName}. I can help you get a free painting estimate or schedule your project. What are you looking to paint?",
+        "es": "¡Hola! Soy {bizName}. Puedo ayudarte a obtener un presupuesto de pintura o programar tu proyecto. ¿Qué quieres pintar?"
+      },
+      "aiPromptBase": "You are a professional AI assistant for {bizName}, a painting company. Help customers get an estimate for interior or exterior painting. Collect property address, type of project (interior/exterior), square footage estimate, and contact info. Call save_booking when complete.",
+      "menuItems": [
+        { "name": "Interior - Per Room", "price": 350.00, "emoji": "🏠", "desc": "Single room interior paint" },
+        { "name": "Interior - Full Home", "price": 2500.00, "emoji": "🏡", "desc": "Whole home interior (avg size)" },
+        { "name": "Exterior - Per Story", "price": 1800.00, "emoji": "🏘️", "desc": "One story exterior paint" },
+        { "name": "Cabinet Painting", "price": 850.00, "emoji": "🚪", "desc": "Kitchen cabinet refinishing" },
+        { "name": "Deck / Fence Staining", "price": 599.00, "emoji": "🌳", "desc": "Staining and sealing" },
+        { "name": "Free Estimate Visit", "price": 0.00, "emoji": "📋", "desc": "On-site estimate at no charge" }
+      ],
+      "orderConfirmMsg": "Estimate request received! {bizName} will contact you within 24 hours to schedule your free estimate. Thank you!",
+      "orderTypes": ["appointment", "estimate"],
+      "docTypes": ["estimate", "invoice", "contract", "receipt"]
+    },
+    {
+      "id": "carpenter",
+      "name": "Carpenter / Handyman",
+      "emoji": "🪚",
+      "color": "#92400e",
+      "aiGreeting": {
+        "en": "Hi! You reached {bizName}. Tell me what you need built or repaired and I'll get you a free estimate.",
+        "es": "¡Hola! Llegaste a {bizName}. Dime qué necesitas construir o reparar y te daré un presupuesto gratis."
+      },
+      "aiPromptBase": "You are a professional AI assistant for {bizName}, a carpentry and handyman service. Help customers describe their project, collect their address and contact info, and schedule an estimate. Call save_booking when you have all info.",
+      "menuItems": [
+        { "name": "Free Estimate Visit", "price": 0.00, "emoji": "📋", "desc": "On-site project assessment" },
+        { "name": "Door Install / Repair", "price": 250.00, "emoji": "🚪", "desc": "Interior or exterior door" },
+        { "name": "Deck Building", "price": 4500.00, "emoji": "🏗️", "desc": "Starting price, varies by size" },
+        { "name": "Cabinet Install", "price": 800.00, "emoji": "🗄️", "desc": "Kitchen or bathroom cabinets" },
+        { "name": "Flooring Install", "price": 3.50, "emoji": "🪵", "desc": "Per sq ft, materials extra" },
+        { "name": "General Handyman", "price": 85.00, "emoji": "🔨", "desc": "Per hour general repairs" }
+      ],
+      "orderConfirmMsg": "Project request received! {bizName} will reach out to schedule your free estimate. Thank you for choosing us!",
+      "orderTypes": ["appointment", "estimate"],
+      "docTypes": ["estimate", "invoice", "contract", "receipt"]
+    },
+    {
+      "id": "retail",
+      "name": "Retail Store",
+      "emoji": "🛍️",
+      "color": "#0891b2",
+      "aiGreeting": {
+        "en": "Welcome to {bizName}! I can help you browse our products and place an order. What are you looking for?",
+        "es": "¡Bienvenido a {bizName}! Puedo ayudarte a explorar productos y hacer un pedido. ¿Qué buscas?"
+      },
+      "aiPromptBase": "You are a helpful AI shopping assistant for {bizName}. Help customers find products, add items to their cart, and complete their order. Call place_order when the customer is ready to checkout.",
+      "menuItems": [
+        { "name": "Sample Product 1", "price": 19.99, "emoji": "📦", "desc": "Replace with your actual products" },
+        { "name": "Sample Product 2", "price": 34.99, "emoji": "📦", "desc": "Replace with your actual products" },
+        { "name": "Sample Product 3", "price": 49.99, "emoji": "📦", "desc": "Replace with your actual products" }
+      ],
+      "orderConfirmMsg": "Order placed! {bizName} will process your order and reach out with shipping/pickup details. Thank you!",
+      "orderTypes": ["pickup", "delivery"],
+      "docTypes": ["invoice", "receipt"]
+    },
+    {
+      "id": "florist",
+      "name": "Florist",
+      "emoji": "💐",
+      "color": "#be185d",
+      "aiGreeting": {
+        "en": "Hello and welcome to {bizName}! I can help you choose the perfect arrangement. What's the occasion?",
+        "es": "¡Hola y bienvenido a {bizName}! Puedo ayudarte a elegir el arreglo perfecto. ¿Cuál es la ocasión?"
+      },
+      "aiPromptBase": "You are a warm and elegant AI assistant for {bizName} flower shop. Help customers choose floral arrangements for their occasion, add items to cart, and place their order. Ask about delivery or pickup preference. Call place_order when ready.",
+      "menuItems": [
+        { "name": "Rose Bouquet - Dozen", "price": 59.99, "emoji": "🌹", "desc": "12 fresh long-stem roses" },
+        { "name": "Mixed Arrangement - Small", "price": 45.00, "emoji": "💐", "desc": "Seasonal mixed flowers" },
+        { "name": "Mixed Arrangement - Large", "price": 89.00, "emoji": "💐", "desc": "Large premium arrangement" },
+        { "name": "Orchid Plant", "price": 55.00, "emoji": "🌸", "desc": "Potted phalaenopsis orchid" },
+        { "name": "Sunflower Bouquet", "price": 39.99, "emoji": "🌻", "desc": "Bright cheerful sunflowers" },
+        { "name": "Wedding Package", "price": 350.00, "emoji": "👰", "desc": "Bridal + ceremony arrangements" }
+      ],
+      "orderConfirmMsg": "Beautiful choice! Your order from {bizName} is confirmed. We'll prepare your flowers with care. Thank you!",
+      "orderTypes": ["pickup", "delivery"],
+      "docTypes": ["invoice", "receipt"]
+    }
+  ]
+}
