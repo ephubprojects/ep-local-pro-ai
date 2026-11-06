@@ -109,7 +109,7 @@ async function initAdmin() {
     // Verify admin role in Firestore
     try {
       const ownerSnap = await getDoc(doc(db, 'owners', user.uid));
-      if (!ownerSnap.exists() || ownerSnap.data().role !== 'admin') {
+      if (!ownerSnap.exists() || ownerSnap.data().role?.toLowerCase() !== 'admin') {
         window.location.href = '/auth.html';
         return;
       }
