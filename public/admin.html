@@ -29,6 +29,12 @@
     <a data-nav="businesses">
       <span class="nav-icon">🏢</span> Businesses
     </a>
+    <a data-nav="users">
+      <span class="nav-icon">👥</span> Users
+    </a>
+    <a data-nav="localBusiness">
+      <span class="nav-icon">🏪</span> Local Business
+    </a>
     <a data-nav="categories">
       <span class="nav-icon">📂</span> Categories
     </a>
@@ -205,6 +211,71 @@
       </div>
 
     </div><!-- /businesses -->
+
+
+    <!-- ════════════ SECTION: Users ════════════ -->
+    <div data-section="users" class="hidden">
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Registered Users</h2>
+          <span class="stat-trend" id="usersCount" style="font-size:0.85rem;color:#64748b;"></span>
+        </div>
+        <div class="filter-bar">
+          <input type="text" id="userSearch" placeholder="Search name, email or username…" oninput="filterUsers()" />
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Sponsor</th>
+                <th>Plan</th>
+                <th>Joined</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">👥</div><p>Loading users…</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /users -->
+
+
+    <!-- ════════════ SECTION: Local Business ════════════ -->
+    <div data-section="localBusiness" class="hidden">
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Local Business Accounts</h2>
+          <span class="stat-trend" id="localBizCount" style="font-size:0.85rem;color:#64748b;"></span>
+        </div>
+        <div class="filter-bar">
+          <input type="text" id="localBizSearch" placeholder="Search business name, email or category…" oninput="filterLocalBiz()" />
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Company Name</th>
+                <th>Category</th>
+                <th>Owner</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Sponsor</th>
+                <th>Plan</th>
+                <th>Joined</th>
+              </tr>
+            </thead>
+            <tbody id="localBizTableBody">
+              <tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">🏪</div><p>Loading businesses…</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /localBusiness -->
 
 
     <!-- ════════════ SECTION: Categories ════════════ -->

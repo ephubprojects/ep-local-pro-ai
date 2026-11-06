@@ -167,6 +167,10 @@ function onAdminReady(user) {
       const name = link.dataset.nav;
       showSection(name);
       closeSidebar();
+      if (name === 'demos')         loadDemos();
+      if (name === 'businesses')    loadBusinesses();
+      if (name === 'users')         loadUsers();
+      if (name === 'localBusiness') loadLocalBiz();
     });
   });
 
@@ -747,6 +751,110 @@ async function loadBusinesses() {
   }
 }
 
+// ============================================================
+// USERS (personal / referrer accounts)
+// ============================================================
+let _allUsers = [];
+
+async function loadUsers() {
+  const tbody   = document.getElementById('usersTableBody');
+  const countEl = document.getElementById('usersCount');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">⏳</div><p>Loading…</p></div></td></tr>`;
+  try {
+    const snap = await getDocs(query(collection(db, 'owners'), orderBy('createdAt', 'desc')));
+    _allUsers = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(u => (u.acctType || 'personal') === 'personal');
+    if (countEl) countEl.textContent = `${_allUsers.length} user${_allUsers.length !== 1 ? 's' : ''}`;
+    renderUsersTable(_allUsers);
+  } catch (err) {
+    console.error('loadUsers error:', err);
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><p>Error loading users. Publish Firestore rules first.</p></div></td></tr>`;
+  }
+}
+
+function renderUsersTable(users) {
+  const tbody = document.getElementById('usersTableBody');
+  if (!tbody) return;
+  if (!users.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">👥</div><p>No users yet.</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td>${escHTML(((u.firstName || '') + ' ' + (u.lastName || '')).trim() || '—')}</td>
+      <td class="cell-mono">${escHTML(u.username || '—')}</td>
+      <td>${escHTML(u.email || '—')}</td>
+      <td>${escHTML(u.phone || '—')}</td>
+      <td>${escHTML(u.sponsorUsername || '—')}</td>
+      <td>${badgeHTML(u.plan || 'trial')}</td>
+      <td>${escHTML(fmtDate(u.createdAt))}</td>
+    </tr>`).join('');
+}
+
+function filterUsers() {
+  const q = (document.getElementById('userSearch')?.value || '').toLowerCase();
+  if (!q) { renderUsersTable(_allUsers); return; }
+  renderUsersTable(_allUsers.filter(u =>
+    `${u.firstName} ${u.lastName} ${u.email} ${u.username}`.toLowerCase().includes(q)
+  ));
+}
+
+// ============================================================
+// LOCAL BUSINESS (business-type owner accounts)
+// ============================================================
+let _allLocalBiz = [];
+
+async function loadLocalBiz() {
+  const tbody   = document.getElementById('localBizTableBody');
+  const countEl = document.getElementById('localBizCount');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">⏳</div><p>Loading…</p></div></td></tr>`;
+  try {
+    const snap = await getDocs(query(collection(db, 'owners'), orderBy('createdAt', 'desc')));
+    _allLocalBiz = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(u => u.acctType === 'business');
+    if (countEl) countEl.textContent = `${_allLocalBiz.length} business${_allLocalBiz.length !== 1 ? 'es' : ''}`;
+    renderLocalBizTable(_allLocalBiz);
+  } catch (err) {
+    console.error('loadLocalBiz error:', err);
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><p>Error loading. Publish Firestore rules first.</p></div></td></tr>`;
+  }
+}
+
+function renderLocalBizTable(list) {
+  const tbody = document.getElementById('localBizTableBody');
+  if (!tbody) return;
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">🏪</div><p>No local business accounts yet.</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(u => {
+    const cat = CAT_MAP[u.categoryId] || {};
+    return `
+    <tr>
+      <td>${escHTML(u.companyName || '—')}</td>
+      <td>${escHTML((cat.emoji || '') + ' ' + (cat.name || u.categoryId || '—')).trim()}</td>
+      <td>${escHTML(((u.firstName || '') + ' ' + (u.lastName || '')).trim() || '—')}</td>
+      <td>${escHTML(u.email || '—')}</td>
+      <td>${escHTML(u.phone || '—')}</td>
+      <td>${escHTML(u.sponsorUsername || '—')}</td>
+      <td>${badgeHTML(u.plan || 'trial')}</td>
+      <td>${escHTML(fmtDate(u.createdAt))}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterLocalBiz() {
+  const q = (document.getElementById('localBizSearch')?.value || '').toLowerCase();
+  if (!q) { renderLocalBizTable(_allLocalBiz); return; }
+  renderLocalBizTable(_allLocalBiz.filter(u =>
+    `${u.companyName} ${u.email} ${u.categoryId}`.toLowerCase().includes(q)
+  ));
+}
+
 // Toggle business detail row
 function toggleBizDetail(bizId) {
   const row = document.getElementById(`biz-detail-${bizId}`);
@@ -883,6 +991,8 @@ window._adminConvertDemo   = id => convertDemoToAccount(id);
 window._adminToggleBizDetail = id => toggleBizDetail(id);
 window._adminViewBiz       = id => viewBiz(id);
 window._adminSuspendBiz    = (id, name) => suspendBiz(id, name);
+window.filterUsers         = filterUsers;
+window.filterLocalBiz      = filterLocalBiz;
 
 // ── Boot ─────────────────────────────────────────────────────
 initAdmin();
