@@ -38,6 +38,9 @@
     <a data-nav="categories">
       <span class="nav-icon">📂</span> Categories
     </a>
+    <a data-nav="profile">
+      <span class="nav-icon">👤</span> Profile
+    </a>
     <a data-nav="settings">
       <span class="nav-icon">⚙️</span> Settings
     </a>
@@ -301,8 +304,8 @@
     </div><!-- /categories -->
 
 
-    <!-- ════════════ SECTION: Settings ════════════ -->
-    <div data-section="settings" class="hidden">
+    <!-- ════════════ SECTION: Profile ════════════ -->
+    <div data-section="profile" class="hidden">
 
       <div class="section-card">
         <div class="settings-section">
@@ -325,9 +328,10 @@
             <label>Phone</label>
             <input type="tel" id="settingPhone" placeholder="+1 (555) 000-0000" />
           </div>
+          <button class="btn-save" id="saveProfileBtn" style="margin-top:16px;">Save Profile</button>
         </div>
 
-        <div class="settings-section" style="margin-top:24px;">
+        <div class="settings-section" style="margin-top:28px;">
           <h3>Your Sponsor</h3>
           <div class="sponsor-info-grid">
             <div class="sponsor-info-item">
@@ -349,7 +353,20 @@
           </div>
         </div>
 
-        <div class="settings-section mt-4" style="margin-top:28px;">
+        <div class="settings-section danger-zone-card" style="margin-top:28px;">
+          <h3 style="color:var(--red)">Danger Zone</h3>
+          <p class="readonly-note" style="margin-bottom:12px;">Cancelling your account is permanent and cannot be undone.</p>
+          <button class="btn-danger" id="cancelMyAccountBtn">Cancel My Account</button>
+        </div>
+      </div>
+
+    </div><!-- /profile -->
+
+    <!-- ════════════ SECTION: Settings ════════════ -->
+    <div data-section="settings" class="hidden">
+
+      <div class="section-card">
+        <div class="settings-section">
           <h3>Platform Settings</h3>
           <div class="form-group">
             <label>Platform Name</label>

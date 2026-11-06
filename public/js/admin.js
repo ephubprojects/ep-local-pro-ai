@@ -317,6 +317,12 @@ async function onAdminReady(user) {
     }
   });
 
+  // Profile save
+  document.getElementById('saveProfileBtn')?.addEventListener('click', saveProfile);
+
+  // Cancel my own account
+  document.getElementById('cancelMyAccountBtn')?.addEventListener('click', cancelMyAccount);
+
   // Settings save
   document.getElementById('saveSettingsBtn')?.addEventListener('click', saveSettings);
 
@@ -358,6 +364,7 @@ function showSection(name) {
     users:         'Registered Users',
     localBusiness: 'Local Business Accounts',
     categories:    'Categories',
+    profile:       'My Profile',
     settings:      'Settings'
   };
   const titleEl = document.getElementById('pageTitle');
@@ -1140,20 +1147,58 @@ async function deleteCustomCategory(docId) {
 }
 
 // ============================================================
-// SETTINGS
+// PROFILE
 // ============================================================
-async function saveSettings() {
-  const firstName     = document.getElementById('settingFirstName')?.value.trim() || '';
-  const lastName      = document.getElementById('settingLastName')?.value.trim()  || '';
-  const phone         = document.getElementById('settingPhone')?.value.trim()     || '';
-  const platformName  = document.getElementById('settingPlatformName')?.value.trim() || '';
-  const supportEmail  = document.getElementById('settingSupportEmail')?.value.trim() || '';
+async function saveProfile() {
+  const firstName = document.getElementById('settingFirstName')?.value.trim() || '';
+  const lastName  = document.getElementById('settingLastName')?.value.trim()  || '';
+  const phone     = document.getElementById('settingPhone')?.value.trim()     || '';
 
   try {
     if (currentUser) {
       await updateDoc(doc(db, 'owners', currentUser.uid), {
         firstName, lastName, phone,
         name: `${firstName} ${lastName}`.trim(),
+        updatedAt: serverTimestamp()
+      });
+    }
+    showToast('Profile saved', 'success');
+  } catch (err) {
+    console.error('saveProfile error:', err);
+    showToast('Error saving profile', 'error');
+  }
+}
+
+async function cancelMyAccount() {
+  if (!confirm('Cancel your own admin account? This action cannot be undone.')) return;
+  try {
+    if (currentUser) {
+      await updateDoc(doc(db, 'owners', currentUser.uid), {
+        status: 'cancelled',
+        cancelledAt: serverTimestamp()
+      });
+    }
+    showToast('Account cancelled. Signing out…', 'success');
+    setTimeout(async () => {
+      await signOut(auth);
+      window.location.href = '/auth.html';
+    }, 2000);
+  } catch (err) {
+    console.error('cancelMyAccount error:', err);
+    showToast('Error cancelling account', 'error');
+  }
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+async function saveSettings() {
+  const platformName = document.getElementById('settingPlatformName')?.value.trim() || '';
+  const supportEmail = document.getElementById('settingSupportEmail')?.value.trim() || '';
+
+  try {
+    if (currentUser) {
+      await updateDoc(doc(db, 'owners', currentUser.uid), {
         platformName, supportEmail,
         updatedAt: serverTimestamp()
       });
