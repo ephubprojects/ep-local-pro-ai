@@ -100,25 +100,31 @@ function catHTML(categoryId) {
 // ============================================================
 // INIT — Auth gate
 // ============================================================
+const ADMIN_EMAIL = 'ezperfilsystem@gmail.com';
+
 async function initAdmin() {
   onAuthStateChanged(auth, async user => {
     if (!user) {
       window.location.href = '/auth.html';
       return;
     }
-    // Verify admin role in Firestore
+    // Primary check: Firestore role
+    // Fallback: hardcoded admin email (works even if Firestore rules not published)
+    let isAdmin = false;
     try {
       const ownerSnap = await getDoc(doc(db, 'owners', user.uid));
-      if (!ownerSnap.exists() || ownerSnap.data().role?.toLowerCase() !== 'admin') {
-        window.location.href = '/auth.html';
-        return;
+      if (ownerSnap.exists()) {
+        isAdmin = ownerSnap.data().role?.toLowerCase() === 'admin';
       }
     } catch (err) {
-      console.error('Admin auth check failed:', err);
-      // Firestore unreadable (rules not published, offline, etc.)
-      // User is already authenticated — let them through.
-      currentUser = user;
-      onAdminReady(user);
+      console.warn('Firestore role check failed, falling back to email check:', err.code);
+    }
+    // Fallback to email
+    if (!isAdmin) {
+      isAdmin = user.email === ADMIN_EMAIL;
+    }
+    if (!isAdmin) {
+      window.location.href = '/auth.html';
       return;
     }
     currentUser = user;
