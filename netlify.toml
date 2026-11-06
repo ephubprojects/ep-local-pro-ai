@@ -67,16 +67,16 @@
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
-# JS/CSS — 1 hour browser, 24h CDN
+# JS/CSS — always fresh (dev mode; switch to versioned hashes before launch)
 [[headers]]
   for = "/*.js"
   [headers.values]
-    Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
+    Cache-Control = "public, max-age=0, must-revalidate"
 
 [[headers]]
   for = "/*.css"
   [headers.values]
-    Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
+    Cache-Control = "public, max-age=0, must-revalidate"
 
 # Assets — 1 year (logos, icons never change)
 [[headers]]
