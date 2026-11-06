@@ -6,7 +6,7 @@ import { getAuth }        from 'https://www.gstatic.com/firebasejs/10.12.0/fireb
 import { getFirestore }   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const firebaseConfig = {
-  apiKey:            "AIzaSy84M24fLSHNKdWRHDDu9xj2sPGYCDZExiA",
+  apiKey:            "AIzaSyB4M24fLSHNKdWRHDDu9xj2sPGYCDZExiA",
   authDomain:        "ep-local-pro-ai.firebaseapp.com",
   projectId:         "ep-local-pro-ai",
   storageBucket:     "ep-local-pro-ai.firebasestorage.app",
