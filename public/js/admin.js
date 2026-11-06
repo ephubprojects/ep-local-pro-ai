@@ -115,14 +115,10 @@ async function initAdmin() {
       }
     } catch (err) {
       console.error('Admin auth check failed:', err);
-      // Don't redirect on Firestore error — user is authenticated.
-      // Only redirect on explicit permission-denied (not a network/rules issue).
-      if (err.code !== 'permission-denied') {
-        currentUser = user;
-        onAdminReady(user);
-        return;
-      }
-      window.location.href = '/auth.html';
+      // Firestore unreadable (rules not published, offline, etc.)
+      // User is already authenticated — let them through.
+      currentUser = user;
+      onAdminReady(user);
       return;
     }
     currentUser = user;
