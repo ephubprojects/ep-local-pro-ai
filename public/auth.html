@@ -294,6 +294,35 @@
       display: block;
     }
 
+    .acct-type-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.625rem;
+      margin-top: 0.375rem;
+    }
+
+    .acct-type-card {
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 0.75rem;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      position: relative;
+    }
+
+    .acct-type-card:hover { border-color: #a5b4fc; }
+    .acct-type-card.selected { border-color: #4f46e5; background: #eef2ff; }
+
+    .acct-type-card input[type="radio"] {
+      position: absolute; opacity: 0; width: 0; height: 0;
+    }
+
+    .acct-icon { font-size: 1.25rem; }
+    .acct-label { font-size: 0.875rem; font-weight: 600; color: #0f172a; }
+
     /* Spinner overlay */
     .spinner-overlay {
       display: none;
@@ -358,6 +387,47 @@
 
       <!-- Create Account Form -->
       <div class="auth-form-section" id="section-signup">
+        <!-- Account Type Toggle -->
+        <div class="form-group">
+          <label>Account Type</label>
+          <div class="acct-type-row">
+            <label class="acct-type-card selected" id="acct-personal">
+              <input type="radio" name="acct_type" value="personal" checked onchange="toggleAcctType(this)">
+              <span class="acct-icon">👤</span>
+              <span class="acct-label">Personal</span>
+            </label>
+            <label class="acct-type-card" id="acct-business">
+              <input type="radio" name="acct_type" value="business" onchange="toggleAcctType(this)">
+              <span class="acct-icon">🏢</span>
+              <span class="acct-label">Business</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Business fields (shown only when Business selected) -->
+        <div id="business-fields" style="display:none">
+          <div class="form-group">
+            <label for="signup-company">Company Name</label>
+            <input type="text" id="signup-company" placeholder="J&amp;J Coffee, ABC Plumbing...">
+          </div>
+          <div class="form-group">
+            <label for="signup-category">Business Category</label>
+            <select id="signup-category">
+              <option value="">— Select your category —</option>
+              <option value="coffee_shop">☕ Coffee Shop</option>
+              <option value="restaurant">🍽️ Restaurant</option>
+              <option value="plumber">🔧 Plumber</option>
+              <option value="electrician">⚡ Electrician</option>
+              <option value="salon">💇 Salon &amp; Spa</option>
+              <option value="roofer">🏠 Roofing</option>
+              <option value="painter">🎨 Painter</option>
+              <option value="carpenter">🪚 Carpenter / Handyman</option>
+              <option value="retail">🛍️ Retail Store</option>
+              <option value="florist">💐 Florist</option>
+            </select>
+          </div>
+        </div>
+
         <div class="form-row">
           <div class="form-group">
             <label for="signup-firstname">First Name</label>
@@ -450,6 +520,13 @@
     }
     // Switch to Create Account tab if arriving from invite link (handled below after switchTab is defined)
 
+    // ── Account type toggle ───────────────────────────────────────────────────
+    window.toggleAcctType = function(radio) {
+      document.getElementById('acct-personal').classList.toggle('selected', radio.value === 'personal');
+      document.getElementById('acct-business').classList.toggle('selected', radio.value === 'business');
+      document.getElementById('business-fields').style.display = radio.value === 'business' ? 'block' : 'none';
+    };
+
     // ── Plan card selection ───────────────────────────────────────────────────
     window.selectPlan = function(radio) {
       document.getElementById('plan-starter').classList.toggle('selected', radio.value === 'starter');
@@ -532,6 +609,10 @@
 
     // ── Create Account ────────────────────────────────────────────────────────
     window.handleSignUp = async function () {
+      const acctType   = document.querySelector('input[name="acct_type"]:checked')?.value || 'personal';
+      const isBusiness = acctType === 'business';
+      const companyName = isBusiness ? document.getElementById('signup-company').value.trim() : '';
+      const category    = isBusiness ? document.getElementById('signup-category').value : '';
       const firstName  = document.getElementById('signup-firstname').value.trim();
       const lastName   = document.getElementById('signup-lastname').value.trim();
       const username   = document.getElementById('signup-username').value.trim().toLowerCase();
@@ -544,6 +625,16 @@
 
       if (!firstName || !lastName || !username || !email || !phone || !password || !confirm) {
         showMessage('signup-message', 'Please fill in all required fields.', 'error');
+        return;
+      }
+
+      if (isBusiness && !companyName) {
+        showMessage('signup-message', 'Please enter your company name.', 'error');
+        return;
+      }
+
+      if (isBusiness && !category) {
+        showMessage('signup-message', 'Please select your business category.', 'error');
         return;
       }
 
@@ -571,6 +662,9 @@
           username,
           email,
           phone,
+          acctType,
+          companyName: companyName || null,
+          categoryId: category || null,
           sponsorUsername: sponsor || null,
           role: 'owner',
           plan,
