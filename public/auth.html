@@ -372,16 +372,18 @@
 
       <!-- Sign In Form -->
       <div class="auth-form-section active" id="section-signin">
-        <div class="form-group">
-          <label for="signin-email">Email Address</label>
-          <input type="email" id="signin-email" placeholder="you@example.com" autocomplete="email">
-        </div>
-        <div class="form-group">
-          <label for="signin-password">Password</label>
-          <input type="password" id="signin-password" placeholder="••••••••" autocomplete="current-password">
-        </div>
-        <div class="message-area" id="signin-message"></div>
-        <button class="btn-primary" id="signin-btn" onclick="handleSignIn()">Sign In</button>
+        <form id="signin-form" onsubmit="handleSignIn(); return false;" autocomplete="on">
+          <div class="form-group">
+            <label for="signin-email">Email Address</label>
+            <input type="email" id="signin-email" name="email" placeholder="you@example.com" autocomplete="username email">
+          </div>
+          <div class="form-group">
+            <label for="signin-password">Password</label>
+            <input type="password" id="signin-password" name="password" placeholder="••••••••" autocomplete="current-password">
+          </div>
+          <div class="message-area" id="signin-message"></div>
+          <button type="submit" class="btn-primary" id="signin-btn">Sign In</button>
+        </form>
         <button class="forgot-link" onclick="handleForgotPassword()">Forgot password?</button>
       </div>
 
