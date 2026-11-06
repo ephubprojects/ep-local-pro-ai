@@ -76,6 +76,14 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 async function initDashboard() {
+  // Wire logout + mobile sidebar immediately — before any async work
+  const logoutEl = document.getElementById('logoutBtn');
+  if (logoutEl) logoutEl.addEventListener('click', signOutUser);
+  const toggleEl = document.getElementById('sidebarToggle');
+  if (toggleEl) toggleEl.addEventListener('click', toggleSidebar);
+  const backdropEl = document.getElementById('sidebarBackdrop');
+  if (backdropEl) backdropEl.addEventListener('click', closeSidebar);
+
   try {
     // Load owner doc
     const ownerRef = doc(db, 'owners', currentUser.uid);
@@ -88,6 +96,12 @@ async function initDashboard() {
 
     ownerDoc = ownerSnap.data();
 
+    // Redirect admins to admin panel
+    if (ownerDoc.role === 'admin') {
+      window.location.href = '/admin.html';
+      return;
+    }
+
     // Find the business where ownerId == uid
     const bizQ = query(
       collection(db, 'businesses'),
@@ -97,8 +111,11 @@ async function initDashboard() {
     const bizSnap = await getDocs(bizQ);
 
     if (bizSnap.empty) {
-      showToast('No business found. Contact support.', 'error');
+      // No business yet — show empty dashboard, don't block
       hideLoading();
+      showSection('dashboard');
+      wireNavAndModals();
+      showToast('Welcome! Your business page will be set up by your admin.', 'info');
       return;
     }
 
@@ -131,40 +148,7 @@ async function initDashboard() {
 
     // Load default section
     showSection('dashboard');
-
-    // Wire nav clicks
-    document.querySelectorAll('[data-nav]').forEach(el => {
-      el.addEventListener('click', (e) => {
-        e.preventDefault();
-        const sec = el.dataset.nav;
-        showSection(sec);
-        closeSidebar();
-      });
-    });
-
-    // Logout
-    qs('#logoutBtn').addEventListener('click', signOutUser);
-
-    // Mobile sidebar toggle
-    qs('#sidebarToggle').addEventListener('click', toggleSidebar);
-    qs('#sidebarBackdrop').addEventListener('click', closeSidebar);
-
-    // Modal close buttons
-    document.querySelectorAll('[data-close]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.dataset.close;
-        qs(`#${id}`).classList.add('hidden');
-      });
-    });
-
-    // Close dropdown when clicking outside
-    document.addEventListener('click', (e) => {
-      const menu = qs('#generateDocMenu');
-      const btn  = qs('#generateDocBtn');
-      if (menu && !menu.contains(e.target) && e.target !== btn) {
-        menu.classList.remove('open');
-      }
-    });
+    wireNavAndModals();
 
   } catch (err) {
     console.error('initDashboard error:', err);
@@ -207,6 +191,37 @@ function showSection(name) {
   if (name === 'documents')   { loadDocuments(); }
   if (name === 'ai-settings') { loadAiSettings(); }
   if (name === 'account')     { loadAccount(); }
+}
+
+// ── Wire nav + modals (called once after init) ───────────────
+let _navWired = false;
+function wireNavAndModals() {
+  if (_navWired) return;
+  _navWired = true;
+
+  document.querySelectorAll('[data-nav]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.preventDefault();
+      showSection(el.dataset.nav);
+      closeSidebar();
+    });
+  });
+
+  document.querySelectorAll('[data-close]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.close;
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    });
+  });
+
+  document.addEventListener('click', (e) => {
+    const menu = document.getElementById('generateDocMenu');
+    const btn  = document.getElementById('generateDocBtn');
+    if (menu && !menu.contains(e.target) && e.target !== btn) {
+      menu.classList.remove('open');
+    }
+  });
 }
 
 // ── Mobile Sidebar ───────────────────────────────────────────
