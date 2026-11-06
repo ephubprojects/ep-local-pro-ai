@@ -109,7 +109,7 @@ async function initAdmin() {
   const user = auth.currentUser;
 
   if (!user) {
-    window.location.href = '/auth.html';
+    window.location.href = '/auth.html?from=admin_no_user';
     return;
   }
 
@@ -126,7 +126,7 @@ async function initAdmin() {
   if (!isAdmin) isAdmin = user.email === ADMIN_EMAIL;
 
   if (!isAdmin) {
-    window.location.href = '/auth.html';
+    window.location.href = '/auth.html?from=admin_not_admin';
     return;
   }
 

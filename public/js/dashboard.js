@@ -72,13 +72,12 @@ function showToast(msg, type = 'success') {
 auth.authStateReady().then(() => {
   const user = auth.currentUser;
   if (!user) {
-    window.location.href = '/auth.html';
+    window.location.href = '/auth.html?from=dash_no_user';
     return;
   }
   currentUser = user;
   initDashboard();
-  // Listen for future signouts
-  onAuthStateChanged(auth, u => { if (!u) window.location.href = '/auth.html'; });
+  onAuthStateChanged(auth, u => { if (!u) window.location.href = '/auth.html?from=dash_signout'; });
 });
 
 async function initDashboard() {
@@ -96,7 +95,7 @@ async function initDashboard() {
     const ownerSnap = await getDoc(ownerRef);
 
     if (!ownerSnap.exists()) {
-      window.location.href = '/auth.html';
+      window.location.href = '/auth.html?from=dash_no_doc';
       return;
     }
 
