@@ -41,6 +41,9 @@
     <a data-nav="documents">
       <span class="nav-icon">📄</span> Documents
     </a>
+    <a data-nav="profile">
+      <span class="nav-icon">🏢</span> Business Profile
+    </a>
     <a data-nav="ai-settings">
       <span class="nav-icon">🎙️</span> AI Settings
     </a>
@@ -207,6 +210,81 @@
       </div>
 
     </div><!-- /documents -->
+
+
+    <!-- ════════════ SECTION: Business Profile ════════════ -->
+<div data-section="profile" class="hidden">
+
+  <div class="section-card">
+    <div class="section-card-header">
+      <h2>Business Profile</h2>
+    </div>
+    <p class="form-hint" style="margin:-8px 0 20px;">This information appears on all generated invoices, estimates, contracts, and receipts.</p>
+
+    <!-- Logo -->
+    <div class="profile-logo-wrap">
+      <div class="profile-logo-preview" id="profileLogoPreview">
+        <img id="profileLogoImg" src="" alt="Logo" style="display:none;max-width:200px;max-height:100px;object-fit:contain;" />
+        <div class="profile-logo-placeholder" id="profileLogoPlaceholder">🏢<br><span>No Logo</span></div>
+      </div>
+      <div class="profile-logo-controls">
+        <label class="btn-secondary profile-logo-upload-btn">
+          📷 Upload Logo
+          <input type="file" id="profileLogoFile" accept="image/*" style="display:none;" />
+        </label>
+        <button class="btn-action danger" id="removeLogoBtn">Remove</button>
+        <div class="form-hint">PNG or JPG. Max 2MB. Will be auto-resized.</div>
+      </div>
+    </div>
+
+    <!-- Fields -->
+    <div class="form-row" style="margin-top:20px;">
+      <div class="form-group">
+        <label>Company Name</label>
+        <input type="text" id="profCompanyName" placeholder="Your Business Name" />
+      </div>
+      <div class="form-group">
+        <label>Tagline <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+        <input type="text" id="profTagline" placeholder="Quality Service You Can Trust" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Business Address</label>
+      <input type="text" id="profAddress" placeholder="123 Main St, City, State 12345" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Business Phone</label>
+        <input type="tel" id="profPhone" placeholder="(555) 123-4567" />
+      </div>
+      <div class="form-group">
+        <label>Business Email</label>
+        <input type="email" id="profEmail" placeholder="contact@yourbusiness.com" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Website <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+        <input type="url" id="profWebsite" placeholder="https://yourbusiness.com" />
+      </div>
+      <div class="form-group">
+        <label>License # <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+        <input type="text" id="profLicense" placeholder="Contractor Lic. #12345" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Working Hours</label>
+      <textarea id="profHours" rows="3" placeholder="Mon–Fri 8am–5pm&#10;Sat 9am–2pm&#10;Sun Closed"></textarea>
+    </div>
+
+    <button class="btn-primary" id="saveProfileBtn">Save Business Profile</button>
+  </div>
+
+</div><!-- /profile -->
 
 
     <!-- ════════════ SECTION: AI Settings ════════════ -->
@@ -494,34 +572,87 @@
 
 <!-- ══════════════ MODAL: Generate Document ══════════════ -->
 <div class="modal-overlay hidden" id="generateDocModal">
-  <div class="modal-card">
+  <div class="modal-card modal-lg">
     <div class="modal-header">
       <h3 id="genDocModalTitle">Generate Invoice</h3>
       <button class="modal-close" data-close="generateDocModal">✕</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="genDocType" value="invoice" />
-      <div class="form-group">
-        <label for="genDocCustomer">Customer / Job Name *</label>
-        <input type="text" id="genDocCustomer" placeholder="John Smith" />
+
+      <!-- Business profile banner (auto-filled) -->
+      <div class="doc-biz-banner" id="docBizBanner">
+        <img class="doc-biz-logo" id="docBizLogoPreview" alt="" />
+        <div>
+          <div class="doc-biz-name" id="docBizNamePreview">—</div>
+          <div class="doc-biz-detail" id="docBizDetailPreview">—</div>
+        </div>
+        <a class="doc-biz-edit-link" data-nav="profile" style="margin-left:auto;font-size:0.75rem;color:var(--indigo);cursor:pointer;white-space:nowrap;">Edit Profile →</a>
       </div>
+
+      <!-- Customer / client info -->
       <div class="form-row">
         <div class="form-group">
-          <label for="genDocAmount">Amount ($) *</label>
-          <input type="number" id="genDocAmount" placeholder="250.00" step="0.01" min="0" />
+          <label>Customer / Client Name <span style="color:var(--red)">*</span></label>
+          <input type="text" id="genDocCustomer" placeholder="John Smith" />
         </div>
         <div class="form-group">
-          <label for="genDocDate">Date</label>
-          <input type="text" id="genDocDate" placeholder="e.g. November 4, 2026" />
+          <label>Customer Email</label>
+          <input type="email" id="genDocCustEmail" placeholder="john@email.com" />
         </div>
       </div>
-      <div class="form-group" id="genDocDescGroup">
-        <label for="genDocDesc">Description / Work Performed</label>
-        <textarea id="genDocDesc" placeholder="e.g. Plumbing repair — kitchen sink and garbage disposal replacement…"></textarea>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Customer Address</label>
+          <input type="text" id="genDocCustAddress" placeholder="456 Oak Ave, City, State" />
+        </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input type="text" id="genDocDate" />
+        </div>
       </div>
-      <!-- Contract-specific fields -->
+
+      <!-- Line items -->
+      <div class="form-group">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <label style="margin:0;">Items / Services <span style="color:var(--red)">*</span></label>
+          <button class="btn-add-item" id="addDocItemBtn" type="button">＋ Add Item</button>
+        </div>
+        <div class="doc-line-items" id="genDocItemsList"></div>
+
+        <!-- Totals row -->
+        <div class="doc-totals" id="genDocTotals">
+          <div class="doc-totals-row">
+            <span>Subtotal</span>
+            <span id="genDocSubtotal">$0.00</span>
+          </div>
+          <div class="doc-totals-row" id="genDocTaxRow" style="display:none;">
+            <span>Tax</span>
+            <span id="genDocTaxAmt">$0.00</span>
+          </div>
+          <div class="doc-totals-row total">
+            <span>Total</span>
+            <span id="genDocTotal">$0.00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tax rate -->
+      <div class="form-group" style="max-width:180px;">
+        <label>Tax Rate (%)</label>
+        <input type="number" id="genDocTaxRate" placeholder="0" min="0" max="100" step="0.5" value="0" />
+      </div>
+
+      <!-- Notes -->
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea id="genDocNotes" placeholder="Payment due within 30 days…"></textarea>
+      </div>
+
+      <!-- Contract terms -->
       <div class="form-group hidden" id="genDocTermsGroup">
-        <label for="genDocTerms">Contract Terms</label>
+        <label>Contract Terms</label>
         <textarea id="genDocTerms" placeholder="Enter contract terms and conditions…" style="min-height:100px;"></textarea>
       </div>
     </div>

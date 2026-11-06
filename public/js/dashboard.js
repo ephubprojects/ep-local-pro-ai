@@ -202,6 +202,7 @@ function showSection(name) {
     'orders':      'Orders',
     'menu':        'Menu',
     'documents':   'Documents',
+    'profile':     'Business Profile',
     'ai-settings': 'AI Settings',
     'team':        'Team',
     'account':     'Account'
@@ -213,6 +214,7 @@ function showSection(name) {
   if (name === 'orders')      { loadOrders('all'); }
   if (name === 'menu')        { loadMenu(); }
   if (name === 'documents')   { loadDocuments(); }
+  if (name === 'profile')     { loadProfile(); }
   if (name === 'ai-settings') { loadAiSettings(); }
   if (name === 'team')        { loadTeam(); }
   if (name === 'account')     { loadAccount(); }
@@ -689,73 +691,106 @@ async function loadDocuments() {
 function openGenerateDocModal(type) {
   const titles = { invoice: 'Generate Invoice', estimate: 'Generate Estimate', contract: 'Generate Contract', receipt: 'Generate Receipt' };
   qs('#genDocModalTitle').textContent = titles[type] || 'Generate Document';
-  qs('#genDocType').value  = type;
-  qs('#genDocCustomer').value = '';
-  qs('#genDocAmount').value   = '';
-  qs('#genDocDate').value     = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  qs('#genDocDesc').value     = '';
-  qs('#genDocTerms').value    = '';
+  qs('#genDocType').value = type;
 
-  // Show/hide contract terms
+  // Populate business profile banner
+  const biz = bizDoc || {};
+  const logoUrl = biz.logoUrl || '';
+  const logoEl = qs('#docBizLogoPreview');
+  if (logoUrl) { logoEl.src = logoUrl; logoEl.style.display = 'block'; }
+  else logoEl.style.display = 'none';
+  qs('#docBizNamePreview').textContent = biz.companyName || biz.name || '—';
+  const details = [biz.address, biz.phone, biz.email].filter(Boolean).join(' · ');
+  qs('#docBizDetailPreview').textContent = details || 'Complete your Business Profile to personalize documents.';
+
+  // Wire edit profile link inside modal
+  const editLink = qs('#docBizBanner [data-nav="profile"]');
+  if (editLink) {
+    editLink.onclick = () => {
+      qs('#generateDocModal').classList.add('hidden');
+      showSection('profile');
+    };
+  }
+
+  // Reset fields
+  qs('#genDocCustomer').value = '';
+  qs('#genDocCustEmail').value = '';
+  qs('#genDocCustAddress').value = '';
+  qs('#genDocDate').value = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  qs('#genDocTaxRate').value = '0';
+  qs('#genDocNotes').value = '';
+  qs('#genDocTerms').value = '';
   qs('#genDocTermsGroup').classList.toggle('hidden', type !== 'contract');
 
+  // Reset line items — start with 1 blank row
+  const list = qs('#genDocItemsList');
+  list.innerHTML = '';
+  addDocLineItem();
+
+  updateDocTotals();
   qs('#generateDocModal').classList.remove('hidden');
+
+  // Wire add item + tax rate change
+  qs('#addDocItemBtn').onclick = addDocLineItem;
+  qs('#genDocTaxRate').oninput = updateDocTotals;
   qs('#confirmGenDocBtn').onclick = () => generateDocument(type);
 }
 
 async function generateDocument(type) {
   const customer = qs('#genDocCustomer').value.trim();
-  const amount   = parseFloat(qs('#genDocAmount').value);
-  const date     = qs('#genDocDate').value.trim();
-  const desc     = qs('#genDocDesc').value.trim();
-  const terms    = qs('#genDocTerms').value.trim();
-
   if (!customer) { showToast('Customer name is required.', 'error'); return; }
-  if (isNaN(amount) || amount < 0) { showToast('Enter a valid amount.', 'error'); return; }
+
+  // Collect line items
+  const items = [];
+  document.querySelectorAll('#genDocItemsList .doc-line-item-row').forEach(row => {
+    const name  = row.querySelector('.dli-name').value.trim();
+    const qty   = parseFloat(row.querySelector('.dli-qty').value) || 1;
+    const price = parseFloat(row.querySelector('.dli-price').value) || 0;
+    const desc  = row.querySelector('.dli-desc').value.trim();
+    if (name) items.push({ name, qty, price, desc });
+  });
+  if (!items.length) { showToast('Add at least one item.', 'error'); return; }
+
+  const biz = bizDoc || {};
+  const taxRate = parseFloat(qs('#genDocTaxRate').value) || 0;
+
+  const payload = {
+    type,
+    bizName:    biz.companyName || biz.name || '',
+    bizAddress: biz.address  || '',
+    bizPhone:   biz.phone    || '',
+    bizEmail:   biz.email    || '',
+    bizLogo:    biz.logoUrl  || '',
+    customerName:    customer,
+    customerEmail:   qs('#genDocCustEmail').value.trim(),
+    customerAddress: qs('#genDocCustAddress').value.trim(),
+    items,
+    taxRate,
+    notes:         qs('#genDocNotes').value.trim(),
+    contractTerms: type === 'contract' ? qs('#genDocTerms').value.trim() : ''
+  };
 
   const btn = qs('#confirmGenDocBtn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Generating…';
 
-  const payload = {
-    businessId: bizId,
-    businessName: bizDoc.name || '',
-    type,
-    customerName: customer,
-    amount,
-    date,
-    description: desc,
-    terms: type === 'contract' ? terms : undefined
-  };
-
   try {
-    const fnMap = {
-      invoice:  '/.netlify/functions/invoice-generate',
-      estimate: '/.netlify/functions/invoice-generate',
-      contract: '/.netlify/functions/invoice-generate',
-      receipt:  '/.netlify/functions/invoice-generate'
-    };
-
-    const res  = await fetch(fnMap[type], {
+    const res = await fetch('/.netlify/functions/invoice-generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-
     const result = await res.json();
     if (!res.ok) throw new Error(result.error || 'Server error');
 
-    // Save to documents collection
+    // Store in Firestore
     await addDoc(collection(db, 'documents'), {
       businessId:   bizId,
       type,
       customerName: customer,
-      amount,
-      date,
-      description:  desc,
-      url:          result.url || null,
-      text:         result.text || null,
+      amount:       result.total || 0,
       status:       'generated',
+      htmlContent:  result.htmlContent || null,
       createdAt:    serverTimestamp()
     });
 
@@ -1282,6 +1317,169 @@ function appendWtIncoming(data) {
 
   // Open panel to show incoming message
   openPanel();
+}
+
+// ── Doc Line Item helpers ────────────────────────────────────
+function addDocLineItem(item = {}) {
+  const list = qs('#genDocItemsList');
+  if (!list) return;
+  const row = document.createElement('div');
+  row.className = 'doc-line-item-row';
+  row.innerHTML = `
+    <input class="dli-name"  type="text"   placeholder="Service / Item"  value="${escDocAttr(item.name  || '')}" />
+    <input class="dli-qty"   type="number" placeholder="Qty" value="${item.qty != null ? item.qty : 1}" min="0.01" step="any" style="width:60px;" />
+    <input class="dli-price" type="number" placeholder="Price" value="${item.price != null ? item.price : ''}" min="0" step="0.01" style="width:90px;" />
+    <input class="dli-desc"  type="text"   placeholder="Notes (optional)" value="${escDocAttr(item.desc || '')}" />
+    <button class="btn-remove-item" type="button" title="Remove">✕</button>`;
+  row.querySelector('.btn-remove-item').onclick = () => { row.remove(); updateDocTotals(); };
+  row.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateDocTotals));
+  list.appendChild(row);
+  updateDocTotals();
+}
+
+function updateDocTotals() {
+  let subtotal = 0;
+  document.querySelectorAll('#genDocItemsList .doc-line-item-row').forEach(row => {
+    const qty   = parseFloat(row.querySelector('.dli-qty').value)   || 0;
+    const price = parseFloat(row.querySelector('.dli-price').value) || 0;
+    subtotal += qty * price;
+  });
+  const taxRate = parseFloat(qs('#genDocTaxRate')?.value) || 0;
+  const tax   = subtotal * taxRate / 100;
+  const total = subtotal + tax;
+
+  const taxRow = qs('#genDocTaxRow');
+  if (taxRow) taxRow.style.display = taxRate > 0 ? '' : 'none';
+  const sub = qs('#genDocSubtotal'); if (sub) sub.textContent = '$' + subtotal.toFixed(2);
+  const taxEl = qs('#genDocTaxAmt');   if (taxEl) taxEl.textContent = '$' + tax.toFixed(2);
+  const tot = qs('#genDocTotal');     if (tot) tot.textContent = '$' + total.toFixed(2);
+}
+
+function escDocAttr(s) {
+  return String(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ── Business Profile ─────────────────────────────────────────
+async function loadProfile() {
+  if (!bizId) return;
+  try {
+    const snap = await getDoc(doc(db, 'businesses', bizId));
+    const data = snap.data() || {};
+
+    qs('#profCompanyName').value = data.companyName || data.name || '';
+    qs('#profTagline').value     = data.tagline  || '';
+    qs('#profAddress').value     = data.address  || '';
+    qs('#profPhone').value       = data.phone    || '';
+    qs('#profEmail').value       = data.email    || '';
+    qs('#profWebsite').value     = data.website  || '';
+    qs('#profLicense').value     = data.licenseNum || '';
+    qs('#profHours').value       = data.hours    || '';
+
+    // Logo preview
+    if (data.logoUrl) {
+      qs('#profileLogoImg').src = data.logoUrl;
+      qs('#profileLogoImg').style.display = 'block';
+      qs('#profileLogoPlaceholder').style.display = 'none';
+    } else {
+      qs('#profileLogoImg').style.display = 'none';
+      qs('#profileLogoPlaceholder').style.display = 'flex';
+    }
+  } catch (err) {
+    console.error('loadProfile error:', err);
+    showToast('Failed to load profile.', 'error');
+  }
+
+  // Wire save button
+  qs('#saveProfileBtn').onclick = saveProfile;
+
+  // Wire logo file input
+  qs('#profileLogoFile').onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { showToast('Image must be under 2MB.', 'error'); return; }
+    try {
+      const dataUrl = await resizeLogo(file, 300, 120);
+      qs('#profileLogoImg').src = dataUrl;
+      qs('#profileLogoImg').style.display = 'block';
+      qs('#profileLogoPlaceholder').style.display = 'none';
+      // Auto-save logo immediately
+      await updateDoc(doc(db, 'businesses', bizId), { logoUrl: dataUrl });
+      if (bizDoc) bizDoc.logoUrl = dataUrl;
+      showToast('Logo saved!');
+    } catch (err) {
+      console.error('logo upload error:', err);
+      showToast('Failed to save logo.', 'error');
+    }
+  };
+
+  // Remove logo button
+  qs('#removeLogoBtn').onclick = async () => {
+    if (!confirm('Remove your logo?')) return;
+    try {
+      await updateDoc(doc(db, 'businesses', bizId), { logoUrl: '' });
+      if (bizDoc) bizDoc.logoUrl = '';
+      qs('#profileLogoImg').src = '';
+      qs('#profileLogoImg').style.display = 'none';
+      qs('#profileLogoPlaceholder').style.display = 'flex';
+      qs('#profileLogoFile').value = '';
+      showToast('Logo removed.');
+    } catch (err) {
+      showToast('Failed to remove logo.', 'error');
+    }
+  };
+}
+
+async function saveProfile() {
+  if (!bizId) return;
+  const btn = qs('#saveProfileBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Saving…';
+
+  try {
+    const updates = {
+      companyName: qs('#profCompanyName').value.trim(),
+      tagline:     qs('#profTagline').value.trim(),
+      address:     qs('#profAddress').value.trim(),
+      phone:       qs('#profPhone').value.trim(),
+      email:       qs('#profEmail').value.trim(),
+      website:     qs('#profWebsite').value.trim(),
+      licenseNum:  qs('#profLicense').value.trim(),
+      hours:       qs('#profHours').value.trim()
+    };
+    await updateDoc(doc(db, 'businesses', bizId), updates);
+    // Keep local bizDoc in sync for doc generation
+    Object.assign(bizDoc, updates);
+    showToast('Business profile saved!');
+  } catch (err) {
+    console.error('saveProfile error:', err);
+    showToast('Failed to save profile.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Business Profile';
+  }
+}
+
+function resizeLogo(file, maxW, maxH) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        const ratio = Math.min(maxW / w, maxH / h, 1);
+        w = Math.round(w * ratio);
+        h = Math.round(h * ratio);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/png', 0.85));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 async function playWtAudio(msgId, text, empCode) {
