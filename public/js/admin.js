@@ -197,7 +197,7 @@ async function onAdminReady(user) {
   const settingEmail = document.getElementById('settingEmail');
   if (settingEmail) settingEmail.value = email;
 
-  // Load admin profile fields
+  // Load admin profile fields + populate My Links
   try {
     const ownerSnap = await getDoc(doc(db, 'owners', user.uid));
     if (ownerSnap.exists()) {
@@ -205,9 +205,40 @@ async function onAdminReady(user) {
       const sfn = document.getElementById('settingFirstName');
       const sln = document.getElementById('settingLastName');
       const sph = document.getElementById('settingPhone');
+      const sun = document.getElementById('settingUsername');
       if (sfn) sfn.value = od.firstName || '';
       if (sln) sln.value = od.lastName  || '';
       if (sph) sph.value = od.phone     || '';
+      if (sun) sun.value = od.username  || '';
+
+      const username = od.username || '';
+      if (username) {
+        const refUrl  = `https://eplocalproai.com/auth.html?ref=${username}`;
+        const refDisp = document.getElementById('adminRefLinkDisplay');
+        const refBtn  = document.getElementById('adminCopyRefBtn');
+        if (refDisp) refDisp.textContent = refUrl;
+        if (refBtn)  refBtn.onclick = () => copyToClipboard(refUrl, refBtn);
+
+        // Look up demo link: first demo where referrerUsername matches
+        try {
+          const demoQ = query(
+            collection(db, 'demos'),
+            where('referrerUsername', '==', username),
+            limit(1)
+          );
+          const demoSnap = await getDocs(demoQ);
+          const demoDisp = document.getElementById('adminDemoLinkDisplay');
+          const demoBtn  = document.getElementById('adminCopyDemoBtn');
+          if (!demoSnap.empty) {
+            const slug = demoSnap.docs[0].data().slug || '';
+            const demoUrl = `https://eplocalproai.com/demo/${slug}?ref=${username}`;
+            if (demoDisp) demoDisp.textContent = demoUrl;
+            if (demoBtn)  demoBtn.onclick = () => copyToClipboard(demoUrl, demoBtn);
+          } else {
+            if (demoDisp) demoDisp.textContent = 'No demo assigned yet';
+          }
+        } catch (_) {}
+      }
     }
   } catch (_) {}
 
@@ -1149,6 +1180,14 @@ async function deleteCustomCategory(docId) {
 // ============================================================
 // PROFILE
 // ============================================================
+function copyToClipboard(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = orig; }, 2000);
+  });
+}
+
 async function saveProfile() {
   const firstName = document.getElementById('settingFirstName')?.value.trim() || '';
   const lastName  = document.getElementById('settingLastName')?.value.trim()  || '';

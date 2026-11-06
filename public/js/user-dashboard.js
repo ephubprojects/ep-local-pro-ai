@@ -286,6 +286,35 @@ async function loadAccount() {
 
   qs('#saveAccountBtn').onclick = saveAccount;
 
+  // Populate My Links
+  const username = ownerDoc.username || '';
+  const refDisp  = qs('#accRefLinkDisplay');
+  const refBtn   = qs('#accCopyRefBtn');
+  const demoDisp = qs('#accDemoLinkDisplay');
+  const demoBtn  = qs('#accCopyDemoBtn');
+
+  if (username) {
+    const refUrl = `https://eplocalproai.com/auth.html?ref=${username}`;
+    if (refDisp) refDisp.textContent = refUrl;
+    if (refBtn)  refBtn.onclick = () => copyText(refUrl, '#accCopyRefBtn', 'Copied!', 'Copy');
+
+    try {
+      const demoQ    = query(collection(db, 'demos'), where('referrerUsername', '==', username), limit(1));
+      const demoSnap = await getDocs(demoQ);
+      if (!demoSnap.empty) {
+        const slug    = demoSnap.docs[0].data().slug || '';
+        const demoUrl = `https://eplocalproai.com/demo/${slug}?ref=${username}`;
+        if (demoDisp) demoDisp.textContent = demoUrl;
+        if (demoBtn)  demoBtn.onclick = () => copyText(demoUrl, '#accCopyDemoBtn', 'Copied!', 'Copy');
+      } else {
+        if (demoDisp) demoDisp.textContent = 'No demo assigned yet';
+      }
+    } catch (_) {}
+  } else {
+    if (refDisp)  refDisp.textContent  = 'Set a username to get your links';
+    if (demoDisp) demoDisp.textContent = 'Set a username to get your links';
+  }
+
   // Load sponsor details
   await loadSponsorCard();
 
