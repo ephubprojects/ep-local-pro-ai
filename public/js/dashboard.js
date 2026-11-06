@@ -66,17 +66,17 @@ function showToast(msg, type = 'success') {
 }
 
 // ── Auth Gate + Init ─────────────────────────────────────────
-// auth.authStateReady() waits until Firebase has fully restored the session
-// from storage before we make any redirect decision. Without this, the first
-// onAuthStateChanged fire can be null while the session is still loading.
-auth.authStateReady().then(() => {
-  const user = auth.currentUser;
+// One-shot pattern: unsubscribe immediately after first fire so we only
+// act on the initial auth state, not every future change.
+const _authUnsub = onAuthStateChanged(auth, async (user) => {
+  _authUnsub();
   if (!user) {
     window.location.href = '/auth.html?from=dash_no_user';
     return;
   }
   currentUser = user;
-  initDashboard();
+  await initDashboard();
+  // Re-subscribe only to catch future signouts
   onAuthStateChanged(auth, u => { if (!u) window.location.href = '/auth.html?from=dash_signout'; });
 });
 

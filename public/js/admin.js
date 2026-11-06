@@ -103,10 +103,10 @@ function catHTML(categoryId) {
 const ADMIN_EMAIL = 'ezperfilsystem@gmail.com';
 
 async function initAdmin() {
-  // Wait until Firebase has fully restored the session before deciding to redirect.
-  // onAuthStateChanged can fire with null while session is still loading from storage.
-  await auth.authStateReady();
-  const user = auth.currentUser;
+  // One-shot: resolve on first onAuthStateChanged fire, then unsubscribe.
+  const user = await new Promise(resolve => {
+    const unsub = onAuthStateChanged(auth, u => { unsub(); resolve(u); });
+  });
 
   if (!user) {
     window.location.href = '/auth.html?from=admin_no_user';
