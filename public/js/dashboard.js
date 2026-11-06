@@ -152,8 +152,19 @@ async function initDashboard() {
 
   } catch (err) {
     console.error('initDashboard error:', err);
-    showToast('Failed to load dashboard.', 'error');
+    const isPermission = err.code === 'permission-denied';
+    showToast(
+      isPermission
+        ? 'Database rules not yet published. Please contact support.'
+        : 'Failed to load dashboard.',
+      'error'
+    );
+    // Show user email so sidebar doesn't stay on "Loading…"
+    const nameEl = qs('#sidebarBizName');
+    if (nameEl) nameEl.textContent = currentUser.email || 'Account';
     hideLoading();
+    showSection('dashboard');
+    wireNavAndModals();
   }
 }
 
