@@ -592,7 +592,7 @@
         try {
           const ownerRef = doc(db, 'owners', uid);
           const ownerSnap = await getDoc(ownerRef);
-          if (ownerSnap.exists() && ownerSnap.data().role === 'admin') {
+          if (ownerSnap.exists() && ownerSnap.data().role?.toLowerCase() === 'admin') {
             window.location.href = '/admin.html';
             return;
           }
