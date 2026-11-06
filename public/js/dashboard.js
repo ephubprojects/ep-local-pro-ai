@@ -236,8 +236,16 @@ function closeSidebar() {
 }
 
 // ── Stats ────────────────────────────────────────────────────
+function zeroStats() {
+  ['#statToday','#statWeek','#statMonth'].forEach(s => { const el = qs(s); if (el) el.textContent = '0'; });
+  const r = qs('#statRevenue'); if (r) r.textContent = '$0.00';
+  ['#statTodayTrend','#statWeekTrend','#statMonthTrend','#statRevenueTrend'].forEach(s => {
+    const el = qs(s); if (el) el.textContent = '—';
+  });
+}
+
 async function loadStats() {
-  if (!bizId) return;
+  if (!bizId) { zeroStats(); return; }
 
   try {
     const ordersRef = collection(db, 'orders');
@@ -280,8 +288,11 @@ async function loadStats() {
 
 // ── Recent Orders (Dashboard) ────────────────────────────────
 async function loadRecentOrders() {
-  if (!bizId) return;
   const container = qs('#recentOrdersList');
+  if (!bizId) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📦</div><p>No orders yet. Orders placed through your AI page will appear here.</p></div>';
+    return;
+  }
   container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📦</div><p>Loading…</p></div>';
 
   try {
