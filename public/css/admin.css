@@ -832,6 +832,85 @@
   margin-bottom: 20px;
 }
 
+/* ── Category Type Badges ─────────────────────────────────── */
+.cat-type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+
+.cat-type-badge.builtin {
+  background: var(--slate-100, #f1f5f9);
+  color: var(--slate-600, #475569);
+}
+
+.cat-type-badge.custom {
+  background: var(--indigo-100, #e0e7ff);
+  color: var(--indigo-700, #3730a3);
+}
+
+/* ── Checkbox Pill Row ────────────────────────────────────── */
+.cb-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 4px;
+}
+
+.cb-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--slate-700, #334155);
+  background: #fff;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+  user-select: none;
+  margin-bottom: 0 !important;
+}
+
+.cb-item:hover {
+  border-color: var(--indigo, #4f46e5);
+  background: var(--indigo-50, #eef2ff);
+  color: var(--indigo-700, #3730a3);
+}
+
+.cb-item input[type="checkbox"] {
+  accent-color: var(--indigo, #4f46e5);
+  width: auto;
+}
+
+/* Color picker input */
+input[type="color"]#catColorPicker {
+  width: 40px;
+  height: 36px;
+  padding: 2px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 6px;
+  cursor: pointer;
+  background: none;
+  flex-shrink: 0;
+}
+
+/* ── Category Card Actions ────────────────────────────────── */
+.category-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border, #e2e8f0);
+}
+
 /* ── Invite Link Panel ────────────────────────────────────── */
 .invite-link-box {
   display: flex;

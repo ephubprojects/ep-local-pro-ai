@@ -9,7 +9,7 @@ import {
   signOut
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
-  collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
+  collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, onSnapshot, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
@@ -34,6 +34,7 @@ const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
 let currentUser = null;
 let demosPendingDeleteId = null;
 let allDemos = [];
+let customCategories = [];
 
 // ── Slug helper ─────────────────────────────────────────────
 function toSlug(name) {
@@ -90,9 +91,14 @@ function badgeHTML(status) {
   return `<span class="badge ${cls}">${status}</span>`;
 }
 
+// ── All categories (built-in + custom) ───────────────────────
+function getAllCategories() {
+  return [...CATEGORIES, ...customCategories];
+}
+
 // ── Category badge HTML ───────────────────────────────────────
 function catHTML(categoryId) {
-  const cat = CAT_MAP[categoryId];
+  const cat = CAT_MAP[categoryId] || customCategories.find(c => c.id === categoryId);
   if (!cat) return categoryId || '—';
   return `${cat.emoji} ${cat.name}`;
 }
@@ -167,10 +173,11 @@ function onAdminReady(user) {
       const name = link.dataset.nav;
       showSection(name);
       closeSidebar();
-      if (name === 'demos')         loadDemos();
-      if (name === 'businesses')    loadBusinesses();
-      if (name === 'users')         loadUsers();
-      if (name === 'localBusiness') loadLocalBiz();
+      if (name === 'demos')          loadDemos();
+      if (name === 'businesses')     loadBusinesses();
+      if (name === 'users')          loadUsers();
+      if (name === 'localBusiness')  loadLocalBiz();
+      if (name === 'categories')     renderCategoriesSection();
     });
   });
 
@@ -221,6 +228,25 @@ function onAdminReady(user) {
   // Save demo button
   document.getElementById('saveDemoBtn')?.addEventListener('click', saveDemoModal);
 
+  // Add category button
+  document.getElementById('addCategoryBtn')?.addEventListener('click', openAddCategoryModal);
+
+  // Save category button
+  document.getElementById('saveCatBtn')?.addEventListener('click', saveCategoryModal);
+
+  // Color picker ↔ hex input sync
+  document.getElementById('catColorPicker')?.addEventListener('input', e => {
+    const hex = document.getElementById('catColorHex');
+    if (hex) hex.value = e.target.value;
+  });
+  document.getElementById('catColorHex')?.addEventListener('input', e => {
+    const val = e.target.value;
+    if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+      const picker = document.getElementById('catColorPicker');
+      if (picker) picker.value = val;
+    }
+  });
+
   // Settings save
   document.getElementById('saveSettingsBtn')?.addEventListener('click', saveSettings);
 
@@ -256,11 +282,13 @@ function onAdminReady(user) {
 function showSection(name) {
   // Update page title
   const titles = {
-    dashboard:  'Dashboard',
-    demos:      'Demo Management',
-    businesses: 'Business Accounts',
-    categories: 'Categories',
-    settings:   'Settings'
+    dashboard:     'Dashboard',
+    demos:         'Demo Management',
+    businesses:    'Business Accounts',
+    users:         'Registered Users',
+    localBusiness: 'Local Business Accounts',
+    categories:    'Categories',
+    settings:      'Settings'
   };
   const titleEl = document.getElementById('pageTitle');
   if (titleEl) titleEl.textContent = titles[name] || name;
@@ -469,7 +497,7 @@ function populateCategorySelect() {
   const select = document.getElementById('dmCategory');
   if (!select) return;
   select.innerHTML = '<option value="">Select category…</option>' +
-    CATEGORIES.map(c => `<option value="${c.id}">${c.emoji} ${c.name}</option>`).join('');
+    getAllCategories().map(c => `<option value="${c.id}">${c.emoji} ${c.name}</option>`).join('');
 }
 
 function openCreateDemoModal() {
@@ -882,65 +910,171 @@ async function suspendBiz(bizId, name) {
 // ============================================================
 // CATEGORIES SECTION
 // ============================================================
-function renderCategoriesSection() {
+const BUILTIN_COLORS = {
+  coffee_shop: '#6f4e37', restaurant: '#dc2626', plumber: '#2563eb',
+  electrician: '#d97706', salon: '#db2777',      roofer:  '#7c3aed',
+  painter:     '#059669', carpenter: '#92400e',  retail:  '#0891b2',
+  florist:     '#be185d'
+};
+const BUILTIN_ORDER_TYPES = {
+  coffee_shop: ['pickup','delivery','dine-in'], restaurant: ['dine-in','pickup','delivery'],
+  plumber: ['appointment','estimate'],          electrician: ['appointment','estimate'],
+  salon: ['appointment'],                       roofer: ['appointment','estimate'],
+  painter: ['appointment','estimate'],          carpenter: ['appointment','estimate'],
+  retail: ['pickup','delivery'],                florist: ['pickup','delivery']
+};
+const BUILTIN_DOC_TYPES = {
+  coffee_shop: ['invoice','receipt'],           restaurant: ['invoice','receipt'],
+  plumber: ['estimate','invoice','contract','receipt'],
+  electrician: ['estimate','invoice','contract','receipt'],
+  salon: ['invoice','receipt'],
+  roofer: ['estimate','invoice','contract','receipt'],
+  painter: ['estimate','invoice','contract','receipt'],
+  carpenter: ['estimate','invoice','contract','receipt'],
+  retail: ['invoice','receipt'],                florist: ['invoice','receipt']
+};
+
+async function loadCustomCategories() {
+  try {
+    const snap = await getDocs(collection(db, 'categories'));
+    customCategories = snap.docs.map(d => ({ ...d.data(), _docId: d.id }));
+  } catch (err) {
+    console.warn('loadCustomCategories error:', err);
+  }
+}
+
+async function renderCategoriesSection() {
   const grid = document.getElementById('categoryGrid');
   if (!grid) return;
 
-  // Category colors from categories.json (hardcoded here to match)
-  const colors = {
-    coffee_shop: '#6f4e37',
-    restaurant:  '#dc2626',
-    plumber:     '#2563eb',
-    electrician: '#d97706',
-    salon:       '#db2777',
-    roofer:      '#7c3aed',
-    painter:     '#059669',
-    carpenter:   '#92400e',
-    retail:      '#0891b2',
-    florist:     '#be185d'
-  };
+  grid.innerHTML = `<div class="empty-state"><p style="padding:20px 0;">Loading…</p></div>`;
+  await loadCustomCategories();
+  populateCategorySelect();
 
-  const orderTypes = {
-    coffee_shop: ['pickup', 'delivery', 'dine-in'],
-    restaurant:  ['dine-in', 'pickup', 'delivery'],
-    plumber:     ['appointment', 'estimate'],
-    electrician: ['appointment', 'estimate'],
-    salon:       ['appointment'],
-    roofer:      ['appointment', 'estimate'],
-    painter:     ['appointment', 'estimate'],
-    carpenter:   ['appointment', 'estimate'],
-    retail:      ['pickup', 'delivery'],
-    florist:     ['pickup', 'delivery']
-  };
+  const countsEl = document.getElementById('catCounts');
+  if (countsEl) countsEl.textContent = `${CATEGORIES.length} built-in · ${customCategories.length} custom`;
 
-  const docTypes = {
-    coffee_shop: ['invoice', 'receipt'],
-    restaurant:  ['invoice', 'receipt'],
-    plumber:     ['estimate', 'invoice', 'contract', 'receipt'],
-    electrician: ['estimate', 'invoice', 'contract', 'receipt'],
-    salon:       ['invoice', 'receipt'],
-    roofer:      ['estimate', 'invoice', 'contract', 'receipt'],
-    painter:     ['estimate', 'invoice', 'contract', 'receipt'],
-    carpenter:   ['estimate', 'invoice', 'contract', 'receipt'],
-    retail:      ['invoice', 'receipt'],
-    florist:     ['invoice', 'receipt']
-  };
-
-  grid.innerHTML = CATEGORIES.map(c => `
-    <div class="category-card">
+  const builtInHTML = CATEGORIES.map(c => `
+    <div class="category-card" style="border-top:3px solid ${BUILTIN_COLORS[c.id] || '#888'};">
       <div class="category-card-top">
         <span class="category-emoji">${c.emoji}</span>
         <div>
           <div class="category-name">${escHTML(c.name)}</div>
-          <span class="category-color-dot" style="background:${colors[c.id] || '#888'};"></span>
+          <span class="cat-type-badge builtin">Built-in</span>
         </div>
       </div>
       <div class="category-meta">
-        <strong>Orders:</strong> ${(orderTypes[c.id] || []).join(', ')}<br/>
-        <strong>Docs:</strong> ${(docTypes[c.id] || []).join(', ')}
+        <strong>Orders:</strong> ${(BUILTIN_ORDER_TYPES[c.id] || []).join(', ')}<br/>
+        <strong>Docs:</strong> ${(BUILTIN_DOC_TYPES[c.id] || []).join(', ')}
       </div>
-    </div>
-  `).join('');
+    </div>`).join('');
+
+  const customHTML = customCategories.map(c => `
+    <div class="category-card" style="border-top:3px solid ${escHTML(c.color || '#4f46e5')};">
+      <div class="category-card-top">
+        <span class="category-emoji">${escHTML(c.emoji || '📌')}</span>
+        <div>
+          <div class="category-name">${escHTML(c.name)}</div>
+          <span class="cat-type-badge custom">Custom</span>
+        </div>
+      </div>
+      <div class="category-meta">
+        <strong>Orders:</strong> ${escHTML((c.orderTypes || []).join(', ') || '—')}<br/>
+        <strong>Docs:</strong> ${escHTML((c.docTypes || []).join(', ') || '—')}
+      </div>
+      <div class="category-card-actions">
+        <button class="btn-action" onclick="window._adminEditCat('${escAttr(c._docId)}')">Edit</button>
+        <button class="btn-action danger" onclick="window._adminDeleteCat('${escAttr(c._docId)}')">Delete</button>
+      </div>
+    </div>`).join('');
+
+  grid.innerHTML = builtInHTML + customHTML || `<div class="empty-state"><div class="empty-state-icon">📂</div><p>No categories yet.</p></div>`;
+}
+
+// ── Add / Edit category modal ─────────────────────────────────
+function openAddCategoryModal() {
+  document.getElementById('catModalTitle').textContent = 'Add Category';
+  document.getElementById('catModalDocId').value = '';
+  document.getElementById('catName').value = '';
+  document.getElementById('catEmoji').value = '';
+  document.getElementById('catColorPicker').value = '#4f46e5';
+  document.getElementById('catColorHex').value = '#4f46e5';
+  document.querySelectorAll('input[name="catOrderTypes"]').forEach(cb => { cb.checked = false; });
+  document.querySelectorAll('input[name="catDocTypes"]').forEach(cb => { cb.checked = false; });
+  openModal('categoryModal');
+}
+
+function openEditCategoryModal(docId) {
+  const cat = customCategories.find(c => c._docId === docId);
+  if (!cat) { showToast('Category not found', 'error'); return; }
+
+  document.getElementById('catModalTitle').textContent = 'Edit Category';
+  document.getElementById('catModalDocId').value = docId;
+  document.getElementById('catName').value = cat.name || '';
+  document.getElementById('catEmoji').value = cat.emoji || '';
+  const color = cat.color || '#4f46e5';
+  document.getElementById('catColorPicker').value = color;
+  document.getElementById('catColorHex').value = color;
+  document.querySelectorAll('input[name="catOrderTypes"]').forEach(cb => {
+    cb.checked = (cat.orderTypes || []).includes(cb.value);
+  });
+  document.querySelectorAll('input[name="catDocTypes"]').forEach(cb => {
+    cb.checked = (cat.docTypes || []).includes(cb.value);
+  });
+  openModal('categoryModal');
+}
+
+async function saveCategoryModal() {
+  const name = document.getElementById('catName')?.value.trim();
+  if (!name) { showToast('Category name is required', 'error'); return; }
+  const emoji = document.getElementById('catEmoji')?.value.trim();
+  if (!emoji) { showToast('Emoji is required', 'error'); return; }
+  const color = document.getElementById('catColorHex')?.value.trim() || '#4f46e5';
+  const orderTypes = Array.from(document.querySelectorAll('input[name="catOrderTypes"]:checked')).map(cb => cb.value);
+  const docTypes   = Array.from(document.querySelectorAll('input[name="catDocTypes"]:checked')).map(cb => cb.value);
+
+  const existingDocId = document.getElementById('catModalDocId')?.value;
+  const catId = existingDocId || toSlug(name);
+
+  if (!existingDocId && CATEGORIES.find(c => c.id === catId)) {
+    showToast('A built-in category with this name already exists', 'error');
+    return;
+  }
+
+  const payload = { id: catId, name, emoji, color, orderTypes, docTypes, isCustom: true };
+
+  const saveBtn = document.getElementById('saveCatBtn');
+  if (saveBtn) { saveBtn.textContent = 'Saving…'; saveBtn.disabled = true; }
+
+  try {
+    if (existingDocId) {
+      await updateDoc(doc(db, 'categories', existingDocId), payload);
+      showToast('Category updated', 'success');
+    } else {
+      await setDoc(doc(db, 'categories', catId), { ...payload, createdAt: serverTimestamp() });
+      showToast('Category added', 'success');
+    }
+    closeModal('categoryModal');
+    renderCategoriesSection();
+  } catch (err) {
+    console.error('saveCategoryModal error:', err);
+    showToast('Error saving category: ' + (err.message || err), 'error');
+  } finally {
+    if (saveBtn) { saveBtn.textContent = 'Save Category'; saveBtn.disabled = false; }
+  }
+}
+
+async function deleteCustomCategory(docId) {
+  const cat = customCategories.find(c => c._docId === docId);
+  if (!confirm(`Delete category "${cat?.name || docId}"? This cannot be undone.`)) return;
+  try {
+    await deleteDoc(doc(db, 'categories', docId));
+    showToast('Category deleted', 'success');
+    renderCategoriesSection();
+  } catch (err) {
+    console.error('deleteCustomCategory error:', err);
+    showToast('Error deleting category', 'error');
+  }
 }
 
 // ============================================================
@@ -985,14 +1119,16 @@ function escAttr(str) {
 // ============================================================
 // GLOBAL BINDINGS (called from inline onclick in table rows)
 // ============================================================
-window._adminEditDemo      = id => openEditDemoModal(id);
-window._adminDeleteDemo    = id => deleteDemoConfirm(id);
-window._adminConvertDemo   = id => convertDemoToAccount(id);
+window._adminEditDemo        = id => openEditDemoModal(id);
+window._adminDeleteDemo      = id => deleteDemoConfirm(id);
+window._adminConvertDemo     = id => convertDemoToAccount(id);
 window._adminToggleBizDetail = id => toggleBizDetail(id);
-window._adminViewBiz       = id => viewBiz(id);
-window._adminSuspendBiz    = (id, name) => suspendBiz(id, name);
-window.filterUsers         = filterUsers;
-window.filterLocalBiz      = filterLocalBiz;
+window._adminViewBiz         = id => viewBiz(id);
+window._adminSuspendBiz      = (id, name) => suspendBiz(id, name);
+window._adminEditCat         = id => openEditCategoryModal(id);
+window._adminDeleteCat       = id => deleteCustomCategory(id);
+window.filterUsers           = filterUsers;
+window.filterLocalBiz        = filterLocalBiz;
 
 // ── Boot ─────────────────────────────────────────────────────
 initAdmin();

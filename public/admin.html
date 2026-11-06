@@ -281,8 +281,15 @@
     <!-- ════════════ SECTION: Categories ════════════ -->
     <div data-section="categories" class="hidden">
 
-      <div class="category-info-msg">
-        ℹ️ Categories are configured in <code>data/categories.json</code>. This view is read-only.
+      <div class="section-card" style="margin-bottom:20px;">
+        <div class="section-card-header">
+          <div>
+            <h2 style="margin:0 0 4px;">Business Categories</h2>
+            <p style="margin:0;font-size:0.8rem;color:#64748b;">Built-in categories cannot be modified. Add custom categories to extend the platform.</p>
+          </div>
+          <button class="btn-create-demo" id="addCategoryBtn">＋ Add Category</button>
+        </div>
+        <div class="cat-counts" id="catCounts" style="font-size:0.8rem;color:#64748b;margin-top:-8px;"></div>
       </div>
 
       <div class="category-grid" id="categoryGrid">
@@ -432,6 +439,65 @@
     <div class="modal-footer">
       <button class="btn-secondary" data-close="confirmModal">Cancel</button>
       <button class="btn-action danger" id="confirmDeleteBtn" style="padding:7px 16px;font-size:0.875rem;">Delete</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════ MODAL: Add / Edit Category ══════════════ -->
+<div class="modal-overlay hidden" id="categoryModal">
+  <div class="modal-card modal-sm">
+    <div class="modal-header">
+      <h3 id="catModalTitle">Add Category</h3>
+      <button class="modal-close" data-close="categoryModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="catModalDocId" />
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Category Name <span style="color:var(--red)">*</span></label>
+          <input type="text" id="catName" placeholder="e.g. Landscaping" />
+        </div>
+        <div class="form-group">
+          <label>Emoji <span style="color:var(--red)">*</span></label>
+          <input type="text" id="catEmoji" placeholder="🌿" maxlength="4" style="font-size:1.3rem;text-align:center;" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Color</label>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <input type="color" id="catColorPicker" value="#4f46e5" />
+          <input type="text" id="catColorHex" placeholder="#4f46e5" maxlength="7" style="width:110px;" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Order Types</label>
+        <div class="cb-row">
+          <label class="cb-item"><input type="checkbox" name="catOrderTypes" value="pickup" /> Pickup</label>
+          <label class="cb-item"><input type="checkbox" name="catOrderTypes" value="delivery" /> Delivery</label>
+          <label class="cb-item"><input type="checkbox" name="catOrderTypes" value="dine-in" /> Dine-in</label>
+          <label class="cb-item"><input type="checkbox" name="catOrderTypes" value="appointment" /> Appointment</label>
+          <label class="cb-item"><input type="checkbox" name="catOrderTypes" value="estimate" /> Estimate</label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Document Types</label>
+        <div class="cb-row">
+          <label class="cb-item"><input type="checkbox" name="catDocTypes" value="invoice" /> Invoice</label>
+          <label class="cb-item"><input type="checkbox" name="catDocTypes" value="receipt" /> Receipt</label>
+          <label class="cb-item"><input type="checkbox" name="catDocTypes" value="estimate" /> Estimate</label>
+          <label class="cb-item"><input type="checkbox" name="catDocTypes" value="contract" /> Contract</label>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" data-close="categoryModal">Cancel</button>
+      <button class="btn-create-demo" id="saveCatBtn">Save Category</button>
     </div>
   </div>
 </div>
