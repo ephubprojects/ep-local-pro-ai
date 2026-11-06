@@ -101,9 +101,13 @@ async function initDashboard() {
 
     ownerDoc = ownerSnap.data();
 
-    // Redirect admins to admin panel
+    // Redirect admins and personal accounts
     if (ownerDoc.role?.toLowerCase() === 'admin') {
       window.location.href = '/admin.html';
+      return;
+    }
+    if (ownerDoc.acctType === 'personal') {
+      window.location.href = '/user-dashboard.html';
       return;
     }
 
@@ -148,6 +152,9 @@ async function initDashboard() {
       if (bizSlug) window.open(`https://eplocalproai.com/${bizSlug}`, '_blank');
       else showToast('No slug set for your business.', 'error');
     };
+
+    // Walkie Talkie FAB — only when bizId available
+    if (bizId) initWalkieTalkie();
 
     hideLoading();
 
@@ -196,6 +203,7 @@ function showSection(name) {
     'menu':        'Menu',
     'documents':   'Documents',
     'ai-settings': 'AI Settings',
+    'team':        'Team',
     'account':     'Account'
   };
   qs('#pageTitle').textContent = titles[name] || 'Dashboard';
@@ -206,6 +214,7 @@ function showSection(name) {
   if (name === 'menu')        { loadMenu(); }
   if (name === 'documents')   { loadDocuments(); }
   if (name === 'ai-settings') { loadAiSettings(); }
+  if (name === 'team')        { loadTeam(); }
   if (name === 'account')     { loadAccount(); }
 }
 
@@ -916,5 +925,384 @@ async function signOutUser() {
   } catch (err) {
     console.error('signOut error:', err);
     showToast('Sign out failed.', 'error');
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  TEAM MANAGEMENT
+// ════════════════════════════════════════════════════════════
+
+function genEmpCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
+async function loadTeam() {
+  if (!bizId) return;
+
+  const tbody = qs('#empTableBody');
+  tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><p>Loading…</p></div></td></tr>`;
+
+  // Wire add button
+  qs('#addEmpBtn').onclick = addEmployee;
+
+  try {
+    const q = query(
+      collection(db, 'employees'),
+      where('bizId', '==', bizId)
+    );
+    const snap = await getDocs(q);
+
+    qs('#empCount').textContent = `${snap.size} member${snap.size !== 1 ? 's' : ''}`;
+
+    if (snap.empty) {
+      tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">👷</div><p>No team members yet. Add your first employee above.</p></div></td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = '';
+    snap.forEach(d => {
+      const emp = d.data();
+      const wtLink = `https://eplocalproai.com/wt?b=${bizId}&e=${emp.code}`;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="font-weight:600;">${emp.name || '—'}</td>
+        <td>${emp.role || '—'}</td>
+        <td><span class="emp-code-badge">${emp.code}</span></td>
+        <td class="emp-link-cell">
+          <span style="font-size:0.75rem;color:var(--indigo);font-family:monospace;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${wtLink}</span>
+          <button class="btn-action" data-link="${wtLink}">Copy</button>
+        </td>
+        <td>
+          <button class="btn-action danger" data-empid="${d.id}" style="color:var(--red,#ef4444);border-color:#fca5a5;">Delete</button>
+        </td>`;
+
+      tr.querySelector('[data-link]').onclick = function() {
+        navigator.clipboard.writeText(this.dataset.link).then(() => {
+          this.textContent = '✓ Copied';
+          setTimeout(() => { this.textContent = 'Copy'; }, 1800);
+        });
+      };
+
+      tr.querySelector('[data-empid]').onclick = function() {
+        deleteEmployee(this.dataset.empid);
+      };
+
+      tbody.appendChild(tr);
+    });
+
+    // Refresh WT panel employee list
+    refreshWtEmpList();
+
+  } catch (err) {
+    console.error('loadTeam error:', err);
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><p>Failed to load team.</p></div></td></tr>`;
+  }
+}
+
+async function addEmployee() {
+  const name = qs('#empName').value.trim();
+  const role = qs('#empRole').value.trim();
+
+  if (!name) { showToast('Employee name is required.', 'error'); return; }
+  if (!role) { showToast('Role is required.', 'error'); return; }
+  if (!bizId) { showToast('No business set up yet.', 'error'); return; }
+
+  const btn = qs('#addEmpBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Adding…';
+
+  try {
+    const code = genEmpCode();
+    await addDoc(collection(db, 'employees'), {
+      bizId,
+      ownerId: currentUser.uid,
+      name,
+      role,
+      code,
+      createdAt: serverTimestamp()
+    });
+    qs('#empName').value = '';
+    qs('#empRole').value = '';
+    showToast(`${name} added!`);
+    loadTeam();
+  } catch (err) {
+    console.error('addEmployee error:', err);
+    showToast('Failed to add employee.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '＋ Add Employee';
+  }
+}
+
+async function deleteEmployee(empId) {
+  if (!confirm('Remove this employee? Their walkie talkie link will stop working.')) return;
+  try {
+    await deleteDoc(doc(db, 'employees', empId));
+    showToast('Employee removed.');
+    loadTeam();
+  } catch (err) {
+    console.error('deleteEmployee error:', err);
+    showToast('Failed to remove employee.', 'error');
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  WALKIE TALKIE FAB
+// ════════════════════════════════════════════════════════════
+
+let wtEmployees     = [];
+let wtSelectedEmp   = null;
+let wtRecognition   = null;
+let wtIsRecording   = false;
+let wtMsgUnsub      = null;
+let wtLoadTime      = 0;
+const wtPlayedSet   = new Set();
+
+function initWalkieTalkie() {
+  const fabWrap = qs('#wtFabWrap');
+  if (!fabWrap) return;
+  fabWrap.classList.remove('hidden');
+
+  const fabBtn     = qs('#wtFabBtn');
+  const panel      = qs('#wtPanel');
+  const closeBtn   = qs('#wtPanelClose');
+  const pttBtn     = qs('#wtOwnerPtt');
+
+  fabBtn.addEventListener('click', () => {
+    const isOpen = panel.classList.contains('open');
+    if (isOpen) {
+      closePanel();
+    } else {
+      openPanel();
+    }
+  });
+
+  closeBtn.addEventListener('click', closePanel);
+
+  pttBtn.addEventListener('mousedown',  startOwnerRecording);
+  pttBtn.addEventListener('touchstart', startOwnerRecording, { passive: true });
+  pttBtn.addEventListener('mouseup',    stopOwnerRecording);
+  pttBtn.addEventListener('touchend',   stopOwnerRecording, { passive: true });
+  pttBtn.addEventListener('mouseleave', stopOwnerRecording);
+
+  // Start listening for employee messages
+  wtLoadTime = Date.now();
+  subscribeEmployeeMessages();
+}
+
+function openPanel() {
+  qs('#wtPanel').classList.add('open');
+  qs('#wtFabBtn').classList.add('active');
+  refreshWtEmpList();
+}
+
+function closePanel() {
+  qs('#wtPanel').classList.remove('open');
+  qs('#wtFabBtn').classList.remove('active');
+}
+
+async function refreshWtEmpList() {
+  if (!bizId) return;
+  const listEl = qs('#wtEmpList');
+  if (!listEl) return;
+
+  try {
+    const q = query(collection(db, 'employees'), where('bizId', '==', bizId));
+    const snap = await getDocs(q);
+    wtEmployees = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    if (wtEmployees.length === 0) {
+      listEl.innerHTML = `<div class="empty-state" style="padding:16px;"><p style="color:rgba(255,255,255,0.4);font-size:0.8rem;">No employees yet. Add team members first.</p></div>`;
+      return;
+    }
+
+    listEl.innerHTML = '';
+    wtEmployees.forEach(emp => {
+      const item = document.createElement('div');
+      item.className = 'wt-emp-item' + (wtSelectedEmp?.id === emp.id ? ' selected' : '');
+      item.dataset.empid = emp.id;
+      const initials = emp.name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+      item.innerHTML = `
+        <div class="wt-emp-avatar">${initials}</div>
+        <div class="wt-emp-info">
+          <div class="wt-emp-item-name">${emp.name}</div>
+          <div class="wt-emp-item-role">${emp.role}</div>
+        </div>`;
+
+      item.addEventListener('click', () => selectWtEmployee(emp));
+      listEl.appendChild(item);
+    });
+
+  } catch (err) {
+    console.error('refreshWtEmpList error:', err);
+  }
+}
+
+function selectWtEmployee(emp) {
+  wtSelectedEmp = emp;
+
+  // Update selection UI
+  document.querySelectorAll('.wt-emp-item').forEach(el => {
+    el.classList.toggle('selected', el.dataset.empid === emp.id);
+  });
+
+  // Show PTT area
+  const pttArea = qs('#wtPttArea');
+  pttArea.classList.remove('hidden');
+  qs('#wtSelectedEmpLabel').textContent = `Talking to: ${emp.name} (${emp.role})`;
+}
+
+// ── Owner PTT ────────────────────────────────────────────────
+function startOwnerRecording(e) {
+  e.preventDefault();
+  if (wtIsRecording || !wtSelectedEmp) return;
+  if (!window.SpeechRecognition && !window.webkitSpeechRecognition) {
+    showToast('Voice recording not supported in this browser. Use Chrome.', 'error');
+    return;
+  }
+
+  wtIsRecording = true;
+  qs('#wtOwnerPtt').classList.add('recording');
+  qs('#wtOwnerStatus').textContent = '🔴 Recording…';
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  wtRecognition = new SR();
+  wtRecognition.continuous    = false;
+  wtRecognition.interimResults = false;
+  wtRecognition.lang          = 'en-US';
+
+  wtRecognition.onresult = (ev) => {
+    const text = ev.results[0][0].transcript;
+    sendWtMessage(text);
+  };
+
+  wtRecognition.onerror = (ev) => {
+    console.error('wt speech error:', ev.error);
+    resetOwnerPtt();
+  };
+
+  wtRecognition.onend = resetOwnerPtt;
+
+  wtRecognition.start();
+}
+
+function stopOwnerRecording() {
+  if (!wtIsRecording) return;
+  if (wtRecognition) wtRecognition.stop();
+  resetOwnerPtt();
+}
+
+function resetOwnerPtt() {
+  wtIsRecording = false;
+  const btn = qs('#wtOwnerPtt');
+  if (btn) btn.classList.remove('recording');
+  const status = qs('#wtOwnerStatus');
+  if (status) status.textContent = 'Release to send';
+  wtRecognition = null;
+}
+
+async function sendWtMessage(text) {
+  if (!text || !text.trim() || !wtSelectedEmp || !bizId) return;
+  try {
+    await addDoc(collection(db, 'wt_messages'), {
+      bizId,
+      empCode: wtSelectedEmp.code,
+      empId:   wtSelectedEmp.id,
+      from:    'owner',
+      text:    text.trim(),
+      played:  false,
+      createdAt: serverTimestamp()
+    });
+    showToast(`Sent to ${wtSelectedEmp.name}`);
+  } catch (err) {
+    console.error('sendWtMessage error:', err);
+    showToast('Failed to send message.', 'error');
+  }
+}
+
+// ── Incoming from employees ───────────────────────────────────
+function subscribeEmployeeMessages() {
+  if (!bizId) return;
+  if (wtMsgUnsub) { wtMsgUnsub(); wtMsgUnsub = null; }
+
+  const q = query(
+    collection(db, 'wt_messages'),
+    where('bizId', '==', bizId)
+  );
+
+  wtMsgUnsub = onSnapshot(q, (snap) => {
+    snap.docChanges().forEach(change => {
+      if (change.type !== 'added') return;
+      const data = change.doc.data();
+      const msgId = change.doc.id;
+
+      if (data.from !== 'employee') return;
+      if (wtPlayedSet.has(msgId)) return;
+
+      const msgTime = data.createdAt?.toMillis ? data.createdAt.toMillis() : 0;
+      if (msgTime < wtLoadTime) return;
+
+      wtPlayedSet.add(msgId);
+      appendWtIncoming(data);
+      playWtAudio(msgId, data.text, data.empCode);
+    });
+  }, (err) => {
+    console.error('wt_messages (owner) snapshot error:', err);
+  });
+}
+
+function appendWtIncoming(data) {
+  const listEl = qs('#wtMsgList');
+  if (!listEl) return;
+
+  const emp = wtEmployees.find(e => e.code === data.empCode);
+  const senderName = emp ? `${emp.name} (${emp.role})` : 'Employee';
+
+  // Remove empty placeholder
+  const empty = listEl.querySelector('.wt-msg-empty');
+  if (empty) empty.remove();
+
+  const item = document.createElement('div');
+  item.className = 'wt-msg-item';
+  item.innerHTML = `
+    <div class="wt-msg-sender">${senderName}</div>
+    <div class="wt-msg-text">${data.text}</div>
+    <div class="wt-msg-time">just now</div>`;
+
+  listEl.prepend(item);
+
+  // Keep only 5 most recent
+  const items = listEl.querySelectorAll('.wt-msg-item');
+  if (items.length > 5) items[items.length - 1].remove();
+
+  // Open panel to show incoming message
+  openPanel();
+}
+
+async function playWtAudio(msgId, text, empCode) {
+  try {
+    const res = await fetch('/.netlify/functions/wt-tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    if (!res.ok) return;
+    const { audio } = await res.json();
+
+    const bytes  = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
+    const blob   = new Blob([bytes], { type: 'audio/mpeg' });
+    const url    = URL.createObjectURL(blob);
+    const player = new Audio(url);
+    player.onended = () => URL.revokeObjectURL(url);
+    await player.play();
+
+    await updateDoc(doc(db, 'wt_messages', msgId), { played: true }).catch(() => {});
+  } catch (err) {
+    console.error('playWtAudio error:', err);
   }
 }

@@ -18,6 +18,9 @@
 [functions."contract-generate"]
   timeout = 26
 
+[functions."wt-tts"]
+  timeout = 20
+
 # ── Admin ─────────────────────────────────────────────
 [[redirects]]
   from   = "/admin"
@@ -28,6 +31,18 @@
 [[redirects]]
   from   = "/dashboard"
   to     = "/dashboard.html"
+  status = 200
+
+# ── Personal / referrer dashboard ─────────────────────
+[[redirects]]
+  from   = "/user-dashboard"
+  to     = "/user-dashboard.html"
+  status = 200
+
+# ── Employee walkie talkie ─────────────────────────────
+[[redirects]]
+  from   = "/wt"
+  to     = "/wt.html"
   status = 200
 
 # ── Auth ──────────────────────────────────────────────

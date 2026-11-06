@@ -594,9 +594,16 @@
         try {
           const ownerRef = doc(db, 'owners', uid);
           const ownerSnap = await getDoc(ownerRef);
-          if (ownerSnap.exists() && ownerSnap.data().role?.toLowerCase() === 'admin') {
-            window.location.href = '/admin.html';
-            return;
+          if (ownerSnap.exists()) {
+            const data = ownerSnap.data();
+            if (data.role?.toLowerCase() === 'admin') {
+              window.location.href = '/admin.html';
+              return;
+            }
+            if (data.acctType === 'personal') {
+              window.location.href = '/user-dashboard.html';
+              return;
+            }
           }
         } catch (fsErr) {
           console.warn('Firestore read failed, redirecting to dashboard:', fsErr.message);
@@ -686,7 +693,7 @@
           });
         }
 
-        window.location.href = '/dashboard.html';
+        window.location.href = acctType === 'personal' ? '/user-dashboard.html' : '/dashboard.html';
       } catch (err) {
         hideSpinner();
         setButtonLoading('signup-btn', false);

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Walkie Talkie — EP Local Pro AI</title>
+  <link rel="stylesheet" href="/css/wt.css" />
+</head>
+<body>
+
+  <div id="wtApp">
+
+    <!-- Loading state -->
+    <div id="wtLoading" class="wt-screen">
+      <div class="wt-logo">EP Local Pro AI</div>
+      <div class="wt-loading-spinner"><div class="wt-spinner"></div></div>
+      <p>Connecting…</p>
+    </div>
+
+    <!-- Error state -->
+    <div id="wtError" class="wt-screen hidden">
+      <div class="wt-logo">EP Local Pro AI</div>
+      <div class="wt-error-icon">⚠️</div>
+      <h2 id="wtErrorTitle">Connection Failed</h2>
+      <p id="wtErrorMsg">Invalid or expired link. Please ask your manager for a new link.</p>
+    </div>
+
+    <!-- Main state -->
+    <div id="wtMain" class="wt-screen hidden">
+      <header class="wt-header">
+        <div class="wt-logo">EP Local Pro AI</div>
+        <div class="wt-biz-name" id="wtBizName">Loading…</div>
+      </header>
+
+      <div class="wt-identity">
+        <div class="wt-emp-role" id="wtRole">Role</div>
+        <div class="wt-emp-name" id="wtName">Name</div>
+        <div class="wt-status" id="wtStatus">
+          <span class="wt-status-dot"></span>
+          <span>Connected</span>
+        </div>
+      </div>
+
+      <!-- Last received message -->
+      <div class="wt-incoming" id="wtIncoming">
+        <div class="wt-incoming-label">Last message</div>
+        <div class="wt-incoming-text" id="wtIncomingText">—</div>
+      </div>
+
+      <!-- PTT button -->
+      <div class="wt-ptt-wrap">
+        <button class="wt-ptt-btn" id="wtPttBtn" aria-label="Hold to talk">
+          <span class="wt-ptt-icon">🎙️</span>
+          <span class="wt-ptt-label">Hold to Talk</span>
+        </button>
+        <div class="wt-ptt-status" id="wtPttStatus">Release to send</div>
+      </div>
+
+      <!-- Incoming audio indicator -->
+      <div class="wt-audio-indicator hidden" id="wtAudioIndicator">
+        <span class="wt-audio-wave">🔊</span> Playing message…
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="/js/wt.js"></script>
+</body>
+</html>

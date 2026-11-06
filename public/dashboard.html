@@ -44,6 +44,9 @@
     <a data-nav="ai-settings">
       <span class="nav-icon">🎙️</span> AI Settings
     </a>
+    <a data-nav="team">
+      <span class="nav-icon">👷</span> Team
+    </a>
     <a data-nav="account">
       <span class="nav-icon">👤</span> Account
     </a>
@@ -358,8 +361,99 @@
 
     </div><!-- /account -->
 
+    <!-- ════════════ SECTION: Team ════════════ -->
+    <div data-section="team" class="hidden">
+
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Add Employee</h2>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="empName">Employee Name</label>
+            <input type="text" id="empName" placeholder="e.g. Maria Rodriguez" />
+          </div>
+          <div class="form-group">
+            <label for="empRole">Role</label>
+            <input type="text" id="empRole" placeholder="e.g. Cashier, Cook, Driver" />
+          </div>
+        </div>
+        <button class="btn-primary" id="addEmpBtn">＋ Add Employee</button>
+      </div>
+
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Your Team</h2>
+          <span class="stat-trend" id="empCount" style="font-size:0.85rem;color:#64748b;"></span>
+        </div>
+        <div class="admin-table-wrap" style="border:1px solid var(--border,#e2e8f0);border-radius:8px;overflow:hidden;">
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Access Code</th>
+                <th>Walkie Talkie Link</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="empTableBody">
+              <tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">👷</div><p>No team members yet.</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="form-hint" style="margin-top:10px;">Share the Walkie Talkie link with each employee. They can open it on their phone to communicate with you.</p>
+      </div>
+
+    </div><!-- /team -->
+
   </div><!-- /.dash-content -->
 </main><!-- /.dash-main -->
+
+<!-- ══════════════ WALKIE TALKIE FAB ══════════════ -->
+<div class="wt-fab-wrap hidden" id="wtFabWrap">
+
+  <!-- Panel -->
+  <div class="wt-panel" id="wtPanel">
+    <div class="wt-panel-header">
+      <span>🎙️ Walkie Talkie</span>
+      <button class="wt-panel-close" id="wtPanelClose">✕</button>
+    </div>
+
+    <div class="wt-panel-body">
+      <!-- Employee selector -->
+      <div class="wt-emp-selector" id="wtEmpSelector">
+        <p class="wt-emp-selector-label">Select who to talk to:</p>
+        <div class="wt-emp-list" id="wtEmpList">
+          <div class="empty-state" style="padding:20px;"><p>No employees added yet.</p></div>
+        </div>
+      </div>
+
+      <!-- PTT area (shown when employee selected) -->
+      <div class="wt-ptt-area hidden" id="wtPttArea">
+        <div class="wt-selected-emp" id="wtSelectedEmpLabel">—</div>
+        <button class="wt-owner-ptt" id="wtOwnerPtt">
+          <span class="wt-ptt-icon-inner">🎙️</span>
+          <span class="wt-ptt-text">Hold to Talk</span>
+        </button>
+        <div class="wt-owner-status" id="wtOwnerStatus">Release to send</div>
+      </div>
+
+      <!-- Incoming messages from employees -->
+      <div class="wt-incoming-panel" id="wtIncomingPanel">
+        <div class="wt-incoming-panel-title">Incoming</div>
+        <div class="wt-msg-list" id="wtMsgList">
+          <div class="wt-msg-empty">No messages yet</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAB button -->
+  <button class="wt-fab-btn" id="wtFabBtn" title="Walkie Talkie">
+    <span>🎙️</span>
+  </button>
+</div>
 
 
 <!-- ══════════════ MODAL: Add / Edit Menu Item ══════════════ -->

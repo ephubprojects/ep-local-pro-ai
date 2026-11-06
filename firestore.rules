@@ -51,7 +51,7 @@ service cloud.firestore {
 
     // ── EP HUB referral tracking ──────────────────────────────────────────
     match /ep_referrals/{refId} {
-      allow read: if isAdmin();
+      allow read: if isAdmin() || isAuth();  // personal accounts read their referrals
       allow create: if true;  // system writes on conversion
       allow update, delete: if isAdmin();
     }
@@ -60,6 +60,20 @@ service cloud.firestore {
     match /categories/{catId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // ── Team employees ────────────────────────────────────────────────────
+    match /employees/{empId} {
+      allow read: if true;  // employee page needs to validate code without auth
+      allow create: if isAuth();
+      allow update, delete: if isAdmin()
+        || (isAuth() && resource.data.ownerId == request.auth.uid);
+    }
+
+    // ── Walkie Talkie messages ────────────────────────────────────────────
+    match /wt_messages/{msgId} {
+      allow read, create, update: if true;  // employee page is unauthenticated
+      allow delete: if isAdmin();
     }
   }
 }

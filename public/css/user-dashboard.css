@@ -1,0 +1,96 @@
+/* ============================================================
+   EP Local Pro AI — user-dashboard.css
+   Personal/referrer account dashboard. Extends dashboard.css.
+   ============================================================ */
+
+/* ── Topbar referral link (desktop) ──────────────────────────── */
+.ref-link-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.ref-link-label {
+  font-size: 0.75rem;
+  color: var(--muted, #64748b);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ref-link-url {
+  font-size: 0.78rem;
+  font-family: var(--font-mono, monospace);
+  color: var(--indigo, #4f46e5);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Referral link card ───────────────────────────────────────── */
+.ref-link-card {
+  background: linear-gradient(135deg, #eef2ff 0%, #f0fdf4 100%);
+  border: 1px solid var(--indigo-100, #e0e7ff);
+  margin-bottom: 24px;
+}
+
+.ref-link-card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--navy, #0f172a);
+  margin-bottom: 4px;
+}
+
+.ref-link-card-desc {
+  font-size: 0.8rem;
+  color: var(--muted, #64748b);
+  line-height: 1.5;
+}
+
+/* ── Referrals table badges ────────────────────────────────────── */
+.badge-starter {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.badge-pro {
+  background: var(--indigo-100, #e0e7ff);
+  color: var(--indigo-700, #3730a3);
+}
+
+/* ── Empty state for no referrals ─────────────────────────────── */
+.ref-empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--muted, #64748b);
+}
+
+.ref-empty-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.ref-empty-state h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--navy, #0f172a);
+  margin: 0 0 6px;
+}
+
+.ref-empty-state p {
+  font-size: 0.875rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Mobile adjustments ───────────────────────────────────────── */
+@media (max-width: 600px) {
+  .ref-link-inline {
+    display: none;
+  }
+
+  .stats-grid[style*="repeat(3"] {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}

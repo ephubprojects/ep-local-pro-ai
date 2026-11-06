@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Dashboard — EP Local Pro AI</title>
+  <link rel="stylesheet" href="/css/dashboard.css" />
+  <link rel="stylesheet" href="/css/user-dashboard.css" />
+</head>
+<body class="dash-body">
+
+<!-- Page loading overlay -->
+<div class="page-loading" id="pageLoading">
+  <div class="page-loading-logo">EP Local Pro AI</div>
+  <div><span class="spinner"></span> Loading your dashboard…</div>
+</div>
+
+<!-- Sidebar backdrop (mobile) -->
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ══════════════ SIDEBAR ══════════════ -->
+<aside class="dash-sidebar" id="dashSidebar">
+  <div class="sidebar-logo">
+    <span class="logo-name">EP Local Pro AI</span>
+    <span class="biz-name" id="sidebarUserName">Loading…</span>
+  </div>
+
+  <nav class="sidebar-nav" id="sidebarNav">
+    <a data-nav="overview" class="active">
+      <span class="nav-icon">📊</span> Overview
+    </a>
+    <a data-nav="referrals">
+      <span class="nav-icon">🤝</span> My Referrals
+    </a>
+    <a data-nav="account">
+      <span class="nav-icon">👤</span> Account
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <a class="sidebar-logout" id="logoutBtn">Sign out</a>
+  </div>
+</aside>
+
+<!-- ══════════════ MAIN ══════════════ -->
+<main class="dash-main">
+
+  <!-- Top bar -->
+  <header class="dash-topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">☰</button>
+      <h1 id="pageTitle">Overview</h1>
+    </div>
+    <div class="ref-link-inline" id="topRefLinkWrap">
+      <span class="ref-link-label">Your link:</span>
+      <span class="ref-link-url" id="topRefLink">—</span>
+      <button class="btn-copy" id="topCopyBtn">Copy</button>
+    </div>
+  </header>
+
+  <div class="dash-content">
+
+    <!-- ════════════ SECTION: Overview ════════════ -->
+    <div data-section="overview">
+
+      <!-- Referral link card -->
+      <div class="section-card ref-link-card">
+        <div class="ref-link-card-title">Your Referral Link</div>
+        <div class="ref-link-card-desc">Share this link with local businesses. When they sign up using your link, they appear in your referrals.</div>
+        <div class="ai-url-row" style="margin-top:12px;">
+          <div class="ai-url-display" id="refLinkDisplay">—</div>
+          <button class="btn-copy" id="copyRefLinkBtn">📋 Copy</button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="stat-card">
+          <div class="stat-label">Total Referred</div>
+          <div class="stat-value" id="statTotal">—</div>
+          <div class="stat-trend">All time</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Converted</div>
+          <div class="stat-value" id="statConverted">—</div>
+          <div class="stat-trend">Signed up</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">This Month</div>
+          <div class="stat-value" id="statMonth">—</div>
+          <div class="stat-trend">New referrals</div>
+        </div>
+      </div>
+
+      <!-- Recent referrals -->
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Recent Referrals</h2>
+          <a class="view-all-link" data-nav="referrals">View all →</a>
+        </div>
+        <div class="docs-table-wrap">
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Plan</th>
+                <th>Date Joined</th>
+              </tr>
+            </thead>
+            <tbody id="recentRefTableBody">
+              <tr><td colspan="3"><div class="empty-state"><p>Loading…</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /overview -->
+
+
+    <!-- ════════════ SECTION: Referrals ════════════ -->
+    <div data-section="referrals" class="hidden">
+
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>All Referrals</h2>
+          <span class="stat-trend" id="allRefCount" style="font-size:0.85rem;color:#64748b;"></span>
+        </div>
+        <div class="docs-table-wrap">
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Plan</th>
+                <th>Date Joined</th>
+              </tr>
+            </thead>
+            <tbody id="allRefTableBody">
+              <tr><td colspan="3"><div class="empty-state"><p>Loading…</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /referrals -->
+
+
+    <!-- ════════════ SECTION: Account ════════════ -->
+    <div data-section="account" class="hidden">
+
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>My Profile</h2>
+        </div>
+        <div class="account-section">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="accFirstName">First Name</label>
+              <input type="text" id="accFirstName" placeholder="Jane" />
+            </div>
+            <div class="form-group">
+              <label for="accLastName">Last Name</label>
+              <input type="text" id="accLastName" placeholder="Smith" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="accUsername">Username</label>
+            <input type="text" id="accUsername" readonly />
+          </div>
+          <div class="form-group">
+            <label for="accEmail">Email</label>
+            <input type="email" id="accEmail" readonly />
+          </div>
+          <div class="form-group">
+            <label for="accPhone">Phone</label>
+            <input type="tel" id="accPhone" placeholder="+1 (555) 000-0000" />
+          </div>
+          <div class="form-group">
+            <label for="accSponsor">Referred by (Sponsor)</label>
+            <input type="text" id="accSponsor" readonly />
+          </div>
+          <button class="btn-primary" id="saveAccountBtn">Save Changes</button>
+        </div>
+      </div>
+
+    </div><!-- /account -->
+
+  </div><!-- /.dash-content -->
+</main>
+
+<script type="module" src="/js/user-dashboard.js"></script>
+</body>
+</html>
