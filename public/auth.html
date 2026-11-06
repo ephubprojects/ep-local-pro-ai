@@ -511,19 +511,22 @@
         const credential = await signInWithEmailAndPassword(auth, email, password);
         const uid = credential.user.uid;
 
-        // Check Firestore role
-        const ownerRef = doc(db, 'owners', uid);
-        const ownerSnap = await getDoc(ownerRef);
-
-        if (ownerSnap.exists() && ownerSnap.data().role === 'admin') {
-          window.location.href = '/admin.html';
-        } else {
-          window.location.href = '/dashboard.html';
+        // Check Firestore role — fall back to dashboard if read fails
+        try {
+          const ownerRef = doc(db, 'owners', uid);
+          const ownerSnap = await getDoc(ownerRef);
+          if (ownerSnap.exists() && ownerSnap.data().role === 'admin') {
+            window.location.href = '/admin.html';
+            return;
+          }
+        } catch (fsErr) {
+          console.warn('Firestore read failed, redirecting to dashboard:', fsErr.message);
         }
+        window.location.href = '/dashboard.html';
       } catch (err) {
         hideSpinner();
         setButtonLoading('signin-btn', false);
-        showMessage('signin-message', friendlyError(err.code), 'error');
+        showMessage('signin-message', friendlyError(err.code) + ' [' + (err.code || err.message) + ']', 'error');
       }
     };
 
