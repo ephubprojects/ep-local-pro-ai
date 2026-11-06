@@ -184,7 +184,7 @@ async function initAdmin() {
   onAuthStateChanged(auth, u => { if (!u) window.location.href = '/auth.html'; });
 }
 
-function onAdminReady(user) {
+async function onAdminReady(user) {
   // Populate sidebar user info
   const email = user.email || '';
   const initials = email.substring(0, 2).toUpperCase();
@@ -196,6 +196,20 @@ function onAdminReady(user) {
   // Populate settings email
   const settingEmail = document.getElementById('settingEmail');
   if (settingEmail) settingEmail.value = email;
+
+  // Load admin profile fields
+  try {
+    const ownerSnap = await getDoc(doc(db, 'owners', user.uid));
+    if (ownerSnap.exists()) {
+      const od = ownerSnap.data();
+      const sfn = document.getElementById('settingFirstName');
+      const sln = document.getElementById('settingLastName');
+      const sph = document.getElementById('settingPhone');
+      if (sfn) sfn.value = od.firstName || '';
+      if (sln) sln.value = od.lastName  || '';
+      if (sph) sph.value = od.phone     || '';
+    }
+  } catch (_) {}
 
   // Populate category select in demo modal
   populateCategorySelect();
@@ -865,7 +879,7 @@ function renderUsersTable(users) {
   const tbody = document.getElementById('usersTableBody');
   if (!tbody) return;
   if (!users.length) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">👥</div><p>No users yet.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">👥</div><p>No users yet.</p></div></td></tr>`;
     return;
   }
   tbody.innerHTML = users.map(u => `
@@ -877,6 +891,7 @@ function renderUsersTable(users) {
       <td>${escHTML(u.sponsorUsername || '—')}</td>
       <td>${badgeHTML(u.plan || 'trial')}</td>
       <td>${escHTML(fmtDate(u.createdAt))}</td>
+      <td><button class="btn-action danger" onclick="window._adminCancelUser('${escAttr(u.id)}','${escAttr(((u.firstName||'')+' '+(u.lastName||'')).trim()||u.email||'this user')}')">Cancel</button></td>
     </tr>`).join('');
 }
 
@@ -915,7 +930,7 @@ function renderLocalBizTable(list) {
   const tbody = document.getElementById('localBizTableBody');
   if (!tbody) return;
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">🏪</div><p>No local business accounts yet.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">🏪</div><p>No local business accounts yet.</p></div></td></tr>`;
     return;
   }
   tbody.innerHTML = list.map(u => {
@@ -930,6 +945,7 @@ function renderLocalBizTable(list) {
       <td>${escHTML(u.sponsorUsername || '—')}</td>
       <td>${badgeHTML(u.plan || 'trial')}</td>
       <td>${escHTML(fmtDate(u.createdAt))}</td>
+      <td><button class="btn-action danger" onclick="window._adminCancelUser('${escAttr(u.id)}','${escAttr(((u.firstName||'')+' '+(u.lastName||'')).trim()||u.email||'this user')}')">Cancel</button></td>
     </tr>`;
   }).join('');
 }
@@ -1127,16 +1143,18 @@ async function deleteCustomCategory(docId) {
 // SETTINGS
 // ============================================================
 async function saveSettings() {
-  const name          = document.getElementById('settingName')?.value.trim() || '';
+  const firstName     = document.getElementById('settingFirstName')?.value.trim() || '';
+  const lastName      = document.getElementById('settingLastName')?.value.trim()  || '';
+  const phone         = document.getElementById('settingPhone')?.value.trim()     || '';
   const platformName  = document.getElementById('settingPlatformName')?.value.trim() || '';
   const supportEmail  = document.getElementById('settingSupportEmail')?.value.trim() || '';
 
   try {
     if (currentUser) {
       await updateDoc(doc(db, 'owners', currentUser.uid), {
-        displayName:    name,
-        platformName,
-        supportEmail,
+        firstName, lastName, phone,
+        name: `${firstName} ${lastName}`.trim(),
+        platformName, supportEmail,
         updatedAt: serverTimestamp()
       });
     }
@@ -1165,6 +1183,22 @@ function escAttr(str) {
 // ============================================================
 // GLOBAL BINDINGS (called from inline onclick in table rows)
 // ============================================================
+async function cancelUserAccount(uid, name) {
+  if (!confirm(`Cancel account for "${name}"? This will mark their account as cancelled.`)) return;
+  try {
+    await updateDoc(doc(db, 'owners', uid), {
+      status: 'cancelled',
+      cancelledAt: serverTimestamp()
+    });
+    showToast(`Account cancelled for ${name}`, 'success');
+    loadUsers();
+    loadLocalBiz();
+  } catch (err) {
+    console.error('cancelUserAccount error:', err);
+    showToast('Error cancelling account', 'error');
+  }
+}
+
 window._adminEditDemo        = id => openEditDemoModal(id);
 window._adminDeleteDemo      = id => deleteDemoConfirm(id);
 window._adminConvertDemo     = id => convertDemoToAccount(id);
@@ -1173,6 +1207,7 @@ window._adminViewBiz         = id => viewBiz(id);
 window._adminSuspendBiz      = (id, name) => suspendBiz(id, name);
 window._adminEditCat         = id => openEditCategoryModal(id);
 window._adminDeleteCat       = id => deleteCustomCategory(id);
+window._adminCancelUser      = (uid, name) => cancelUserAccount(uid, name);
 window.filterUsers           = filterUsers;
 window.filterLocalBiz        = filterLocalBiz;
 

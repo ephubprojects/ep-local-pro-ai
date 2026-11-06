@@ -6,10 +6,11 @@
 import { auth, db } from '/js/firebase.js';
 import {
   onAuthStateChanged,
-  signOut
+  signOut,
+  deleteUser
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
-  collection, doc, getDoc, getDocs, updateDoc,
+  collection, doc, getDoc, getDocs, updateDoc, deleteDoc,
   query, where, orderBy, limit, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
@@ -275,16 +276,21 @@ function renderRefTable(tbodySel, refs, cols) {
 }
 
 // ── Account ──────────────────────────────────────────────────
-function loadAccount() {
+async function loadAccount() {
   if (!ownerDoc) return;
   qs('#accFirstName').value = ownerDoc.firstName || '';
   qs('#accLastName').value  = ownerDoc.lastName  || '';
   qs('#accUsername').value  = ownerDoc.username  || '';
   qs('#accEmail').value     = currentUser.email  || '';
   qs('#accPhone').value     = ownerDoc.phone     || '';
-  qs('#accSponsor').value   = ownerDoc.sponsorUsername || '—';
 
   qs('#saveAccountBtn').onclick = saveAccount;
+
+  // Load sponsor details
+  await loadSponsorCard();
+
+  // Wire cancel account
+  qs('#cancelAccountBtn').onclick = cancelAccount;
 }
 
 async function saveAccount() {
@@ -317,6 +323,96 @@ async function saveAccount() {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Save Changes';
+  }
+}
+
+// ── Sponsor Card ─────────────────────────────────────────────
+async function loadSponsorCard() {
+  const card = qs('#sponsorCard');
+  if (!card) return;
+
+  const sponsorUsername = ownerDoc?.sponsorUsername;
+  if (!sponsorUsername) {
+    card.innerHTML = `<p class="form-hint" style="padding:4px 0;">No sponsor on record.</p>`;
+    return;
+  }
+
+  // EZ Perfil is the platform sponsor — show hardcoded details if username matches
+  const EZ_PERFIL = { name: 'EZ Perfil', username: 'ezperfil', email: 'eddieezperfil@gmail.com', phone: '1 (805) 707-3721' };
+  if (sponsorUsername === 'ezperfil') {
+    renderSponsorCard(card, EZ_PERFIL);
+    return;
+  }
+
+  // Try to look up the sponsor in Firestore
+  try {
+    const q = query(collection(db, 'owners'), where('username', '==', sponsorUsername), limit(1));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const s = snap.docs[0].data();
+      renderSponsorCard(card, {
+        name:     ((s.firstName || '') + ' ' + (s.lastName || '')).trim() || s.name || sponsorUsername,
+        username: s.username || sponsorUsername,
+        email:    s.email    || '—',
+        phone:    s.phone    || '—'
+      });
+    } else {
+      renderSponsorCard(card, { name: sponsorUsername, username: sponsorUsername, email: '—', phone: '—' });
+    }
+  } catch {
+    renderSponsorCard(card, { name: sponsorUsername, username: sponsorUsername, email: '—', phone: '—' });
+  }
+}
+
+function renderSponsorCard(card, s) {
+  card.innerHTML = `
+    <div class="sponsor-info-grid">
+      <div class="sponsor-info-item">
+        <span class="sponsor-info-label">Name</span>
+        <span class="sponsor-info-value">${s.name}</span>
+      </div>
+      <div class="sponsor-info-item">
+        <span class="sponsor-info-label">Username</span>
+        <span class="sponsor-info-value">@${s.username}</span>
+      </div>
+      <div class="sponsor-info-item">
+        <span class="sponsor-info-label">Email</span>
+        <span class="sponsor-info-value">${s.email}</span>
+      </div>
+      <div class="sponsor-info-item">
+        <span class="sponsor-info-label">Phone</span>
+        <span class="sponsor-info-value">${s.phone}</span>
+      </div>
+    </div>`;
+}
+
+// ── Cancel Account ────────────────────────────────────────────
+async function cancelAccount() {
+  const confirmed = confirm(
+    'Are you sure you want to cancel your account?\n\nThis will deactivate your account immediately. You will be signed out.'
+  );
+  if (!confirmed) return;
+
+  const btn = qs('#cancelAccountBtn');
+  btn.disabled = true;
+  btn.textContent = 'Cancelling…';
+
+  try {
+    // Mark account as cancelled in Firestore
+    await updateDoc(doc(db, 'owners', currentUser.uid), {
+      status: 'cancelled',
+      cancelledAt: serverTimestamp()
+    });
+    showToast('Account cancelled. Signing you out…', 'success');
+    setTimeout(async () => {
+      await signOut(auth);
+      window.location.href = '/auth.html?from=cancelled';
+    }, 2000);
+  } catch (err) {
+    console.error('cancelAccount error:', err);
+    showToast('Failed to cancel account. Please contact support.', 'error');
+    btn.disabled = false;
+    btn.textContent = 'Cancel My Account';
   }
 }
 

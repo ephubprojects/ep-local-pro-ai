@@ -234,10 +234,11 @@
                 <th>Sponsor</th>
                 <th>Plan</th>
                 <th>Joined</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="usersTableBody">
-              <tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">👥</div><p>Loading users…</p></div></td></tr>
+              <tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">👥</div><p>Loading users…</p></div></td></tr>
             </tbody>
           </table>
         </div>
@@ -267,10 +268,11 @@
                 <th>Sponsor</th>
                 <th>Plan</th>
                 <th>Joined</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="localBizTableBody">
-              <tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">🏪</div><p>Loading businesses…</p></div></td></tr>
+              <tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">🏪</div><p>Loading businesses…</p></div></td></tr>
             </tbody>
           </table>
         </div>
@@ -305,13 +307,45 @@
       <div class="section-card">
         <div class="settings-section">
           <h3>Admin Profile</h3>
-          <div class="form-group">
-            <label>Name</label>
-            <input type="text" id="settingName" placeholder="Your name" />
+          <div class="form-row">
+            <div class="form-group">
+              <label>First Name</label>
+              <input type="text" id="settingFirstName" placeholder="Your first name" />
+            </div>
+            <div class="form-group">
+              <label>Last Name</label>
+              <input type="text" id="settingLastName" placeholder="Your last name" />
+            </div>
           </div>
           <div class="form-group">
-            <label>Email</label>
+            <label>Email <span style="font-size:0.75rem;font-weight:400;color:var(--muted)">(cannot be changed)</span></label>
             <input type="email" id="settingEmail" readonly />
+          </div>
+          <div class="form-group">
+            <label>Phone</label>
+            <input type="tel" id="settingPhone" placeholder="+1 (555) 000-0000" />
+          </div>
+        </div>
+
+        <div class="settings-section" style="margin-top:24px;">
+          <h3>Your Sponsor</h3>
+          <div class="sponsor-info-grid">
+            <div class="sponsor-info-item">
+              <span class="sponsor-info-label">Name</span>
+              <span class="sponsor-info-value">EZ Perfil</span>
+            </div>
+            <div class="sponsor-info-item">
+              <span class="sponsor-info-label">Username</span>
+              <span class="sponsor-info-value">@ezperfil</span>
+            </div>
+            <div class="sponsor-info-item">
+              <span class="sponsor-info-label">Email</span>
+              <span class="sponsor-info-value">eddieezperfil@gmail.com</span>
+            </div>
+            <div class="sponsor-info-item">
+              <span class="sponsor-info-label">Phone</span>
+              <span class="sponsor-info-value">1 (805) 707-3721</span>
+            </div>
           </div>
         </div>
 

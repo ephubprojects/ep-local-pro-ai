@@ -84,6 +84,69 @@
   line-height: 1.5;
 }
 
+/* ── Sponsor Info Grid ────────────────────────────────────── */
+.sponsor-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  padding: 4px 0;
+}
+
+.sponsor-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sponsor-info-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, #64748b);
+}
+
+.sponsor-info-value {
+  font-size: 0.875rem;
+  color: var(--navy, #0f172a);
+  font-weight: 500;
+}
+
+/* ── Danger Zone ──────────────────────────────────────────── */
+.danger-zone-card {
+  border-left: 3px solid var(--red, #ef4444);
+}
+
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  background: var(--red, #ef4444);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.readonly-note {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--muted, #64748b);
+}
+
 /* ── Mobile adjustments ───────────────────────────────────────── */
 @media (max-width: 600px) {
   .ref-link-inline {

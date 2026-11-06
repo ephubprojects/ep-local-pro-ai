@@ -150,6 +150,7 @@
     <!-- ════════════ SECTION: Account ════════════ -->
     <div data-section="account" class="hidden">
 
+      <!-- Profile -->
       <div class="section-card">
         <div class="section-card-header">
           <h2>My Profile</h2>
@@ -165,24 +166,41 @@
               <input type="text" id="accLastName" placeholder="Smith" />
             </div>
           </div>
-          <div class="form-group">
-            <label for="accUsername">Username</label>
-            <input type="text" id="accUsername" readonly />
-          </div>
-          <div class="form-group">
-            <label for="accEmail">Email</label>
-            <input type="email" id="accEmail" readonly />
+          <div class="form-row">
+            <div class="form-group">
+              <label for="accUsername">Username <span class="readonly-note">(cannot be changed)</span></label>
+              <input type="text" id="accUsername" readonly />
+            </div>
+            <div class="form-group">
+              <label for="accEmail">Email <span class="readonly-note">(cannot be changed)</span></label>
+              <input type="email" id="accEmail" readonly />
+            </div>
           </div>
           <div class="form-group">
             <label for="accPhone">Phone</label>
             <input type="tel" id="accPhone" placeholder="+1 (555) 000-0000" />
           </div>
-          <div class="form-group">
-            <label for="accSponsor">Referred by (Sponsor)</label>
-            <input type="text" id="accSponsor" readonly />
-          </div>
           <button class="btn-primary" id="saveAccountBtn">Save Changes</button>
         </div>
+      </div>
+
+      <!-- Sponsor details -->
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Your Sponsor</h2>
+        </div>
+        <div id="sponsorCard" class="sponsor-card">
+          <div class="empty-state" style="padding:20px 0;"><p>Loading sponsor…</p></div>
+        </div>
+      </div>
+
+      <!-- Danger zone -->
+      <div class="section-card danger-zone-card">
+        <div class="section-card-header">
+          <h2>Cancel Account</h2>
+        </div>
+        <p class="form-hint" style="margin-bottom:16px;">Cancelling your account will deactivate it immediately. You will be signed out and your referral link will stop working.</p>
+        <button class="btn-danger" id="cancelAccountBtn">Cancel My Account</button>
       </div>
 
     </div><!-- /account -->
