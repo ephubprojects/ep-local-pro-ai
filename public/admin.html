@@ -454,15 +454,26 @@
     <div class="modal-body">
       <input type="hidden" id="catModalDocId" />
 
-      <div class="form-row">
-        <div class="form-group">
-          <label>Category Name <span style="color:var(--red)">*</span></label>
-          <input type="text" id="catName" placeholder="e.g. Landscaping" />
+      <div class="form-group">
+        <label>Category Name <span style="color:var(--red)">*</span></label>
+        <input type="text" id="catName" placeholder="e.g. Landscaping" />
+      </div>
+
+      <div class="form-group">
+        <label>Icon <span style="color:var(--red)">*</span></label>
+        <div class="cat-icon-row">
+          <div class="cat-icon-box" id="catIconBox">
+            <img id="catIconImg" src="" alt="" />
+          </div>
+          <div class="cat-icon-actions">
+            <label class="btn-secondary cat-icon-upload-label">
+              📂 Upload Image
+              <input type="file" id="catIconFile" accept="image/*" style="display:none;" />
+            </label>
+            <button class="btn-action danger" id="clearCatIconBtn" type="button">✕ Remove</button>
+          </div>
         </div>
-        <div class="form-group">
-          <label>Emoji <span style="color:var(--red)">*</span></label>
-          <input type="text" id="catEmoji" placeholder="🌿" maxlength="4" style="font-size:1.3rem;text-align:center;" />
-        </div>
+        <div class="form-hint">PNG or JPG — will be resized to 64×64</div>
       </div>
 
       <div class="form-group">

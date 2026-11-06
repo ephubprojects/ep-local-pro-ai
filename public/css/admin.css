@@ -832,6 +832,57 @@
   margin-bottom: 20px;
 }
 
+/* ── Category Icon Upload ─────────────────────────────────── */
+.cat-icon-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.cat-icon-box {
+  width: 64px;
+  height: 64px;
+  border: 2px dashed var(--border, #e2e8f0);
+  border-radius: 10px;
+  background: var(--light, #f8fafc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.cat-icon-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: none;
+}
+
+.cat-icon-box img.has-icon {
+  display: block;
+}
+
+.cat-icon-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cat-icon-upload-label {
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+/* Category card image icon */
+.category-emoji-img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
 /* ── Category Type Badges ─────────────────────────────────── */
 .cat-type-badge {
   display: inline-block;

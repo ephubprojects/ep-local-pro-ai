@@ -35,6 +35,7 @@ let currentUser = null;
 let demosPendingDeleteId = null;
 let allDemos = [];
 let customCategories = [];
+let catIconDataUrl = '';
 
 // ── Slug helper ─────────────────────────────────────────────
 function toSlug(name) {
@@ -100,7 +101,47 @@ function getAllCategories() {
 function catHTML(categoryId) {
   const cat = CAT_MAP[categoryId] || customCategories.find(c => c.id === categoryId);
   if (!cat) return categoryId || '—';
-  return `${cat.emoji} ${cat.name}`;
+  if (cat.emoji?.startsWith('data:image')) {
+    return `<img src="${cat.emoji}" style="width:18px;height:18px;vertical-align:middle;object-fit:contain;border-radius:3px;"> ${escHTML(cat.name)}`;
+  }
+  return `${cat.emoji} ${escHTML(cat.name)}`;
+}
+
+// ── Resize uploaded category icon ─────────────────────────────
+function resizeCatIcon(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = e => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 64; canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        const size = Math.min(img.width, img.height);
+        const sx = (img.width  - size) / 2;
+        const sy = (img.height - size) / 2;
+        ctx.drawImage(img, sx, sy, size, size, 0, 0, 64, 64);
+        resolve(canvas.toDataURL('image/png', 0.9));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function setCatIcon(dataUrl) {
+  catIconDataUrl = dataUrl || '';
+  const imgEl = document.getElementById('catIconImg');
+  if (!imgEl) return;
+  if (dataUrl) {
+    imgEl.src = dataUrl;
+    imgEl.classList.add('has-icon');
+  } else {
+    imgEl.src = '';
+    imgEl.classList.remove('has-icon');
+  }
 }
 
 // ============================================================
@@ -230,6 +271,21 @@ function onAdminReady(user) {
 
   // Add category button
   document.getElementById('addCategoryBtn')?.addEventListener('click', openAddCategoryModal);
+
+  // Category icon file upload
+  document.getElementById('catIconFile')?.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { showToast('Image must be under 2MB', 'error'); return; }
+    try {
+      const dataUrl = await resizeCatIcon(file);
+      setCatIcon(dataUrl);
+    } catch { showToast('Failed to load image', 'error'); }
+    e.target.value = '';
+  });
+
+  // Clear icon button
+  document.getElementById('clearCatIconBtn')?.addEventListener('click', () => setCatIcon(''));
 
   // Save category button
   document.getElementById('saveCatBtn')?.addEventListener('click', saveCategoryModal);
@@ -497,7 +553,10 @@ function populateCategorySelect() {
   const select = document.getElementById('dmCategory');
   if (!select) return;
   select.innerHTML = '<option value="">Select category…</option>' +
-    getAllCategories().map(c => `<option value="${c.id}">${c.emoji} ${c.name}</option>`).join('');
+    getAllCategories().map(c => {
+      const icon = c.emoji?.startsWith('data:image') ? '' : (c.emoji + ' ');
+      return `<option value="${c.id}">${icon}${c.name}</option>`;
+    }).join('');
 }
 
 function openCreateDemoModal() {
@@ -972,7 +1031,9 @@ async function renderCategoriesSection() {
   const customHTML = customCategories.map(c => `
     <div class="category-card" style="border-top:3px solid ${escHTML(c.color || '#4f46e5')};">
       <div class="category-card-top">
-        <span class="category-emoji">${escHTML(c.emoji || '📌')}</span>
+        ${c.emoji?.startsWith('data:image')
+          ? `<img src="${c.emoji}" class="category-emoji-img" />`
+          : `<span class="category-emoji">${escHTML(c.emoji || '📌')}</span>`}
         <div>
           <div class="category-name">${escHTML(c.name)}</div>
           <span class="cat-type-badge custom">Custom</span>
@@ -992,11 +1053,9 @@ function openAddCategoryModal() {
   document.getElementById('catModalTitle').textContent = 'Add Category';
   document.getElementById('catModalDocId').value = '';
   document.getElementById('catName').value = '';
-  document.getElementById('catEmoji').value = '';
   document.getElementById('catColorPicker').value = '#4f46e5';
   document.getElementById('catColorHex').value = '#4f46e5';
-  document.querySelectorAll('input[name="catOrderTypes"]').forEach(cb => { cb.checked = false; });
-  document.querySelectorAll('input[name="catDocTypes"]').forEach(cb => { cb.checked = false; });
+  setCatIcon('');
   openModal('categoryModal');
 }
 
@@ -1007,18 +1066,18 @@ function openEditCategoryModal(docId) {
   document.getElementById('catModalTitle').textContent = 'Edit Category';
   document.getElementById('catModalDocId').value = docId;
   document.getElementById('catName').value = cat.name || '';
-  document.getElementById('catEmoji').value = cat.emoji || '';
   const color = cat.color || '#4f46e5';
   document.getElementById('catColorPicker').value = color;
   document.getElementById('catColorHex').value = color;
+  setCatIcon(cat.emoji?.startsWith('data:image') ? cat.emoji : '');
   openModal('categoryModal');
 }
 
 async function saveCategoryModal() {
   const name = document.getElementById('catName')?.value.trim();
   if (!name) { showToast('Category name is required', 'error'); return; }
-  const emoji = document.getElementById('catEmoji')?.value.trim();
-  if (!emoji) { showToast('Emoji is required', 'error'); return; }
+  if (!catIconDataUrl) { showToast('Please upload an icon image', 'error'); return; }
+  const emoji = catIconDataUrl;
   const color = document.getElementById('catColorHex')?.value.trim() || '#4f46e5';
   const existingDocId = document.getElementById('catModalDocId')?.value;
   const catId = existingDocId || toSlug(name);
