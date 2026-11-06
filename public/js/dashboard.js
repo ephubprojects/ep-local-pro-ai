@@ -97,7 +97,7 @@ async function initDashboard() {
     ownerDoc = ownerSnap.data();
 
     // Redirect admins to admin panel
-    if (ownerDoc.role === 'admin') {
+    if (ownerDoc.role?.toLowerCase() === 'admin') {
       window.location.href = '/admin.html';
       return;
     }
