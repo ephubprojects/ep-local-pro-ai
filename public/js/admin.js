@@ -978,10 +978,6 @@ async function renderCategoriesSection() {
           <span class="cat-type-badge custom">Custom</span>
         </div>
       </div>
-      <div class="category-meta">
-        <strong>Orders:</strong> ${escHTML((c.orderTypes || []).join(', ') || '—')}<br/>
-        <strong>Docs:</strong> ${escHTML((c.docTypes || []).join(', ') || '—')}
-      </div>
       <div class="category-card-actions">
         <button class="btn-action" onclick="window._adminEditCat('${escAttr(c._docId)}')">Edit</button>
         <button class="btn-action danger" onclick="window._adminDeleteCat('${escAttr(c._docId)}')">Delete</button>
@@ -1015,12 +1011,6 @@ function openEditCategoryModal(docId) {
   const color = cat.color || '#4f46e5';
   document.getElementById('catColorPicker').value = color;
   document.getElementById('catColorHex').value = color;
-  document.querySelectorAll('input[name="catOrderTypes"]').forEach(cb => {
-    cb.checked = (cat.orderTypes || []).includes(cb.value);
-  });
-  document.querySelectorAll('input[name="catDocTypes"]').forEach(cb => {
-    cb.checked = (cat.docTypes || []).includes(cb.value);
-  });
   openModal('categoryModal');
 }
 
@@ -1030,9 +1020,6 @@ async function saveCategoryModal() {
   const emoji = document.getElementById('catEmoji')?.value.trim();
   if (!emoji) { showToast('Emoji is required', 'error'); return; }
   const color = document.getElementById('catColorHex')?.value.trim() || '#4f46e5';
-  const orderTypes = Array.from(document.querySelectorAll('input[name="catOrderTypes"]:checked')).map(cb => cb.value);
-  const docTypes   = Array.from(document.querySelectorAll('input[name="catDocTypes"]:checked')).map(cb => cb.value);
-
   const existingDocId = document.getElementById('catModalDocId')?.value;
   const catId = existingDocId || toSlug(name);
 
@@ -1041,7 +1028,7 @@ async function saveCategoryModal() {
     return;
   }
 
-  const payload = { id: catId, name, emoji, color, orderTypes, docTypes, isCustom: true };
+  const payload = { id: catId, name, emoji, color, isCustom: true };
 
   const saveBtn = document.getElementById('saveCatBtn');
   if (saveBtn) { saveBtn.textContent = 'Saving…'; saveBtn.disabled = true; }
