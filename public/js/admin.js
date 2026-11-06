@@ -103,33 +103,38 @@ function catHTML(categoryId) {
 const ADMIN_EMAIL = 'ezperfilsystem@gmail.com';
 
 async function initAdmin() {
-  onAuthStateChanged(auth, async user => {
-    if (!user) {
-      window.location.href = '/auth.html';
-      return;
+  // Wait until Firebase has fully restored the session before deciding to redirect.
+  // onAuthStateChanged can fire with null while session is still loading from storage.
+  await auth.authStateReady();
+  const user = auth.currentUser;
+
+  if (!user) {
+    window.location.href = '/auth.html';
+    return;
+  }
+
+  // Primary check: Firestore role. Fallback: admin email.
+  let isAdmin = false;
+  try {
+    const ownerSnap = await getDoc(doc(db, 'owners', user.uid));
+    if (ownerSnap.exists()) {
+      isAdmin = ownerSnap.data().role?.toLowerCase() === 'admin';
     }
-    // Primary check: Firestore role
-    // Fallback: hardcoded admin email (works even if Firestore rules not published)
-    let isAdmin = false;
-    try {
-      const ownerSnap = await getDoc(doc(db, 'owners', user.uid));
-      if (ownerSnap.exists()) {
-        isAdmin = ownerSnap.data().role?.toLowerCase() === 'admin';
-      }
-    } catch (err) {
-      console.warn('Firestore role check failed, falling back to email check:', err.code);
-    }
-    // Fallback to email
-    if (!isAdmin) {
-      isAdmin = user.email === ADMIN_EMAIL;
-    }
-    if (!isAdmin) {
-      window.location.href = '/auth.html';
-      return;
-    }
-    currentUser = user;
-    onAdminReady(user);
-  });
+  } catch (err) {
+    console.warn('Firestore role check failed, using email fallback:', err.code);
+  }
+  if (!isAdmin) isAdmin = user.email === ADMIN_EMAIL;
+
+  if (!isAdmin) {
+    window.location.href = '/auth.html';
+    return;
+  }
+
+  currentUser = user;
+  onAdminReady(user);
+
+  // Listen for future signouts
+  onAuthStateChanged(auth, u => { if (!u) window.location.href = '/auth.html'; });
 }
 
 function onAdminReady(user) {

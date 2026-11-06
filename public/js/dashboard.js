@@ -66,13 +66,19 @@ function showToast(msg, type = 'success') {
 }
 
 // ── Auth Gate + Init ─────────────────────────────────────────
-onAuthStateChanged(auth, async (user) => {
+// auth.authStateReady() waits until Firebase has fully restored the session
+// from storage before we make any redirect decision. Without this, the first
+// onAuthStateChanged fire can be null while the session is still loading.
+auth.authStateReady().then(() => {
+  const user = auth.currentUser;
   if (!user) {
     window.location.href = '/auth.html';
     return;
   }
   currentUser = user;
-  await initDashboard();
+  initDashboard();
+  // Listen for future signouts
+  onAuthStateChanged(auth, u => { if (!u) window.location.href = '/auth.html'; });
 });
 
 async function initDashboard() {
