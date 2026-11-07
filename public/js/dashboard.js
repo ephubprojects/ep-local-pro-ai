@@ -249,6 +249,49 @@ function wireNavAndModals() {
       menu.classList.remove('open');
     }
   });
+
+  // Profile section — wire buttons once so they always respond
+  document.getElementById('saveProfileBtn')?.addEventListener('click', saveProfile);
+
+  document.getElementById('profileLogoUploadBtn')?.addEventListener('click', () => {
+    document.getElementById('profileLogoFile')?.click();
+  });
+
+  document.getElementById('profileLogoFile')?.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { showToast('Image must be under 2MB.', 'error'); return; }
+    if (!bizId) { showToast('Business not loaded yet. Please wait.', 'error'); return; }
+    try {
+      const dataUrl = await resizeLogo(file, 300, 120);
+      qs('#profileLogoImg').src = dataUrl;
+      qs('#profileLogoImg').style.display = 'block';
+      qs('#profileLogoPlaceholder').style.display = 'none';
+      await updateDoc(doc(db, 'businesses', bizId), { logoUrl: dataUrl });
+      if (bizDoc) bizDoc.logoUrl = dataUrl;
+      showToast('Logo saved!');
+    } catch (err) {
+      console.error('logo upload error:', err);
+      showToast('Failed to save logo. ' + (err.message || ''), 'error');
+    }
+    e.target.value = '';
+  });
+
+  document.getElementById('removeLogoBtn')?.addEventListener('click', async () => {
+    if (!confirm('Remove your logo?')) return;
+    if (!bizId) return;
+    try {
+      await updateDoc(doc(db, 'businesses', bizId), { logoUrl: '' });
+      if (bizDoc) bizDoc.logoUrl = '';
+      qs('#profileLogoImg').src = '';
+      qs('#profileLogoImg').style.display = 'none';
+      qs('#profileLogoPlaceholder').style.display = 'flex';
+      document.getElementById('profileLogoFile').value = '';
+      showToast('Logo removed.');
+    } catch (err) {
+      showToast('Failed to remove logo. ' + (err.message || ''), 'error');
+    }
+  });
 }
 
 // ── Mobile Sidebar ───────────────────────────────────────────
@@ -1389,44 +1432,6 @@ async function loadProfile() {
     showToast('Failed to load profile.', 'error');
   }
 
-  // Wire save button
-  qs('#saveProfileBtn').onclick = saveProfile;
-
-  // Wire logo file input
-  qs('#profileLogoFile').onchange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { showToast('Image must be under 2MB.', 'error'); return; }
-    try {
-      const dataUrl = await resizeLogo(file, 300, 120);
-      qs('#profileLogoImg').src = dataUrl;
-      qs('#profileLogoImg').style.display = 'block';
-      qs('#profileLogoPlaceholder').style.display = 'none';
-      // Auto-save logo immediately
-      await updateDoc(doc(db, 'businesses', bizId), { logoUrl: dataUrl });
-      if (bizDoc) bizDoc.logoUrl = dataUrl;
-      showToast('Logo saved!');
-    } catch (err) {
-      console.error('logo upload error:', err);
-      showToast('Failed to save logo.', 'error');
-    }
-  };
-
-  // Remove logo button
-  qs('#removeLogoBtn').onclick = async () => {
-    if (!confirm('Remove your logo?')) return;
-    try {
-      await updateDoc(doc(db, 'businesses', bizId), { logoUrl: '' });
-      if (bizDoc) bizDoc.logoUrl = '';
-      qs('#profileLogoImg').src = '';
-      qs('#profileLogoImg').style.display = 'none';
-      qs('#profileLogoPlaceholder').style.display = 'flex';
-      qs('#profileLogoFile').value = '';
-      showToast('Logo removed.');
-    } catch (err) {
-      showToast('Failed to remove logo.', 'error');
-    }
-  };
 }
 
 async function saveProfile() {

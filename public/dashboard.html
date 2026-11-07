@@ -228,11 +228,9 @@
         <div class="profile-logo-placeholder" id="profileLogoPlaceholder">🏢<br><span>No Logo</span></div>
       </div>
       <div class="profile-logo-controls">
-        <label class="btn-secondary profile-logo-upload-btn">
-          📷 Upload Logo
-          <input type="file" id="profileLogoFile" accept="image/*" style="display:none;" />
-        </label>
-        <button class="btn-action danger" id="removeLogoBtn">Remove</button>
+        <button class="btn-secondary profile-logo-upload-btn" id="profileLogoUploadBtn" type="button">📷 Upload Logo</button>
+        <input type="file" id="profileLogoFile" accept="image/png,image/jpeg" style="display:none;" />
+        <button class="btn-action danger" id="removeLogoBtn" type="button">Remove</button>
         <div class="form-hint">PNG or JPG. Max 2MB. Will be auto-resized.</div>
       </div>
     </div>
@@ -680,6 +678,6 @@
 </div>
 
 
-<script type="module" src="/js/dashboard.js?v=2"></script>
+<script type="module" src="/js/dashboard.js?v=3"></script>
 </body>
 </html>
