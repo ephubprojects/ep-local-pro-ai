@@ -294,6 +294,24 @@
       display: block;
     }
 
+    .form-group input[readonly] {
+      background: #f1f5f9;
+      color: #475569;
+      cursor: not-allowed;
+      border-color: #cbd5e1;
+    }
+
+    .sponsor-locked-note {
+      display: none;
+      font-size: 0.72rem;
+      color: #64748b;
+      margin-top: 0.25rem;
+    }
+
+    .sponsor-locked-note.visible {
+      display: block;
+    }
+
     .acct-type-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -463,9 +481,10 @@
           </div>
         </div>
         <div class="form-group">
-          <label for="signup-sponsor">Sponsor Username <span style="font-weight:400;color:#94a3b8">(optional)</span></label>
+          <label for="signup-sponsor">Sponsor Username <span id="sponsor-optional-label" style="font-weight:400;color:#94a3b8">(optional)</span></label>
           <input type="text" id="signup-sponsor" placeholder="EP HUB member who referred you">
           <p class="sponsor-hint" id="sponsor-hint">✓ Referred by <strong id="sponsor-name-display"></strong></p>
+          <p class="sponsor-locked-note" id="sponsor-locked-note">🔒 This was set by your referral link and cannot be changed.</p>
         </div>
         <div class="form-group">
           <label>Select Plan</label>
@@ -519,6 +538,8 @@
       sponsorInput.readOnly = true;
       document.getElementById('sponsor-name-display').textContent = refParam;
       document.getElementById('sponsor-hint').classList.add('visible');
+      document.getElementById('sponsor-optional-label').style.display = 'none';
+      document.getElementById('sponsor-locked-note').classList.add('visible');
     }
     // Switch to Create Account tab if arriving from invite link (handled below after switchTab is defined)
 
