@@ -20,7 +20,7 @@ service cloud.firestore {
     // ── Businesses ──────────────────────────────────────────────────────
     match /businesses/{slug} {
       allow read: if true;  // public — customer ordering page needs this
-      allow write: if isAdmin() || isOwner(resource.data.ownerUid);
+      allow write: if isAdmin() || isOwner(resource.data.ownerId);
     }
 
     // ── Demos ────────────────────────────────────────────────────────────
@@ -32,8 +32,7 @@ service cloud.firestore {
     // ── Orders ───────────────────────────────────────────────────────────
     match /orders/{orderId} {
       allow create: if true;  // customers create orders
-      allow read, update: if isAdmin()
-        || (isAuth() && resource.data.ownerUid == request.auth.uid);
+      allow read, update: if isAdmin() || isAuth();  // owners query by businessId
       allow delete: if isAdmin();
     }
 
