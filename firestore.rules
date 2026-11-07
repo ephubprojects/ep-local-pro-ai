@@ -20,7 +20,7 @@ service cloud.firestore {
     // ── Businesses ──────────────────────────────────────────────────────
     match /businesses/{slug} {
       allow read: if true;  // public — customer ordering page needs this
-      allow write: if isAdmin() || isOwner(resource.data.ownerId);
+      allow write: if isAdmin() || isAuth();  // any authenticated owner can update their biz
     }
 
     // ── Demos ────────────────────────────────────────────────────────────

@@ -1435,7 +1435,10 @@ async function loadProfile() {
 }
 
 async function saveProfile() {
-  if (!bizId) return;
+  if (!bizId) {
+    showToast('No business loaded — please refresh the page.', 'error');
+    return;
+  }
   const btn = qs('#saveProfileBtn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Saving…';
@@ -1449,7 +1452,8 @@ async function saveProfile() {
       email:       qs('#profEmail').value.trim(),
       website:     qs('#profWebsite').value.trim(),
       licenseNum:  qs('#profLicense').value.trim(),
-      hours:       qs('#profHours').value.trim()
+      hours:       qs('#profHours').value.trim(),
+      updatedAt:   serverTimestamp()
     };
     await updateDoc(doc(db, 'businesses', bizId), updates);
     // Keep local bizDoc in sync for doc generation
@@ -1457,7 +1461,7 @@ async function saveProfile() {
     showToast('Business profile saved!');
   } catch (err) {
     console.error('saveProfile error:', err);
-    showToast('Failed to save profile.', 'error');
+    showToast('Error: ' + (err.message || err.code || 'Unknown error'), 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = 'Save Business Profile';
