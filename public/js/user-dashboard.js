@@ -82,7 +82,7 @@ async function initUserDash() {
     // Referral link
     const username = ownerDoc.username || '';
     const refUrl = username
-      ? `https://eplocalproai.com/auth.html?ref=${username}`
+      ? `https://ep-local-pro-ai.netlify.app/auth.html?ref=${username}`
       : '';
 
     if (refUrl) {
@@ -294,7 +294,7 @@ async function loadAccount() {
   const demoBtn  = qs('#accCopyDemoBtn');
 
   if (username) {
-    const refUrl = `https://eplocalproai.com/auth.html?ref=${username}`;
+    const refUrl = `https://ep-local-pro-ai.netlify.app/auth.html?ref=${username}`;
     if (refDisp) refDisp.textContent = refUrl;
     if (refBtn)  refBtn.onclick = () => copyText(refUrl, '#accCopyRefBtn', 'Copied!', 'Copy');
 
@@ -303,7 +303,7 @@ async function loadAccount() {
       const demoSnap = await getDocs(demoQ);
       if (!demoSnap.empty) {
         const slug    = demoSnap.docs[0].data().slug || '';
-        const demoUrl = `https://eplocalproai.com/demo/${slug}?ref=${username}`;
+        const demoUrl = `https://ep-local-pro-ai.netlify.app/demo/${slug}?ref=${username}`;
         if (demoDisp) demoDisp.textContent = demoUrl;
         if (demoBtn)  demoBtn.onclick = () => copyText(demoUrl, '#accCopyDemoBtn', 'Copied!', 'Copy');
       } else {

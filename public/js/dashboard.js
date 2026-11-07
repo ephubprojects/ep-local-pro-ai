@@ -149,7 +149,7 @@ async function initDashboard() {
 
     // AI page button
     qs('#openAiPageBtn').onclick = () => {
-      if (bizSlug) window.open(`https://eplocalproai.com/${bizSlug}`, '_blank');
+      if (bizSlug) window.open(`https://ep-local-pro-ai.netlify.app/${bizSlug}`, '_blank');
       else showToast('No slug set for your business.', 'error');
     };
 
@@ -824,7 +824,7 @@ async function loadAiSettings() {
     updateLangToggle(selectedLang);
 
     // AI page URL
-    qs('#aiUrlDisplay').textContent = `https://eplocalproai.com/${bizSlug || '—'}`;
+    qs('#aiUrlDisplay').textContent = `https://ep-local-pro-ai.netlify.app/${bizSlug || '—'}`;
 
   } catch (err) {
     console.error('loadAiSettings error:', err);
@@ -840,7 +840,7 @@ async function loadAiSettings() {
 
   // Wire copy URL
   qs('#copyUrlBtn').onclick = () => {
-    const url = `https://eplocalproai.com/${bizSlug}`;
+    const url = `https://ep-local-pro-ai.netlify.app/${bizSlug}`;
     navigator.clipboard.writeText(url).then(() => {
       const btn = qs('#copyUrlBtn');
       btn.textContent = '✅ Copied!';
@@ -1002,7 +1002,7 @@ async function loadTeam() {
     tbody.innerHTML = '';
     snap.forEach(d => {
       const emp = d.data();
-      const wtLink = `https://eplocalproai.com/wt?b=${bizId}&e=${emp.code}`;
+      const wtLink = `https://ep-local-pro-ai.netlify.app/wt?b=${bizId}&e=${emp.code}`;
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td style="font-weight:600;">${emp.name || '—'}</td>

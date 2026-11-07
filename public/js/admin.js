@@ -213,7 +213,7 @@ async function onAdminReady(user) {
 
       const username = od.username || '';
       if (username) {
-        const refUrl  = `https://eplocalproai.com/auth.html?ref=${username}`;
+        const refUrl  = `https://ep-local-pro-ai.netlify.app/auth.html?ref=${username}`;
         const refDisp = document.getElementById('adminRefLinkDisplay');
         const refBtn  = document.getElementById('adminCopyRefBtn');
         if (refDisp) refDisp.textContent = refUrl;
@@ -231,7 +231,7 @@ async function onAdminReady(user) {
           const demoBtn  = document.getElementById('adminCopyDemoBtn');
           if (!demoSnap.empty) {
             const slug = demoSnap.docs[0].data().slug || '';
-            const demoUrl = `https://eplocalproai.com/demo/${slug}?ref=${username}`;
+            const demoUrl = `https://ep-local-pro-ai.netlify.app/demo/${slug}?ref=${username}`;
             if (demoDisp) demoDisp.textContent = demoUrl;
             if (demoBtn)  demoBtn.onclick = () => copyToClipboard(demoUrl, demoBtn);
           } else {
@@ -572,7 +572,7 @@ function renderDemoRow(demo, id) {
   const cat    = CAT_MAP[demo.categoryId] || {};
   const catStr = cat.emoji ? `${cat.emoji} ${cat.name}` : (demo.categoryId || '—');
   const slug   = demo.slug || '—';
-  const demoUrl = slug !== '—' ? `https://eplocalproai.com/demo/${slug}` : '—';
+  const demoUrl = slug !== '—' ? `https://ep-local-pro-ai.netlify.app/demo/${slug}` : '—';
   const ref    = demo.referrerUsername || '—';
   const created = fmtDate(demo.createdAt);
 
@@ -791,7 +791,7 @@ async function convertDemoToAccount(demoId) {
     const demo = snap.data();
 
     const ref  = demo.referrerUsername ? `ref=${encodeURIComponent(demo.referrerUsername)}&` : '';
-    const link = `https://eplocalproai.com/auth.html?${ref}demo=${demoId}`;
+    const link = `https://ep-local-pro-ai.netlify.app/auth.html?${ref}demo=${demoId}`;
 
     // Show invite modal
     const linkInput = document.getElementById('inviteLinkInput');
