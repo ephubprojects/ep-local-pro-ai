@@ -3,67 +3,72 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Walkie Talkie — EP Local Pro AI</title>
+  <title>Staff Radio — EP Local Pro AI</title>
   <link rel="stylesheet" href="/css/wt.css" />
 </head>
 <body>
+<div id="wtApp">
 
-  <div id="wtApp">
+  <!-- Loading -->
+  <div id="wtLoading" class="wt-screen">
+    <div class="wt-logo">EP Local Pro AI</div>
+    <div class="wt-loading-spinner"><div class="wt-spinner"></div></div>
+    <p>Connecting…</p>
+  </div>
 
-    <!-- Loading state -->
-    <div id="wtLoading" class="wt-screen">
-      <div class="wt-logo">EP Local Pro AI</div>
-      <div class="wt-loading-spinner"><div class="wt-spinner"></div></div>
-      <p>Connecting…</p>
-    </div>
+  <!-- Error -->
+  <div id="wtError" class="wt-screen hidden">
+    <div class="wt-logo">EP Local Pro AI</div>
+    <div class="wt-error-icon">⚠️</div>
+    <h2 id="wtErrorTitle">Connection Failed</h2>
+    <p id="wtErrorMsg">Invalid or expired link. Ask your manager for a new link.</p>
+  </div>
 
-    <!-- Error state -->
-    <div id="wtError" class="wt-screen hidden">
-      <div class="wt-logo">EP Local Pro AI</div>
-      <div class="wt-error-icon">⚠️</div>
-      <h2 id="wtErrorTitle">Connection Failed</h2>
-      <p id="wtErrorMsg">Invalid or expired link. Please ask your manager for a new link.</p>
-    </div>
+  <!-- Main -->
+  <div id="wtMain" class="wt-screen hidden">
 
-    <!-- Main state -->
-    <div id="wtMain" class="wt-screen hidden">
-      <header class="wt-header">
-        <div class="wt-logo">EP Local Pro AI</div>
+    <!-- Top bar: biz name + channel + identity -->
+    <header class="wt-topbar">
+      <div class="wt-topbar-info">
         <div class="wt-biz-name" id="wtBizName">Loading…</div>
-      </header>
-
-      <div class="wt-identity">
-        <div class="wt-emp-role" id="wtRole">Role</div>
-        <div class="wt-emp-name" id="wtName">Name</div>
-        <div class="wt-status" id="wtStatus">
-          <span class="wt-status-dot"></span>
-          <span>Connected</span>
-        </div>
+        <div class="wt-channel-badge">📻 All Staff</div>
       </div>
-
-      <!-- Last received message -->
-      <div class="wt-incoming" id="wtIncoming">
-        <div class="wt-incoming-label">Last message</div>
-        <div class="wt-incoming-text" id="wtIncomingText">—</div>
+      <div class="wt-me-pill">
+        <span class="wt-me-role" id="wtRole">Role</span>
+        <span class="wt-me-name" id="wtNameBadge">Name</span>
       </div>
+    </header>
 
-      <!-- PTT button -->
+    <!-- Online presence bar -->
+    <div class="wt-online-bar">
+      <span class="wt-online-dot"></span>
+      <span id="wtOnlineText">Loading…</span>
+    </div>
+
+    <!-- Message feed -->
+    <div class="wt-feed" id="wtFeed">
+      <div class="wt-feed-hint" id="wtFeedHint">📻 All staff messages appear here</div>
+    </div>
+
+    <!-- PTT zone -->
+    <div class="wt-ptt-zone">
+      <div class="wt-ptt-hint" id="wtPttHint">Release to send to all staff</div>
       <div class="wt-ptt-wrap">
-        <button class="wt-ptt-btn" id="wtPttBtn" aria-label="Hold to talk">
+        <button class="wt-ptt-btn" id="wtPttBtn" aria-label="Hold to talk to all staff">
           <span class="wt-ptt-icon">🎙️</span>
           <span class="wt-ptt-label">Hold to Talk</span>
         </button>
-        <div class="wt-ptt-status" id="wtPttStatus">Release to send</div>
-      </div>
-
-      <!-- Incoming audio indicator -->
-      <div class="wt-audio-indicator hidden" id="wtAudioIndicator">
-        <span class="wt-audio-wave">🔊</span> Playing message…
       </div>
     </div>
 
-  </div>
+    <!-- Audio playing indicator (floats above PTT) -->
+    <div class="wt-audio-indicator hidden" id="wtAudioIndicator">
+      <span>🔊</span> <span id="wtAudioFrom">Staff</span> is talking…
+    </div>
 
-  <script type="module" src="/js/wt.js"></script>
+  </div>
+</div>
+
+<script type="module" src="/js/wt.js"></script>
 </body>
 </html>

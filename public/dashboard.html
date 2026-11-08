@@ -6,6 +6,7 @@
   <title>Dashboard — EP Local Pro AI</title>
   <link rel="stylesheet" href="/css/main.css" />
   <link rel="stylesheet" href="/css/dashboard.css" />
+  <link rel="stylesheet" href="/css/wt.css" />
 </head>
 <body class="dash-body">
 
@@ -491,43 +492,43 @@
 
   <!-- Panel -->
   <div class="wt-panel" id="wtPanel">
+
     <div class="wt-panel-header">
-      <span>🎙️ Walkie Talkie</span>
+      <div>
+        <div class="wt-panel-title">📻 Staff Radio</div>
+        <div class="wt-panel-online-bar">
+          <span class="wt-panel-online-dot"></span>
+          <span id="wtPanelOnlineText">Loading…</span>
+        </div>
+      </div>
       <button class="wt-panel-close" id="wtPanelClose">✕</button>
     </div>
 
-    <div class="wt-panel-body">
-      <!-- Employee selector -->
-      <div class="wt-emp-selector" id="wtEmpSelector">
-        <p class="wt-emp-selector-label">Select who to talk to:</p>
-        <div class="wt-emp-list" id="wtEmpList">
-          <div class="empty-state" style="padding:20px;"><p>No employees added yet.</p></div>
-        </div>
-      </div>
-
-      <!-- PTT area (shown when employee selected) -->
-      <div class="wt-ptt-area hidden" id="wtPttArea">
-        <div class="wt-selected-emp" id="wtSelectedEmpLabel">—</div>
-        <button class="wt-owner-ptt" id="wtOwnerPtt">
-          <span class="wt-ptt-icon-inner">🎙️</span>
-          <span class="wt-ptt-text">Hold to Talk</span>
-        </button>
-        <div class="wt-owner-status" id="wtOwnerStatus">Release to send</div>
-      </div>
-
-      <!-- Incoming messages from employees -->
-      <div class="wt-incoming-panel" id="wtIncomingPanel">
-        <div class="wt-incoming-panel-title">Incoming</div>
-        <div class="wt-msg-list" id="wtMsgList">
-          <div class="wt-msg-empty">No messages yet</div>
-        </div>
-      </div>
+    <!-- All-staff message feed -->
+    <div class="wt-panel-feed" id="wtMsgList">
+      <div class="wt-panel-feed-hint">No messages yet</div>
     </div>
+
+    <!-- Owner PTT (broadcasts to all staff) -->
+    <div class="wt-panel-ptt">
+      <button class="wt-owner-ptt" id="wtOwnerPtt">
+        <span class="wt-ptt-icon-inner">🎙️</span>
+        <span class="wt-ptt-text">Hold to Talk</span>
+      </button>
+      <div class="wt-owner-status" id="wtOwnerStatus">Broadcast to all staff</div>
+    </div>
+
+    <!-- Audio playing indicator -->
+    <div class="wt-panel-audio-ind hidden" id="wtPanelAudioInd">
+      🔊 <span id="wtPanelAudioFrom">Staff</span> is talking…
+    </div>
+
   </div>
 
   <!-- FAB button -->
-  <button class="wt-fab-btn" id="wtFabBtn" title="Walkie Talkie">
-    <span>🎙️</span>
+  <button class="wt-fab-btn" id="wtFabBtn" title="Staff Radio">
+    <span>📻</span>
+    <span class="wt-fab-badge hidden" id="wtFabBadge">0</span>
   </button>
 </div>
 
