@@ -1,5 +1,5 @@
 /* ============================================================
-   EP Local Pro AI — wt.js  v4
+   EP Local Pro AI — wt.js  v5
    Two-way Staff Radio. No login required.
    Employee mode : /wt?b=BIZID&e=EMPCODE
    Owner mobile  : /wt?b=BIZID&o=OWNERTOKEN
@@ -21,20 +21,18 @@ const empCode    = params.get('e');   // employee mode
 const ownerToken = params.get('o');   // owner mobile mode
 
 // ── Identity (set after auth) ─────────────────────────────────
-// { from, name, role, empId | null }
 let identity = null;
 
 // ── State ────────────────────────────────────────────────────
-const playedSet    = new Set();
-let heartbeat      = null;
-let historyLoaded  = false;  // true after initial snapshot batch is done
+const playedSet   = new Set();
+let heartbeat     = null;
+let historyLoaded = false;
 
 // MediaRecorder
 let mediaStream  = null;
 let recorder     = null;
 let audioChunks  = [];
 let isRecording  = false;
-let pttHeld      = false;    // true while user is physically holding the button
 let recTimer     = null;
 
 // Audio playback queue
@@ -61,7 +59,6 @@ async function init() {
   }
 
   try {
-    // Load business doc (always needed)
     const bizSnap = await getDoc(doc(db, 'businesses', bizId));
     if (!bizSnap.exists()) {
       return showError('Invalid Link', 'Business not found. Ask your manager for a new link.');
@@ -75,8 +72,6 @@ async function init() {
         return showError('Invalid Link', 'This owner link is invalid or has been reset. Get a new one from your dashboard.');
       }
       identity = { from: 'owner', name: bizData.name || 'Owner', role: 'Owner', empId: null };
-
-      // Owner presence in business doc
       markOwnerOnline();
       heartbeat = setInterval(markOwnerOnline, 30_000);
 
@@ -116,7 +111,6 @@ async function init() {
     document.getElementById('wtNameBadge').textContent = identity.name;
 
     showScreen('main');
-    loadTime = Date.now();
 
     loadOnlineList();
     setInterval(loadOnlineList, 30_000);
@@ -155,7 +149,6 @@ async function loadOnlineList() {
     const twoMin = 120_000;
     const names  = [];
 
-    // Check owner online status
     const bizSnap = await getDoc(doc(db, 'businesses', bizId));
     if (bizSnap.exists()) {
       const bd = bizSnap.data();
@@ -165,7 +158,6 @@ async function loadOnlineList() {
       }
     }
 
-    // Check employee online status
     const empSnap = await getDocs(
       query(collection(db, 'employees'), where('bizId', '==', bizId))
     );
@@ -203,19 +195,20 @@ function subscribeMessages() {
 
       appendMessage(data);
 
-      // Play audio only for new real-time messages (not history on load)
       if (historyLoaded && data.from !== identity?.from) {
         const name = data.fromName || (data.from === 'owner' ? 'Boss' : 'Staff');
         if (data.audioUrl) {
           enqueueAudio(name, data.audioUrl, null);
         } else if (data.audioB64) {
-          enqueueAudio(name, null, { b64: data.audioB64, type: data.mimeType || 'audio/webm' });
+          enqueueAudio(name, null, { b64: data.audioB64, type: data.mimeType || 'audio/mp4' });
         }
       }
     });
-    // After the first batch of changes (history), mark as ready for real-time
     historyLoaded = true;
-  }, err => console.error('wt_messages snapshot error:', err));
+  }, err => {
+    console.error('wt_messages snapshot error:', err);
+    $pttHint.textContent = '⚠️ Connection error — please refresh the page';
+  });
 }
 
 function appendMessage(data) {
@@ -286,24 +279,54 @@ async function drainAudioQueue() {
 }
 
 // ── PTT ───────────────────────────────────────────────────────
+// Two-phase UX (same pattern as EP HUB voice channel):
+//   Phase 1 — user taps to activate → getUserMedia → mic permission dialog
+//   Phase 2 — PTT is live; hold to record, release to send
 function wirePtt() {
   if (!navigator.mediaDevices?.getUserMedia) {
     $pttBtn.disabled = true;
-    $pttBtn.style.opacity = '0.5';
     $pttHint.textContent = '⚠️ Microphone not supported on this browser.';
     return;
   }
 
-  $pttHint.textContent = 'Hold to talk';
+  $pttBtn.classList.add('wt-ptt-activate');
+  $pttBtn.querySelector('.wt-ptt-label').textContent = 'Activate';
+  $pttHint.textContent = 'Tap once to activate your radio';
 
-  $pttBtn.addEventListener('mousedown',  startRec,  { passive: false });
-  $pttBtn.addEventListener('touchstart', startRec,  { passive: false });
-  $pttBtn.addEventListener('mouseup',    stopRec,   { passive: false });
-  $pttBtn.addEventListener('touchend',   stopRec,   { passive: false });
-  $pttBtn.addEventListener('mouseleave', stopRec,   { passive: false });
+  function onActivate(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    $pttBtn.classList.remove('wt-ptt-activate');
+    $pttBtn.querySelector('.wt-ptt-label').textContent = 'Hold to Talk';
+    $pttHint.textContent = '🎤 Allow microphone in the popup…';
+
+    // getUserMedia MUST be called via .then() inside a user-gesture handler —
+    // do NOT convert to async/await; iOS Safari requires the call stack to remain
+    // synchronous from the touch/click event.
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      .then(stream => {
+        mediaStream = stream;
+        $pttHint.textContent = 'Hold to talk · Release to send';
+
+        $pttBtn.addEventListener('mousedown',  startRec, { passive: false });
+        $pttBtn.addEventListener('touchstart', startRec, { passive: false });
+        $pttBtn.addEventListener('mouseup',    stopRec,  { passive: false });
+        $pttBtn.addEventListener('touchend',   stopRec,  { passive: false });
+        $pttBtn.addEventListener('mouseleave', stopRec,  { passive: false });
+      })
+      .catch(() => {
+        $pttBtn.classList.add('wt-ptt-activate');
+        $pttBtn.querySelector('.wt-ptt-label').textContent = 'Activate';
+        $pttHint.textContent = '⚠️ Mic blocked — tap 🔒 in your browser bar, allow mic, then tap again';
+      });
+  }
+
+  $pttBtn.addEventListener('click',      onActivate, { once: true, passive: false });
+  $pttBtn.addEventListener('touchstart', onActivate, { once: true, passive: false });
 }
 
-function beginRecording() {
+function startRec(e) {
+  e.preventDefault();
   if (isRecording || !mediaStream) return;
   isRecording = true;
   audioChunks = [];
@@ -322,37 +345,8 @@ function beginRecording() {
   recTimer = setTimeout(() => { if (isRecording) stopRec(); }, 20_000);
 }
 
-function startRec(e) {
-  e.preventDefault();
-  if (isRecording) return;
-  pttHeld = true;
-
-  if (!mediaStream) {
-    // Request mic right here inside the user gesture — MUST use .then(), not await
-    $pttHint.textContent = '🎤 Allow microphone in the popup…';
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-      .then(stream => {
-        mediaStream = stream;
-        if (pttHeld) {
-          // User is still holding — start recording immediately
-          beginRecording();
-        } else {
-          $pttHint.textContent = 'Hold to talk';
-        }
-      })
-      .catch(() => {
-        pttHeld = false;
-        $pttHint.textContent = '⚠️ Mic blocked — tap the lock icon in your browser bar and allow mic';
-      });
-    return;
-  }
-
-  beginRecording();
-}
-
 function stopRec(e) {
   if (e) e.preventDefault();
-  pttHeld = false;
   if (!isRecording) return;
   clearTimeout(recTimer);
   isRecording = false;
@@ -368,9 +362,12 @@ async function onRecordingStop() {
     return;
   }
 
-  const mimeType   = audioChunks[0]?.type || 'audio/webm';
-  const blob       = new Blob(audioChunks, { type: mimeType });
-  audioChunks      = [];
+  // Some older Android Chrome versions report 'video/webm' for audio-only tracks.
+  let mimeType = audioChunks[0]?.type || 'audio/mp4';
+  if (mimeType.startsWith('video/')) mimeType = mimeType.replace('video/', 'audio/');
+
+  const blob  = new Blob(audioChunks, { type: mimeType });
+  audioChunks = [];
 
   if (blob.size < 500) {
     $pttHint.textContent = 'Hold to talk · Release to send';
@@ -381,13 +378,20 @@ async function onRecordingStop() {
   const durationSec = Math.max(1, Math.round(blob.size / 3000));
 
   try {
-    const payload = { bizId, from: identity.from, fromName: identity.name, mimeType, duration: durationSec, createdAt: serverTimestamp() };
+    const payload = {
+      bizId,
+      from:      identity.from,
+      fromName:  identity.name,
+      mimeType,
+      duration:  durationSec,
+      createdAt: serverTimestamp()
+    };
 
-    // Try Firebase Storage first; fall back to base64 in Firestore
+    // Try Firebase Storage; fall back to base64 in Firestore.
     try {
-      const ext     = mimeType.includes('mp4') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : 'webm';
-      const path    = `wt_audio/${bizId}/${Date.now()}_${identity.from}.${ext}`;
-      const sRef    = ref(storage, path);
+      const ext  = mimeType.includes('mp4') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : 'webm';
+      const path = `wt_audio/${bizId}/${Date.now()}_${identity.from}.${ext}`;
+      const sRef = ref(storage, path);
       await uploadBytes(sRef, blob);
       payload.audioUrl = await getDownloadURL(sRef);
     } catch {
@@ -395,18 +399,18 @@ async function onRecordingStop() {
     }
 
     await addDoc(collection(db, 'wt_messages'), payload);
+    $pttHint.textContent = 'Hold to talk · Release to send';
+
   } catch (err) {
     console.error('sendAudio error:', err);
-    $pttHint.textContent = '⚠️ Send failed — try again';
-    setTimeout(() => { $pttHint.textContent = 'Hold to talk · Release to send'; }, 3000);
-    return;
+    $pttHint.textContent = '⚠️ Send failed — check connection and try again';
   }
-
-  $pttHint.textContent = 'Hold to talk · Release to send';
 }
 
+// Try audio/mp4 first — supported on iOS Safari AND Chrome/Android.
+// audio/webm is NOT playable on iOS, so preferring mp4 ensures cross-device playback.
 function getSupportedMimeType() {
-  const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+  const types = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
   return types.find(t => MediaRecorder.isTypeSupported(t)) || '';
 }
 
