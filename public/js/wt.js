@@ -25,15 +25,16 @@ const ownerToken = params.get('o');   // owner mobile mode
 let identity = null;
 
 // ── State ────────────────────────────────────────────────────
-let loadTime     = Date.now();
-const playedSet  = new Set();
-let heartbeat    = null;
+const playedSet    = new Set();
+let heartbeat      = null;
+let historyLoaded  = false;  // true after initial snapshot batch is done
 
 // MediaRecorder
 let mediaStream  = null;
 let recorder     = null;
 let audioChunks  = [];
 let isRecording  = false;
+let pttHeld      = false;    // true while user is physically holding the button
 let recTimer     = null;
 
 // Audio playback queue
@@ -202,9 +203,8 @@ function subscribeMessages() {
 
       appendMessage(data);
 
-      // Play audio for messages not from me, arriving after page load
-      const msgTime = data.createdAt?.toMillis?.() ?? 0;
-      if (data.from !== identity?.from && msgTime >= loadTime) {
+      // Play audio only for new real-time messages (not history on load)
+      if (historyLoaded && data.from !== identity?.from) {
         const name = data.fromName || (data.from === 'owner' ? 'Boss' : 'Staff');
         if (data.audioUrl) {
           enqueueAudio(name, data.audioUrl, null);
@@ -213,6 +213,8 @@ function subscribeMessages() {
         }
       }
     });
+    // After the first batch of changes (history), mark as ready for real-time
+    historyLoaded = true;
   }, err => console.error('wt_messages snapshot error:', err));
 }
 
@@ -292,7 +294,7 @@ function wirePtt() {
     return;
   }
 
-  $pttHint.textContent = 'Tap & hold to talk';
+  $pttHint.textContent = 'Hold to talk';
 
   $pttBtn.addEventListener('mousedown',  startRec,  { passive: false });
   $pttBtn.addEventListener('touchstart', startRec,  { passive: false });
@@ -301,24 +303,8 @@ function wirePtt() {
   $pttBtn.addEventListener('mouseleave', stopRec,   { passive: false });
 }
 
-function startRec(e) {
-  e.preventDefault();
-  if (isRecording) return;
-
-  // No mic yet — request it right here inside the user gesture
-  if (!mediaStream) {
-    $pttHint.textContent = '🎤 Allow microphone access…';
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-      .then(stream => {
-        mediaStream = stream;
-        $pttHint.textContent = '✓ Mic ready — hold button to talk';
-      })
-      .catch(() => {
-        $pttHint.textContent = '⚠️ Mic blocked — tap the lock icon in your browser and allow microphone';
-      });
-    return; // first press = permission only; user holds again to record
-  }
-
+function beginRecording() {
+  if (isRecording || !mediaStream) return;
   isRecording = true;
   audioChunks = [];
   $pttBtn.classList.add('recording');
@@ -333,12 +319,40 @@ function startRec(e) {
   recorder.ondataavailable = ev => { if (ev.data.size > 0) audioChunks.push(ev.data); };
   recorder.onstop = onRecordingStop;
   recorder.start(100);
-
   recTimer = setTimeout(() => { if (isRecording) stopRec(); }, 20_000);
+}
+
+function startRec(e) {
+  e.preventDefault();
+  if (isRecording) return;
+  pttHeld = true;
+
+  if (!mediaStream) {
+    // Request mic right here inside the user gesture — MUST use .then(), not await
+    $pttHint.textContent = '🎤 Allow microphone in the popup…';
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      .then(stream => {
+        mediaStream = stream;
+        if (pttHeld) {
+          // User is still holding — start recording immediately
+          beginRecording();
+        } else {
+          $pttHint.textContent = 'Hold to talk';
+        }
+      })
+      .catch(() => {
+        pttHeld = false;
+        $pttHint.textContent = '⚠️ Mic blocked — tap the lock icon in your browser bar and allow mic';
+      });
+    return;
+  }
+
+  beginRecording();
 }
 
 function stopRec(e) {
   if (e) e.preventDefault();
+  pttHeld = false;
   if (!isRecording) return;
   clearTimeout(recTimer);
   isRecording = false;

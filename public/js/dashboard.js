@@ -1229,8 +1229,9 @@ async function toggleEmployeeWt(empId, currentActive) {
 let wtMsgUnsub    = null;
 let wtLoadTime    = 0;
 let wtUnread      = 0;
-let wtPanelOpen   = false;
-const wtPlayedSet = new Set();
+let wtPanelOpen    = false;
+let wtHistoryLoaded = false;
+const wtPlayedSet  = new Set();
 
 // MediaRecorder state (owner PTT)
 let wtMediaStream  = null;
@@ -1327,9 +1328,8 @@ function subscribeWtMessages() {
 
       appendWtMessage(data);
 
-      // Play audio + badge only for new messages not from owner
-      const msgTime = data.createdAt?.toMillis?.() ?? 0;
-      if (data.from !== 'owner' && msgTime >= wtLoadTime) {
+      // Play audio + badge only for new real-time messages (not history)
+      if (wtHistoryLoaded && data.from !== 'owner') {
         const name = data.fromName || 'Staff';
         if (data.audioUrl) {
           enqueueWtAudio(name, data.audioUrl, null);
@@ -1344,6 +1344,7 @@ function subscribeWtMessages() {
         }
       }
     });
+    wtHistoryLoaded = true;
   }, err => console.error('wt_messages snapshot error:', err));
 }
 
