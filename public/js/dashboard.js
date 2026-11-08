@@ -1158,15 +1158,22 @@ async function deleteEmployee(empId) {
 //  WALKIE TALKIE FAB — two-way all-staff channel
 // ════════════════════════════════════════════════════════════
 
-let wtRecognition = null;
-let wtIsRecording = false;
 let wtMsgUnsub    = null;
 let wtLoadTime    = 0;
 let wtUnread      = 0;
 let wtPanelOpen   = false;
 const wtPlayedSet = new Set();
-let wtTtsQueue    = [];
-let wtTtsPlaying  = false;
+
+// MediaRecorder state (owner PTT)
+let wtMediaStream  = null;
+let wtRecorder     = null;
+let wtAudioChunks  = [];
+let wtIsRecording  = false;
+let wtRecTimer     = null;
+
+// Audio playback queue (owner side)
+let wtAudioQueue   = [];
+let wtAudioPlaying = false;
 
 function initWalkieTalkie() {
   const fabWrap = qs('#wtFabWrap');
@@ -1252,11 +1259,13 @@ function subscribeWtMessages() {
 
       appendWtMessage(data);
 
-      // TTS + badge only for new messages (after subscribe time) not from owner
+      // Play audio + badge only for new messages not from owner
       const msgTime = data.createdAt?.toMillis?.() ?? 0;
       if (data.from !== 'owner' && msgTime >= wtLoadTime) {
-        const name = data.fromName || 'Staff';
-        enqueueWtTts(msgId, name, data.text);
+        if (data.audioB64) {
+          const name = data.fromName || 'Staff';
+          enqueueWtAudio(name, data.audioB64, data.mimeType || 'audio/webm');
+        }
 
         if (!wtPanelOpen) {
           wtUnread++;
@@ -1279,12 +1288,13 @@ function appendWtMessage(data) {
   const isOwner  = data.from === 'owner';
   const sender   = isOwner ? (data.fromName || 'Boss') : (data.fromName || 'Staff');
   const time     = data.createdAt?.toDate?.()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || '';
+  const dur      = data.duration ? ` · ${data.duration}s` : '';
 
   const row = document.createElement('div');
   row.className = 'wt-msg' + (isOwner ? ' wt-msg-owner' : '');
   row.innerHTML = `
     <span class="wt-msg-sender">${escWt(sender)}</span>
-    <div class="wt-msg-bubble">${escWt(data.text || '')}</div>
+    <div class="wt-msg-bubble">🎤 Voice message${dur}</div>
     <span class="wt-msg-time">${time}</span>`;
   feed.appendChild(row);
 
@@ -1302,72 +1312,107 @@ function escWt(s) {
 }
 
 // ── Owner PTT ────────────────────────────────────────────────
-function startOwnerRecording(e) {
+async function startOwnerRecording(e) {
   e.preventDefault();
   if (wtIsRecording) return;
-  if (!window.SpeechRecognition && !window.webkitSpeechRecognition) {
-    showToast('Voice not supported in this browser. Use Chrome.', 'error');
-    return;
+
+  // Request mic on first use
+  if (!wtMediaStream) {
+    try {
+      wtMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    } catch {
+      showToast('Microphone access denied. Check browser permissions.', 'error');
+      return;
+    }
   }
 
   wtIsRecording = true;
+  wtAudioChunks = [];
   qs('#wtOwnerPtt').classList.add('recording');
   qs('#wtOwnerStatus').textContent = '🔴 Recording…';
 
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  wtRecognition = new SR();
-  wtRecognition.continuous     = false;
-  wtRecognition.interimResults = false;
-  wtRecognition.lang           = 'en-US';
-  wtRecognition.onresult       = ev => sendWtMessage(ev.results[0][0].transcript);
-  wtRecognition.onerror        = ()  => resetOwnerPtt();
-  wtRecognition.onend          = ()  => resetOwnerPtt();
-  try { wtRecognition.start(); } catch { resetOwnerPtt(); }
+  const mimeType = wtGetSupportedMimeType();
+  try {
+    wtRecorder = new MediaRecorder(wtMediaStream, mimeType ? { mimeType } : {});
+  } catch {
+    wtRecorder = new MediaRecorder(wtMediaStream);
+  }
+  wtRecorder.ondataavailable = ev => { if (ev.data.size > 0) wtAudioChunks.push(ev.data); };
+  wtRecorder.onstop = onOwnerRecordingStop;
+  wtRecorder.start(100);
+
+  // Auto-stop after 20 seconds
+  wtRecTimer = setTimeout(() => { if (wtIsRecording) stopOwnerRecording(); }, 20_000);
 }
 
-function stopOwnerRecording() {
+function stopOwnerRecording(e) {
+  if (e) e.preventDefault();
   if (!wtIsRecording) return;
-  if (wtRecognition) wtRecognition.stop();
-  resetOwnerPtt();
+  clearTimeout(wtRecTimer);
+  wtIsRecording = false;
+  qs('#wtOwnerPtt')?.classList.remove('recording');
+  qs('#wtOwnerStatus').textContent = 'Sending…';
+  if (wtRecorder?.state === 'recording') wtRecorder.stop();
 }
 
 function resetOwnerPtt() {
-  wtIsRecording = false;
-  const btn = qs('#wtOwnerPtt');
-  if (btn) btn.classList.remove('recording');
+  qs('#wtOwnerPtt')?.classList.remove('recording');
   const status = qs('#wtOwnerStatus');
   if (status) status.textContent = 'Broadcast to all staff';
-  wtRecognition = null;
+  wtRecorder = null;
 }
 
-async function sendWtMessage(text) {
-  if (!text?.trim() || !bizId) return;
-  const ownerName = bizDoc?.name || ownerDoc?.companyName || 'Boss';
+async function onOwnerRecordingStop() {
+  wtRecorder = null;
+  if (!wtAudioChunks.length) { resetOwnerPtt(); return; }
+
+  const mimeType = wtAudioChunks[0]?.type || 'audio/webm';
+  const blob     = new Blob(wtAudioChunks, { type: mimeType });
+  wtAudioChunks  = [];
+
+  if (blob.size < 500) { resetOwnerPtt(); return; }
+
+  const durationSec = Math.round(blob.size / 3000);
+  const ownerName   = bizDoc?.name || ownerDoc?.companyName || 'Boss';
+
   try {
+    const buffer = await blob.arrayBuffer();
+    let binary = '';
+    new Uint8Array(buffer).forEach(b => { binary += String.fromCharCode(b); });
+    const audioB64 = btoa(binary);
+
     await addDoc(collection(db, 'wt_messages'), {
       bizId,
       from:      'owner',
       fromName:  ownerName,
-      text:      text.trim(),
+      audioB64,
+      mimeType,
+      duration:  durationSec,
       createdAt: serverTimestamp()
     });
   } catch (err) {
-    console.error('sendWtMessage error:', err);
-    showToast('Failed to send message.', 'error');
+    console.error('sendWtAudio error:', err);
+    showToast('Failed to send voice message.', 'error');
+  } finally {
+    resetOwnerPtt();
   }
 }
 
-// ── TTS queue (owner side) ────────────────────────────────────
-function enqueueWtTts(msgId, fromName, text) {
-  if (!text) return;
-  wtTtsQueue.push({ msgId, fromName, text });
-  if (!wtTtsPlaying) drainWtTtsQueue();
+function wtGetSupportedMimeType() {
+  const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+  return types.find(t => MediaRecorder.isTypeSupported(t)) || '';
 }
 
-async function drainWtTtsQueue() {
-  if (!wtTtsQueue.length) { wtTtsPlaying = false; return; }
-  wtTtsPlaying = true;
-  const { msgId, fromName, text } = wtTtsQueue.shift();
+// ── Audio playback queue (owner side) ────────────────────────
+function enqueueWtAudio(fromName, audioB64, mimeType) {
+  wtAudioQueue.push({ fromName, audioB64, mimeType });
+  if (!wtAudioPlaying) drainWtAudioQueue();
+}
+
+async function drainWtAudioQueue() {
+  if (!wtAudioQueue.length) { wtAudioPlaying = false; return; }
+  wtAudioPlaying = true;
+  const { fromName, audioB64, mimeType } = wtAudioQueue.shift();
 
   const audioInd  = qs('#wtPanelAudioInd');
   const audioFrom = qs('#wtPanelAudioFrom');
@@ -1375,28 +1420,24 @@ async function drainWtTtsQueue() {
   if (audioInd)  audioInd.classList.remove('hidden');
 
   try {
-    const res = await fetch('/.netlify/functions/wt-tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
-    });
-    if (!res.ok) throw new Error('TTS failed');
-    const { audio } = await res.json();
-
-    const bytes  = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
-    const url    = URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' }));
+    const bytes  = Uint8Array.from(atob(audioB64), c => c.charCodeAt(0));
+    const url    = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
     const player = new Audio(url);
     player.onended = () => {
       URL.revokeObjectURL(url);
       if (audioInd) audioInd.classList.add('hidden');
-      drainWtTtsQueue();
+      drainWtAudioQueue();
+    };
+    player.onerror = () => {
+      URL.revokeObjectURL(url);
+      if (audioInd) audioInd.classList.add('hidden');
+      drainWtAudioQueue();
     };
     await player.play();
-    await updateDoc(doc(db, 'wt_messages', msgId), { played: true }).catch(() => {});
   } catch (err) {
-    console.error('drainWtTtsQueue error:', err);
+    console.error('drainWtAudioQueue error:', err);
     if (audioInd) audioInd.classList.add('hidden');
-    drainWtTtsQueue();
+    drainWtAudioQueue();
   }
 }
 

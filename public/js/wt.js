@@ -1,6 +1,6 @@
 /* ============================================================
-   EP Local Pro AI — wt.js  v2
-   Two-way Staff Radio. No Firebase Auth required.
+   EP Local Pro AI — wt.js  v3
+   Two-way Staff Radio. MediaRecorder push-to-talk.
    URL: /wt?b=BIZID&e=EMPCODE
    ============================================================ */
 
@@ -18,13 +18,20 @@ const empCode = params.get('e');
 // ── State ────────────────────────────────────────────────────
 let empDoc       = null;
 let empId        = null;
-let isRecording  = false;
-let recognition  = null;
 let loadTime     = Date.now();
 const playedSet  = new Set();
 let heartbeat    = null;
-let ttsQueue     = [];
-let ttsPlaying   = false;
+
+// MediaRecorder
+let mediaStream  = null;
+let recorder     = null;
+let audioChunks  = [];
+let isRecording  = false;
+let recTimer     = null;
+
+// Audio playback queue
+let audioQueue   = [];
+let audioPlaying = false;
 
 // ── DOM ──────────────────────────────────────────────────────
 const $loading    = document.getElementById('wtLoading');
@@ -76,11 +83,25 @@ async function init() {
     setInterval(loadOnlineList, 30_000);
 
     subscribeMessages();
-    wirePtt();
+    await setupMic();
 
   } catch (err) {
     console.error('wt init error:', err);
     showError('Connection Error', 'Failed to connect. Check your internet and try again.');
+  }
+}
+
+// ── Mic setup ─────────────────────────────────────────────────
+async function setupMic() {
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    $pttHint.textContent = 'Hold to talk · Release to send';
+    wirePtt();
+  } catch (err) {
+    console.warn('Mic access denied:', err);
+    $pttBtn.disabled = true;
+    $pttBtn.style.opacity = '0.5';
+    $pttHint.textContent = '⚠️ Tap the lock icon in your browser bar to allow microphone access, then reload.';
   }
 }
 
@@ -128,11 +149,11 @@ function subscribeMessages() {
 
       appendMessage(data);
 
-      // TTS for messages not from me, arriving after page load
+      // Play audio for messages not from me, arriving after page load
       const msgTime = data.createdAt?.toMillis?.() ?? 0;
-      if (data.from !== empCode && msgTime >= loadTime) {
+      if (data.from !== empCode && msgTime >= loadTime && data.audioB64) {
         const name = data.fromName || (data.from === 'owner' ? 'Boss' : 'Staff');
-        enqueueTts(msgId, name, data.text);
+        enqueueAudio(name, data.audioB64, data.mimeType || 'audio/webm');
       }
     });
   }, err => console.error('wt_messages snapshot error:', err));
@@ -146,12 +167,13 @@ function appendMessage(data) {
   const isOwner = data.from === 'owner';
   const sender  = isMe ? 'You' : (data.fromName || (isOwner ? 'Boss' : 'Staff'));
   const time    = data.createdAt?.toDate?.()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || '';
+  const dur     = data.duration ? ` · ${data.duration}s` : '';
 
   const row = document.createElement('div');
   row.className = 'wt-msg' + (isMe ? ' wt-msg-me' : isOwner ? ' wt-msg-owner' : '');
   row.innerHTML = `
     <span class="wt-msg-sender">${esc(sender)}</span>
-    <div class="wt-msg-bubble">${esc(data.text || '')}</div>
+    <div class="wt-msg-bubble">🎤 Voice message${dur}</div>
     <span class="wt-msg-time">${time}</span>`;
   $feed.appendChild(row);
   $feed.scrollTop = $feed.scrollHeight;
@@ -161,58 +183,46 @@ function esc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// ── TTS queue ─────────────────────────────────────────────────
-function enqueueTts(msgId, fromName, text) {
-  if (!text) return;
-  ttsQueue.push({ msgId, fromName, text });
-  if (!ttsPlaying) drainTtsQueue();
+// ── Audio playback queue ──────────────────────────────────────
+function enqueueAudio(fromName, audioB64, mimeType) {
+  audioQueue.push({ fromName, audioB64, mimeType });
+  if (!audioPlaying) drainAudioQueue();
 }
 
-async function drainTtsQueue() {
-  if (!ttsQueue.length) { ttsPlaying = false; return; }
-  ttsPlaying = true;
-  const { msgId, fromName, text } = ttsQueue.shift();
+async function drainAudioQueue() {
+  if (!audioQueue.length) { audioPlaying = false; return; }
+  audioPlaying = true;
+  const { fromName, audioB64, mimeType } = audioQueue.shift();
 
-  $audioFrom.textContent = fromName;
-  $audioInd.classList.remove('hidden');
+  if ($audioFrom) $audioFrom.textContent = fromName;
+  $audioInd?.classList.remove('hidden');
 
   try {
-    const res = await fetch('/.netlify/functions/wt-tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
-    });
-    if (!res.ok) throw new Error('TTS failed');
-    const { audio } = await res.json();
-
-    const bytes  = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
-    const url    = URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' }));
+    const bytes  = Uint8Array.from(atob(audioB64), c => c.charCodeAt(0));
+    const url    = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
     const player = new Audio(url);
 
     player.onended = () => {
       URL.revokeObjectURL(url);
-      $audioInd.classList.add('hidden');
-      drainTtsQueue();
+      $audioInd?.classList.add('hidden');
+      drainAudioQueue();
+    };
+    player.onerror = () => {
+      URL.revokeObjectURL(url);
+      $audioInd?.classList.add('hidden');
+      drainAudioQueue();
     };
     await player.play();
-    await updateDoc(doc(db, 'wt_messages', msgId), { played: true }).catch(() => {});
-
   } catch (err) {
-    console.error('playTts error:', err);
-    $audioInd.classList.add('hidden');
-    drainTtsQueue();
+    console.error('playAudio error:', err);
+    $audioInd?.classList.add('hidden');
+    drainAudioQueue();
   }
 }
 
 // ── PTT ───────────────────────────────────────────────────────
 function wirePtt() {
-  if (!window.SpeechRecognition && !window.webkitSpeechRecognition) {
-    $pttBtn.disabled = true;
-    $pttHint.textContent = '⚠️ Voice not supported — use Chrome';
-    return;
-  }
-
-  $pttBtn.addEventListener('mousedown',  startRec);
+  $pttBtn.addEventListener('mousedown',  startRec,  { passive: false });
   $pttBtn.addEventListener('touchstart', startRec,  { passive: false });
   $pttBtn.addEventListener('mouseup',    stopRec);
   $pttBtn.addEventListener('touchend',   stopRec,   { passive: false });
@@ -221,49 +231,81 @@ function wirePtt() {
 
 function startRec(e) {
   e.preventDefault();
-  if (isRecording) return;
+  if (isRecording || !mediaStream) return;
   isRecording = true;
+  audioChunks = [];
+
   $pttBtn.classList.add('recording');
   $pttHint.textContent = '🔴 Recording… release to send';
 
-  const SR   = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SR();
-  recognition.continuous     = false;
-  recognition.interimResults = false;
-  recognition.lang           = empDoc?.lang === 'es' ? 'es-US' : 'en-US';
-  recognition.onresult       = ev => sendMessage(ev.results[0][0].transcript);
-  recognition.onerror        = ()  => resetPtt();
-  recognition.onend          = ()  => resetPtt();
-  try { recognition.start(); } catch { resetPtt(); }
+  const mimeType = getSupportedMimeType();
+  try {
+    recorder = new MediaRecorder(mediaStream, mimeType ? { mimeType } : {});
+  } catch {
+    recorder = new MediaRecorder(mediaStream);
+  }
+  recorder.ondataavailable = ev => { if (ev.data.size > 0) audioChunks.push(ev.data); };
+  recorder.onstop = onRecordingStop;
+  recorder.start(100); // collect chunks every 100ms
+
+  // Auto-stop after 20 seconds
+  recTimer = setTimeout(() => { if (isRecording) stopRec(); }, 20_000);
 }
 
-function stopRec() {
+function stopRec(e) {
+  if (e) e.preventDefault();
   if (!isRecording) return;
-  recognition?.stop();
-  resetPtt();
-}
-
-function resetPtt() {
+  clearTimeout(recTimer);
   isRecording = false;
   $pttBtn.classList.remove('recording');
-  $pttHint.textContent = 'Release to send to all staff';
-  recognition = null;
+  $pttHint.textContent = 'Sending…';
+  if (recorder?.state === 'recording') recorder.stop();
 }
 
-async function sendMessage(text) {
-  if (!text?.trim()) return;
+async function onRecordingStop() {
+  recorder = null;
+  if (!audioChunks.length) {
+    $pttHint.textContent = 'Hold to talk · Release to send';
+    return;
+  }
+
+  const mimeType = audioChunks[0]?.type || 'audio/webm';
+  const blob     = new Blob(audioChunks, { type: mimeType });
+  audioChunks    = [];
+
+  if (blob.size < 500) {
+    $pttHint.textContent = 'Hold to talk · Release to send';
+    return;
+  }
+
+  const durationSec = Math.round(blob.size / 3000); // rough estimate
+
   try {
+    const buffer = await blob.arrayBuffer();
+    let binary = '';
+    new Uint8Array(buffer).forEach(b => { binary += String.fromCharCode(b); });
+    const audioB64 = btoa(binary);
+
     await addDoc(collection(db, 'wt_messages'), {
       bizId,
       from:      empCode,
       fromName:  empDoc?.name || 'Staff',
       empId,
-      text:      text.trim(),
+      audioB64,
+      mimeType,
+      duration:  durationSec,
       createdAt: serverTimestamp()
     });
   } catch (err) {
-    console.error('sendMessage error:', err);
+    console.error('sendAudio error:', err);
+  } finally {
+    $pttHint.textContent = 'Hold to talk · Release to send';
   }
+}
+
+function getSupportedMimeType() {
+  const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+  return types.find(t => MediaRecorder.isTypeSupported(t)) || '';
 }
 
 // ── UI helpers ───────────────────────────────────────────────
