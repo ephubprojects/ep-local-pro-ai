@@ -1098,8 +1098,8 @@ async function loadTeam() {
       tbody.appendChild(tr);
     });
 
-    // Refresh WT panel employee list
-    refreshWtEmpList();
+    // Refresh WT online list
+    if (typeof refreshWtOnlineList === 'function') refreshWtOnlineList();
 
   } catch (err) {
     console.error('loadTeam error:', err);
