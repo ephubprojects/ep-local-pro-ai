@@ -1382,18 +1382,24 @@ function escWt(s) {
 }
 
 // ── Owner PTT ────────────────────────────────────────────────
-async function startOwnerRecording(e) {
+function startOwnerRecording(e) {
   e.preventDefault();
   if (wtIsRecording) return;
 
-  // Request mic on first use
+  // No mic yet — request right here inside the user gesture using .then()
   if (!wtMediaStream) {
-    try {
-      wtMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-    } catch {
-      showToast('Microphone access denied. Check browser permissions.', 'error');
-      return;
-    }
+    const status = qs('#wtOwnerStatus');
+    if (status) status.textContent = '🎤 Allow microphone access…';
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      .then(stream => {
+        wtMediaStream = stream;
+        if (status) status.textContent = '✓ Mic ready — hold to talk';
+      })
+      .catch(() => {
+        showToast('Microphone access denied. Check browser permissions.', 'error');
+        if (status) status.textContent = 'Broadcast to all staff';
+      });
+    return; // first press = permission only
   }
 
   wtIsRecording = true;

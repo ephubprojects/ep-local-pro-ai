@@ -120,7 +120,7 @@ async function init() {
     loadOnlineList();
     setInterval(loadOnlineList, 30_000);
     subscribeMessages();
-    await setupMic();
+    wirePtt();
 
   } catch (err) {
     console.error('wt init error:', err);
@@ -283,8 +283,8 @@ async function drainAudioQueue() {
   }
 }
 
-// ── Mic setup ─────────────────────────────────────────────────
-async function setupMic() {
+// ── PTT ───────────────────────────────────────────────────────
+function wirePtt() {
   if (!navigator.mediaDevices?.getUserMedia) {
     $pttBtn.disabled = true;
     $pttBtn.style.opacity = '0.5';
@@ -292,20 +292,8 @@ async function setupMic() {
     return;
   }
 
-  try {
-    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-    $pttHint.textContent = 'Hold to talk · Release to send';
-    wirePtt();
-  } catch (err) {
-    console.warn('Mic access denied:', err);
-    $pttBtn.disabled = true;
-    $pttBtn.style.opacity = '0.5';
-    $pttHint.innerHTML = '⚠️ Microphone access required.<br>Tap the lock icon in your browser bar, allow mic, then reload.';
-  }
-}
+  $pttHint.textContent = 'Tap & hold to talk';
 
-// ── PTT ───────────────────────────────────────────────────────
-function wirePtt() {
   $pttBtn.addEventListener('mousedown',  startRec,  { passive: false });
   $pttBtn.addEventListener('touchstart', startRec,  { passive: false });
   $pttBtn.addEventListener('mouseup',    stopRec,   { passive: false });
@@ -315,10 +303,24 @@ function wirePtt() {
 
 function startRec(e) {
   e.preventDefault();
-  if (isRecording || !mediaStream) return;
+  if (isRecording) return;
+
+  // No mic yet — request it right here inside the user gesture
+  if (!mediaStream) {
+    $pttHint.textContent = '🎤 Allow microphone access…';
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      .then(stream => {
+        mediaStream = stream;
+        $pttHint.textContent = '✓ Mic ready — hold button to talk';
+      })
+      .catch(() => {
+        $pttHint.textContent = '⚠️ Mic blocked — tap the lock icon in your browser and allow microphone';
+      });
+    return; // first press = permission only; user holds again to record
+  }
+
   isRecording = true;
   audioChunks = [];
-
   $pttBtn.classList.add('recording');
   $pttHint.textContent = '🔴 Recording… release to send';
 
