@@ -1020,13 +1020,13 @@ function genEmpCode() {
 }
 
 async function loadTeam() {
+  // Wire button before bizId check so it always works
+  qs('#addEmpBtn').onclick = addEmployee;
+
   if (!bizId) return;
 
   const tbody = qs('#empTableBody');
   tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><p>Loading…</p></div></td></tr>`;
-
-  // Wire add button
-  qs('#addEmpBtn').onclick = addEmployee;
 
   try {
     const q = query(
