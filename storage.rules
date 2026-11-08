@@ -1,0 +1,15 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Walkie Talkie audio — unauthenticated (WT pages have no login)
+    match /wt_audio/{bizId}/{fileName} {
+      allow read, write: if true;
+    }
+
+    // Everything else requires authentication
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

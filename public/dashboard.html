@@ -458,6 +458,18 @@
         <button class="btn-primary" id="addEmpBtn">＋ Add Employee</button>
       </div>
 
+      <!-- Owner's Staff Radio link (no login needed on mobile) -->
+      <div class="section-card" id="ownerWtCard" style="display:none;">
+        <div class="section-card-header">
+          <h2>📻 Your Staff Radio Link</h2>
+        </div>
+        <p class="form-hint" style="margin:0 0 10px;">Open this on your phone to talk to staff without logging in.</p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <span id="ownerWtLinkText" style="font-size:0.72rem;color:var(--indigo);font-family:monospace;word-break:break-all;flex:1;min-width:0;"></span>
+          <button class="btn-action" id="copyOwnerWtBtn" style="white-space:nowrap;flex-shrink:0;">Copy Link</button>
+        </div>
+      </div>
+
       <div class="section-card">
         <div class="section-card-header">
           <h2>Your Team</h2>
@@ -471,15 +483,16 @@
                 <th>Role</th>
                 <th>Access Code</th>
                 <th>Walkie Talkie Link</th>
+                <th>Radio</th>
                 <th></th>
               </tr>
             </thead>
             <tbody id="empTableBody">
-              <tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">👷</div><p>No team members yet.</p></div></td></tr>
+              <tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon">👷</div><p>No team members yet.</p></div></td></tr>
             </tbody>
           </table>
         </div>
-        <p class="form-hint" style="margin-top:10px;">Share the Walkie Talkie link with each employee. They can open it on their phone to communicate with you.</p>
+        <p class="form-hint" style="margin-top:10px;">Share the Walkie Talkie link with each employee. Toggle Radio off to cut access instantly.</p>
       </div>
 
     </div><!-- /team -->

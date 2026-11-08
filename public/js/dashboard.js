@@ -3,7 +3,7 @@
    Business owner dashboard logic. Firebase module script.
    ============================================================ */
 
-import { auth, db } from '/js/firebase.js';
+import { auth, db, storage } from '/js/firebase.js';
 import {
   onAuthStateChanged,
   signOut
@@ -12,6 +12,9 @@ import {
   collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, onSnapshot, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import {
+  ref as storageRef, uploadBytes, getDownloadURL
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 
 // ── State ────────────────────────────────────────────────────
 let currentUser  = null;
@@ -1069,9 +1072,10 @@ async function loadTeam() {
 
     tbody.innerHTML = '';
     snap.forEach(d => {
-      const emp = d.data();
+      const emp    = d.data();
+      const active = emp.wtActive !== false;
       const wtLink = `https://ep-local-pro-ai.netlify.app/wt?b=${bizId}&e=${emp.code}`;
-      const tr = document.createElement('tr');
+      const tr     = document.createElement('tr');
       tr.innerHTML = `
         <td style="font-weight:600;">${emp.name || '—'}</td>
         <td>${emp.role || '—'}</td>
@@ -1079,6 +1083,13 @@ async function loadTeam() {
         <td class="emp-link-cell">
           <span style="font-size:0.75rem;color:var(--indigo);font-family:monospace;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${wtLink}</span>
           <button class="btn-action" data-link="${wtLink}">Copy</button>
+        </td>
+        <td>
+          <button class="btn-wt-toggle ${active ? 'active' : 'off'}"
+            data-empid="${d.id}" data-active="${active}"
+            title="${active ? 'Click to remove radio access' : 'Click to restore radio access'}">
+            ${active ? '📻 On' : '🔇 Off'}
+          </button>
         </td>
         <td>
           <button class="btn-action danger" data-empid="${d.id}" style="color:var(--red,#ef4444);border-color:#fca5a5;">Delete</button>
@@ -1091,12 +1102,19 @@ async function loadTeam() {
         });
       };
 
-      tr.querySelector('[data-empid]').onclick = function() {
+      tr.querySelector('.btn-wt-toggle').onclick = function() {
+        const isActive = this.dataset.active === 'true';
+        toggleEmployeeWt(this.dataset.empid, isActive);
+      };
+
+      tr.querySelector('.btn-action.danger').onclick = function() {
         deleteEmployee(this.dataset.empid);
       };
 
       tbody.appendChild(tr);
     });
+
+    loadOwnerWtLink();
 
     // Refresh WT online list
     if (typeof refreshWtOnlineList === 'function') refreshWtOnlineList();
@@ -1123,10 +1141,11 @@ async function addEmployee() {
     const code = genEmpCode();
     await addDoc(collection(db, 'employees'), {
       bizId,
-      ownerId: currentUser.uid,
+      ownerId:  currentUser.uid,
       name,
       role,
       code,
+      wtActive: true,
       createdAt: serverTimestamp()
     });
     qs('#empName').value = '';
@@ -1151,6 +1170,55 @@ async function deleteEmployee(empId) {
   } catch (err) {
     console.error('deleteEmployee error:', err);
     showToast('Failed to remove employee.', 'error');
+  }
+}
+
+async function loadOwnerWtLink() {
+  if (!bizId) return;
+  const card = qs('#ownerWtCard');
+  if (!card) return;
+
+  try {
+    // Load or generate the owner WT token
+    let token = bizDoc?.wtOwnerToken;
+    if (!token) {
+      token = Array.from(crypto.getRandomValues(new Uint8Array(16)),
+        b => b.toString(16).padStart(2, '0')).join('');
+      await updateDoc(doc(db, 'businesses', bizId), { wtOwnerToken: token });
+      if (bizDoc) bizDoc.wtOwnerToken = token;
+    }
+
+    const link = `https://ep-local-pro-ai.netlify.app/wt?b=${bizId}&o=${token}`;
+    const textEl = qs('#ownerWtLinkText');
+    if (textEl) textEl.textContent = link;
+
+    const copyBtn = qs('#copyOwnerWtBtn');
+    if (copyBtn) {
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(link).then(() => {
+          copyBtn.textContent = '✓ Copied';
+          setTimeout(() => { copyBtn.textContent = 'Copy Link'; }, 2000);
+        });
+      };
+    }
+
+    card.style.display = '';
+  } catch (err) {
+    console.error('loadOwnerWtLink error:', err);
+  }
+}
+
+async function toggleEmployeeWt(empId, currentActive) {
+  const newActive = !currentActive;
+  const label     = newActive ? 'restore' : 'remove';
+  if (!confirm(`${label === 'restore' ? 'Restore' : 'Remove'} walkie talkie access for this employee?`)) return;
+  try {
+    await updateDoc(doc(db, 'employees', empId), { wtActive: newActive });
+    showToast(newActive ? 'Radio access restored.' : 'Radio access removed.');
+    loadTeam();
+  } catch (err) {
+    console.error('toggleEmployeeWt error:', err);
+    showToast('Failed to update access.', 'error');
   }
 }
 
@@ -1262,9 +1330,11 @@ function subscribeWtMessages() {
       // Play audio + badge only for new messages not from owner
       const msgTime = data.createdAt?.toMillis?.() ?? 0;
       if (data.from !== 'owner' && msgTime >= wtLoadTime) {
-        if (data.audioB64) {
-          const name = data.fromName || 'Staff';
-          enqueueWtAudio(name, data.audioB64, data.mimeType || 'audio/webm');
+        const name = data.fromName || 'Staff';
+        if (data.audioUrl) {
+          enqueueWtAudio(name, data.audioUrl, null);
+        } else if (data.audioB64) {
+          enqueueWtAudio(name, null, { b64: data.audioB64, type: data.mimeType || 'audio/webm' });
         }
 
         if (!wtPanelOpen) {
@@ -1366,30 +1436,33 @@ async function onOwnerRecordingStop() {
   wtRecorder = null;
   if (!wtAudioChunks.length) { resetOwnerPtt(); return; }
 
-  const mimeType = wtAudioChunks[0]?.type || 'audio/webm';
-  const blob     = new Blob(wtAudioChunks, { type: mimeType });
-  wtAudioChunks  = [];
+  const mimeType    = wtAudioChunks[0]?.type || 'audio/webm';
+  const blob        = new Blob(wtAudioChunks, { type: mimeType });
+  wtAudioChunks     = [];
 
   if (blob.size < 500) { resetOwnerPtt(); return; }
 
-  const durationSec = Math.round(blob.size / 3000);
+  const statusEl = qs('#wtOwnerStatus');
+  if (statusEl) statusEl.textContent = 'Sending…';
+
+  const durationSec = Math.max(1, Math.round(blob.size / 3000));
   const ownerName   = bizDoc?.name || ownerDoc?.companyName || 'Boss';
 
   try {
-    const buffer = await blob.arrayBuffer();
-    let binary = '';
-    new Uint8Array(buffer).forEach(b => { binary += String.fromCharCode(b); });
-    const audioB64 = btoa(binary);
+    const payload = { bizId, from: 'owner', fromName: ownerName, mimeType, duration: durationSec, createdAt: serverTimestamp() };
 
-    await addDoc(collection(db, 'wt_messages'), {
-      bizId,
-      from:      'owner',
-      fromName:  ownerName,
-      audioB64,
-      mimeType,
-      duration:  durationSec,
-      createdAt: serverTimestamp()
-    });
+    // Try Firebase Storage first; fall back to base64 in Firestore
+    try {
+      const ext  = mimeType.includes('mp4') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : 'webm';
+      const path = `wt_audio/${bizId}/${Date.now()}_owner.${ext}`;
+      const sRef = storageRef(storage, path);
+      await uploadBytes(sRef, blob);
+      payload.audioUrl = await getDownloadURL(sRef);
+    } catch {
+      payload.audioB64 = await wtBlobToBase64(blob);
+    }
+
+    await addDoc(collection(db, 'wt_messages'), payload);
   } catch (err) {
     console.error('sendWtAudio error:', err);
     showToast('Failed to send voice message.', 'error');
@@ -1404,15 +1477,15 @@ function wtGetSupportedMimeType() {
 }
 
 // ── Audio playback queue (owner side) ────────────────────────
-function enqueueWtAudio(fromName, audioB64, mimeType) {
-  wtAudioQueue.push({ fromName, audioB64, mimeType });
+function enqueueWtAudio(fromName, audioUrl, b64Data) {
+  wtAudioQueue.push({ fromName, audioUrl, b64Data });
   if (!wtAudioPlaying) drainWtAudioQueue();
 }
 
 async function drainWtAudioQueue() {
   if (!wtAudioQueue.length) { wtAudioPlaying = false; return; }
   wtAudioPlaying = true;
-  const { fromName, audioB64, mimeType } = wtAudioQueue.shift();
+  const { fromName, audioUrl, b64Data } = wtAudioQueue.shift();
 
   const audioInd  = qs('#wtPanelAudioInd');
   const audioFrom = qs('#wtPanelAudioFrom');
@@ -1420,16 +1493,23 @@ async function drainWtAudioQueue() {
   if (audioInd)  audioInd.classList.remove('hidden');
 
   try {
-    const bytes  = Uint8Array.from(atob(audioB64), c => c.charCodeAt(0));
-    const url    = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+    let url = audioUrl;
+    let isObjectUrl = false;
+    if (!url && b64Data?.b64) {
+      const bytes = Uint8Array.from(atob(b64Data.b64), c => c.charCodeAt(0));
+      url = URL.createObjectURL(new Blob([bytes], { type: b64Data.type }));
+      isObjectUrl = true;
+    }
+    if (!url) { if (audioInd) audioInd.classList.add('hidden'); drainWtAudioQueue(); return; }
+
     const player = new Audio(url);
     player.onended = () => {
-      URL.revokeObjectURL(url);
+      if (isObjectUrl) URL.revokeObjectURL(url);
       if (audioInd) audioInd.classList.add('hidden');
       drainWtAudioQueue();
     };
     player.onerror = () => {
-      URL.revokeObjectURL(url);
+      if (isObjectUrl) URL.revokeObjectURL(url);
       if (audioInd) audioInd.classList.add('hidden');
       drainWtAudioQueue();
     };
@@ -1439,6 +1519,15 @@ async function drainWtAudioQueue() {
     if (audioInd) audioInd.classList.add('hidden');
     drainWtAudioQueue();
   }
+}
+
+function wtBlobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }
 
 // ── Doc Line Item helpers ────────────────────────────────────

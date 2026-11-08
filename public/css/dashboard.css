@@ -691,6 +691,38 @@
   border-color: var(--indigo-600, #4338ca);
 }
 
+/* ── Walkie Talkie toggle button ─────────────────────────────── */
+.btn-wt-toggle {
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1.5px solid;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.btn-wt-toggle.active {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+.btn-wt-toggle.active:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+.btn-wt-toggle.off {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #64748b;
+}
+.btn-wt-toggle.off:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+
 /* ── AI Settings Section ──────────────────────────────────── */
 .ai-settings-section {
   display: flex;
