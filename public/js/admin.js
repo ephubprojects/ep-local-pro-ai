@@ -308,6 +308,9 @@ async function onAdminReady(user) {
     if (preview) preview.textContent = e.target.value || '…';
   });
 
+  // Scan & Extract button
+  document.getElementById('scanBizBtn')?.addEventListener('click', scanAndExtract);
+
   // Add menu item button
   document.getElementById('addMenuItemBtn')?.addEventListener('click', () => addMenuItemRow());
 
@@ -637,6 +640,11 @@ async function openEditDemoModal(demoId) {
     if (preview) preview.textContent = data.slug || '…';
     document.getElementById('dmReferrer').value    = data.referrerUsername || '';
     document.getElementById('dmGreeting').value    = data.greeting || '';
+    document.getElementById('dmWebsite').value     = data.website  || '';
+    document.getElementById('dmAiPrompt').value    = data.aiPromptBase || '';
+    document.getElementById('dmPhone').value       = data.phone    || '';
+    document.getElementById('dmServices').value    = data.services || '';
+    document.getElementById('dmBio').value         = data.bio      || '';
 
     // Language
     const lang = data.lang || 'en';
@@ -666,6 +674,13 @@ function clearDemoModal() {
   if (preview) preview.textContent = '…';
   document.getElementById('dmReferrer').value  = '';
   document.getElementById('dmGreeting').value  = '';
+  document.getElementById('dmWebsite').value   = '';
+  document.getElementById('dmAiPrompt').value  = '';
+  document.getElementById('dmPhone').value     = '';
+  document.getElementById('dmServices').value  = '';
+  document.getElementById('dmBio').value       = '';
+  const scanStatus = document.getElementById('scanStatus');
+  if (scanStatus) { scanStatus.textContent = ''; scanStatus.className = 'scan-status'; }
   document.querySelectorAll('input[name="dmLang"]').forEach(r => {
     r.checked = r.value === 'en';
   });
@@ -698,6 +713,12 @@ async function saveDemoModal() {
 
   const demoId = document.getElementById('demoModalId')?.value;
 
+  const website     = document.getElementById('dmWebsite')?.value.trim()  || '';
+  const aiPromptBase = document.getElementById('dmAiPrompt')?.value.trim() || '';
+  const phone       = document.getElementById('dmPhone')?.value.trim()    || '';
+  const services    = document.getElementById('dmServices')?.value.trim() || '';
+  const bio         = document.getElementById('dmBio')?.value.trim()      || '';
+
   const payload = {
     bizName,
     categoryId,
@@ -706,6 +727,11 @@ async function saveDemoModal() {
     referrerUsername,
     greeting,
     menuItems,
+    website,
+    aiPromptBase,
+    phone,
+    services,
+    bio,
     updatedAt: serverTimestamp()
   };
 
@@ -734,6 +760,70 @@ async function saveDemoModal() {
     showToast('Error saving demo: ' + (err.message || err), 'error');
   } finally {
     if (saveBtn) { saveBtn.textContent = 'Save Demo'; saveBtn.disabled = false; }
+  }
+}
+
+// ── Scan & Extract ────────────────────────────────────────────
+async function scanAndExtract() {
+  const urlInput = document.getElementById('dmWebsite');
+  const url = urlInput?.value.trim();
+  if (!url) { showToast('Enter a website URL first', 'error'); return; }
+
+  const btn      = document.getElementById('scanBizBtn');
+  const statusEl = document.getElementById('scanStatus');
+
+  btn.textContent = '⏳ Scanning…';
+  btn.disabled    = true;
+  if (statusEl) statusEl.textContent = '';
+
+  try {
+    const resp = await fetch('/.netlify/functions/ls-scan-biz', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ url })
+    });
+    const data = await resp.json();
+
+    if (!resp.ok || data.error) {
+      if (statusEl) { statusEl.textContent = '✗ ' + (data.error || 'Scan failed'); statusEl.className = 'scan-status err'; }
+      showToast(data.error || 'Scan failed', 'error');
+      return;
+    }
+
+    const e = data.extracted || {};
+
+    // Auto-fill — only overwrite blank fields
+    const nameEl = document.getElementById('dmBizName');
+    if (e.bizName && nameEl && !nameEl.value.trim()) {
+      nameEl.value = e.bizName;
+      nameEl.dispatchEvent(new Event('input')); // triggers slug generation
+    }
+
+    const catEl = document.getElementById('dmCategory');
+    if (e.category && catEl && !catEl.value) {
+      const catLower = e.category.toLowerCase();
+      const matched  = getAllCategories().find(c =>
+        catLower.includes(c.name.toLowerCase().split(' ')[0]) ||
+        c.name.toLowerCase().includes(catLower.split(' ')[0])
+      );
+      if (matched) catEl.value = matched.id;
+    }
+
+    if (e.phone)    { const el = document.getElementById('dmPhone');     if (el && !el.value.trim())    el.value = e.phone; }
+    if (e.services) { const el = document.getElementById('dmServices');  if (el && !el.value.trim())    el.value = e.services; }
+    if (e.bio)      { const el = document.getElementById('dmBio');       if (el && !el.value.trim())    el.value = e.bio; }
+    if (e.aiPrompt) { const el = document.getElementById('dmAiPrompt'); if (el && !el.value.trim())    el.value = e.aiPrompt; }
+
+    if (statusEl) { statusEl.textContent = '✓ Extracted successfully'; statusEl.className = 'scan-status ok'; }
+    showToast('Business info extracted!', 'success');
+
+  } catch (err) {
+    console.error('scanAndExtract error:', err);
+    if (statusEl) { statusEl.textContent = '✗ Could not reach the scan service'; statusEl.className = 'scan-status err'; }
+    showToast('Scan failed — check the URL', 'error');
+  } finally {
+    btn.textContent = '🔍 Scan & Extract';
+    btn.disabled    = false;
   }
 }
 

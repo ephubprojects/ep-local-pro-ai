@@ -51,8 +51,18 @@ const $pay_btns    = $('payment-buttons');
 // ── Boot ─────────────────────────────────────────────────
 (async function init() {
   const params = new URLSearchParams(location.search);
-  const demoSlug = params.get('demo');
-  const bizSlug  = params.get('biz');
+  let demoSlug = params.get('demo');
+  let bizSlug  = params.get('biz');
+
+  // Path-based routing: /demo/:slug or /:slug
+  if (!demoSlug && !bizSlug) {
+    const parts = location.pathname.replace(/^\//, '').split('/');
+    if (parts[0] === 'demo' && parts[1]) {
+      demoSlug = parts[1];
+    } else if (parts[0]) {
+      bizSlug = parts[0];
+    }
+  }
 
   if (!demoSlug && !bizSlug) {
     return showError();
@@ -91,7 +101,7 @@ async function loadBySlug(collectionName, slug) {
 
 // ── UI: hydrate header ────────────────────────────────────
 function populateHeader() {
-  $biz_name.textContent  = bizData.businessName || bizData.name || 'Our Menu';
+  $biz_name.textContent  = bizData.businessName || bizData.bizName || bizData.name || 'Our Menu';
   $biz_cat.textContent   = bizData.categoryName  || bizData.category || '';
   $biz_emoji.textContent = bizData.categoryEmoji || bizData.emoji    || '🏪';
   document.title = `Order from ${$biz_name.textContent} — EP Local Pro AI`;
@@ -200,10 +210,15 @@ async function startAiCall() {
 
 // ── AI prompt builder ─────────────────────────────────────
 function buildAiPrompt(biz) {
-  const base  = (biz.aiPromptBase || DEFAULT_PROMPT_BASE).replace(
-    /\{bizName\}/g,
-    biz.businessName || biz.name || 'this restaurant'
-  );
+  const bizName = biz.businessName || biz.bizName || biz.name || 'this business';
+  const base = (biz.aiPromptBase || DEFAULT_PROMPT_BASE).replace(/\{bizName\}/g, bizName);
+
+  // Append phone / services / bio context for demos
+  const extra = [
+    biz.phone    ? `Phone: ${biz.phone}`       : '',
+    biz.services ? `Services: ${biz.services}` : '',
+    biz.bio      ? biz.bio                     : ''
+  ].filter(Boolean).join('\n');
 
   const items = Array.isArray(biz.menuItems) && biz.menuItems.length
     ? '\n\nMENU:\n' + biz.menuItems.map(item =>
@@ -212,7 +227,7 @@ function buildAiPrompt(biz) {
       ).join('\n')
     : '';
 
-  return base + items;
+  return base + (extra ? '\n\n' + extra : '') + items;
 }
 
 const DEFAULT_PROMPT_BASE =

@@ -421,6 +421,16 @@
     <div class="modal-body">
       <input type="hidden" id="demoModalId" />
 
+      <!-- Scan & Extract -->
+      <div class="form-group">
+        <label>Business Website <span style="font-size:0.75rem;font-weight:400;color:var(--muted)">— Scan to auto-fill the form</span></label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="url" id="dmWebsite" placeholder="https://theirbusiness.com" style="flex:1;" />
+          <button class="btn-scan" id="scanBizBtn" type="button">🔍 Scan &amp; Extract</button>
+        </div>
+        <div class="scan-status" id="scanStatus"></div>
+      </div>
+
       <div class="form-row">
         <div class="form-group">
           <label>Business Name <span style="color:var(--red)">*</span></label>
@@ -457,6 +467,27 @@
       <div class="form-group">
         <label>Custom Greeting Override</label>
         <textarea id="dmGreeting" placeholder="Leave blank to use the default greeting for this category"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>AI Prompt <span style="font-size:0.75rem;font-weight:400;color:var(--muted)">Auto-filled by scan or write custom</span></label>
+        <textarea id="dmAiPrompt" rows="4" placeholder="You are an AI receptionist for this business. Help callers with questions, collect their name and phone number, and assist with bookings or orders."></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="tel" id="dmPhone" placeholder="+1 (555) 000-0000" />
+        </div>
+        <div class="form-group">
+          <label>Services / Specialty</label>
+          <input type="text" id="dmServices" placeholder="e.g. Plumbing, drain cleaning, water heaters" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Business Bio</label>
+        <textarea id="dmBio" rows="2" placeholder="Short description of what the business does and who it serves"></textarea>
       </div>
 
       <div class="form-group">

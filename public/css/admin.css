@@ -1287,3 +1287,29 @@ input[type="color"]#catColorPicker {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Scan & Extract ─────────────────────────────────────────── */
+.btn-scan {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  background: var(--indigo);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.btn-scan:hover:not(:disabled) { background: #4338ca; }
+.btn-scan:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.scan-status {
+  margin-top: 5px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  min-height: 1em;
+}
+.scan-status.ok  { color: var(--green); }
+.scan-status.err { color: var(--red); }

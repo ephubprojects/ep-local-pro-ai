@@ -21,6 +21,9 @@
 [functions."wt-tts"]
   timeout = 20
 
+[functions."ls-scan-biz"]
+  timeout = 20
+
 # ── Admin ─────────────────────────────────────────────
 [[redirects]]
   from   = "/admin"
@@ -60,6 +63,12 @@
 [[redirects]]
   from   = "/kitchen/:slug"
   to     = "/kitchen.html"
+  status = 200
+
+# ── Demo AI page ─────────────────────────────────────
+[[redirects]]
+  from   = "/demo/:slug"
+  to     = "/order.html"
   status = 200
 
 # ── Customer AI ordering page (must be last) ──────────
