@@ -9,7 +9,7 @@ import {
   signOut
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
-  collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
+  collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, onSnapshot, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
@@ -120,19 +120,44 @@ async function initDashboard() {
     const bizSnap = await getDocs(bizQ);
 
     if (bizSnap.empty) {
-      // No business yet — show empty dashboard, don't block
-      hideLoading();
-      showSection('dashboard');
-      wireNavAndModals();
-      showToast('Welcome! Your business page will be set up by your admin.', 'info');
-      return;
+      if (ownerDoc.acctType !== 'business') {
+        hideLoading();
+        showSection('dashboard');
+        wireNavAndModals();
+        showToast('Welcome! Your business page will be set up by your admin.', 'info');
+        return;
+      }
+      // Business owner with no linked businesses doc — auto-create one so the dashboard works
+      try {
+        const autoBizRef = doc(db, 'businesses', currentUser.uid);
+        await setDoc(autoBizRef, {
+          ownerId:     currentUser.uid,
+          ownerEmail:  currentUser.email || '',
+          name:        ownerDoc.companyName || '',
+          companyName: ownerDoc.companyName || '',
+          category:    ownerDoc.categoryId  || '',
+          plan:        ownerDoc.plan        || 'trial',
+          createdAt:   serverTimestamp(),
+        }, { merge: true });
+        bizId       = currentUser.uid;
+        bizDoc      = { ownerId: currentUser.uid, ownerEmail: currentUser.email, name: ownerDoc.companyName || '', companyName: ownerDoc.companyName || '', category: ownerDoc.categoryId || '', plan: ownerDoc.plan || 'trial' };
+        bizSlug     = '';
+        bizCategory = ownerDoc.categoryId || '';
+      } catch (createErr) {
+        console.error('Could not initialize business doc:', createErr);
+        hideLoading();
+        showSection('dashboard');
+        wireNavAndModals();
+        showToast('Could not load your business. Please refresh or contact support.', 'error');
+        return;
+      }
+    } else {
+      const bizDocSnap = bizSnap.docs[0];
+      bizId       = bizDocSnap.id;
+      bizDoc      = bizDocSnap.data();
+      bizSlug     = bizDoc.slug || '';
+      bizCategory = bizDoc.category || '';
     }
-
-    const bizDocSnap = bizSnap.docs[0];
-    bizId       = bizDocSnap.id;
-    bizDoc      = bizDocSnap.data();
-    bizSlug     = bizDoc.slug || '';
-    bizCategory = bizDoc.category || '';
 
     // Populate sidebar
     qs('#sidebarBizName').textContent = bizDoc.name || 'Your Business';
