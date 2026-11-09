@@ -1336,8 +1336,8 @@ function subscribeWtMessages() {
   const q = query(
     collection(db, 'wt_messages'),
     where('bizId', '==', bizId),
-    orderBy('createdAt', 'asc'),
-    limit(100)
+    orderBy('createdAt', 'desc'),
+    limit(50)
   );
 
   wtMsgUnsub = onSnapshot(q, snap => {
@@ -1450,7 +1450,7 @@ async function onOwnerRecordingStop() {
 }
 
 function wtGetSupportedMimeType() {
-  const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+  const types = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
   return types.find(t => MediaRecorder.isTypeSupported(t)) || '';
 }
 
