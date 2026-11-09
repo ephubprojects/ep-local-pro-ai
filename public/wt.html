@@ -4,7 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Staff Radio — EP Local Pro AI</title>
-  <link rel="stylesheet" href="/css/wt.css?v=11" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Staff Radio" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="stylesheet" href="/css/wt.css?v=19" />
 </head>
 <body>
 <div id="wtApp">
@@ -45,6 +50,16 @@
       <span id="wtOnlineText">Loading…</span>
     </div>
 
+    <!-- Channel / contacts selector -->
+    <div class="wt-contacts" id="wtContacts">
+      <button class="wt-contacts-toggle" id="wtContactsToggle" aria-label="Select channel">
+        <span class="wt-contacts-label">CHANNEL</span>
+        <span class="wt-contacts-current" id="wtContactsCurrent">📡 All Staff</span>
+        <span class="wt-contacts-arrow" id="wtContactsArrow">▼</span>
+      </button>
+      <div class="wt-contact-list" id="wtContactList"></div>
+    </div>
+
     <!-- Spacer keeps PTT zone at bottom -->
     <div style="flex:1"></div>
 
@@ -67,6 +82,6 @@
   </div>
 </div>
 
-<script type="module" src="/js/wt.js?v=11"></script>
+<script type="module" src="/js/wt.js?v=19"></script>
 </body>
 </html>

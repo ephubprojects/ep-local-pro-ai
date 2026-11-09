@@ -5,5 +5,7 @@
   "scripts": {
     "dev": "npx serve public -p 3000"
   },
-  "dependencies": {}
+  "dependencies": {
+    "web-push": "^4.0.0"
+  }
 }

@@ -3,7 +3,8 @@
    Business owner dashboard logic. Firebase module script.
    ============================================================ */
 
-import { auth, db } from '/js/firebase.js';
+import { auth, db, storage } from '/js/firebase.js';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 import {
   onAuthStateChanged,
   signOut
@@ -1240,15 +1241,20 @@ let wtRecTimer     = null;
 let wtAudioQueue   = [];
 let wtAudioPlaying = false;
 
+// Push notifications
+let wtSwRegistration = null;
+const WT_VAPID_PUBLIC_KEY = 'BImnaD28aQfG8YdR9_PjwdlPLIfiGk4vfBfbmzo2uDOF21EEgDruZVxBUlupf2ObNL3zP5ATrlEgZDFRlhsEFxY';
+
 // Contacts / channel targeting
-let wtSelectedTarget = null;  // null = all staff; empCode string = specific employee
-let wtLastSpeakerId  = null;  // empCode of most recent incoming message
+let wtSelectedTargets = new Set(); // empty = all staff broadcast; Set of empCodes = targeted
+let wtLastSpeakerId   = null;      // empCode of most recent incoming message
 let wtEmployeeList   = [];    // [{empId, empCode, name, role, lastSeen, wtOnline}]
 let wtContactsOpen   = false; // contacts dropdown state
 
 function initWalkieTalkie() {
   const fabWrap = qs('#wtFabWrap');
   if (!fabWrap) return;
+  wtRegisterSW();
   fabWrap.classList.remove('hidden');
 
   qs('#wtFabBtn').addEventListener('click', () => {
@@ -1271,13 +1277,17 @@ function initWalkieTalkie() {
       .then(stream => {
         wtMediaStream = stream;
         if (statusEl) {
-          if (wtSelectedTarget) {
-            const emp = wtEmployeeList.find(e => e.empCode === wtSelectedTarget);
+          if (wtSelectedTargets.size === 1) {
+            const code = [...wtSelectedTargets][0];
+            const emp  = wtEmployeeList.find(e => e.empCode === code);
             statusEl.textContent = `Hold to reply to ${emp?.name || 'Staff'} only`;
+          } else if (wtSelectedTargets.size > 1) {
+            statusEl.textContent = `Hold to talk to ${wtSelectedTargets.size} employees`;
           } else {
             statusEl.textContent = 'Hold to broadcast to all staff';
           }
         }
+        wtSubscribePush();
         pttBtn.addEventListener('mousedown',  startOwnerRecording);
         pttBtn.addEventListener('touchstart', startOwnerRecording, { passive: false });
         pttBtn.addEventListener('mouseup',    stopOwnerRecording);
@@ -1294,6 +1304,7 @@ function initWalkieTalkie() {
   pttBtn.addEventListener('click',      onOwnerActivate, { once: true, passive: false });
   pttBtn.addEventListener('touchstart', onOwnerActivate, { once: true, passive: false });
 
+  wtRequestNotifPermission();
   subscribeWtMessages();
   refreshWtOnlineList();
   setInterval(refreshWtOnlineList, 30_000);
@@ -1371,9 +1382,9 @@ function renderWtContacts() {
 
   list.innerHTML = '';
 
-  // "All Staff" broadcast row
+  // "All Staff" broadcast row — selected when no specific targets chosen
   const allBtn = document.createElement('button');
-  allBtn.className = 'wt-contact-item' + (wtSelectedTarget === null ? ' selected' : '');
+  allBtn.className = 'wt-contact-item' + (wtSelectedTargets.size === 0 ? ' selected' : '');
   allBtn.dataset.target = '';
   const allIcon = document.createElement('span');
   allIcon.className = 'wt-contact-icon';
@@ -1392,8 +1403,8 @@ function renderWtContacts() {
   list.appendChild(allBtn);
 
   for (const emp of wtEmployeeList) {
-    const isOnline   = emp.wtOnline && (now - (emp.lastSeen?.toMillis?.() ?? 0)) < twoMin;
-    const isSelected = wtSelectedTarget === emp.empCode;
+    const isOnline    = emp.wtOnline && (now - (emp.lastSeen?.toMillis?.() ?? 0)) < twoMin;
+    const isSelected  = wtSelectedTargets.has(emp.empCode);
     const hasActivity = wtLastSpeakerId === emp.empCode;
 
     const btn = document.createElement('button');
@@ -1417,7 +1428,12 @@ function renderWtContacts() {
 
     btn.append(dot, info);
 
-    if (hasActivity) {
+    if (isSelected) {
+      const chk = document.createElement('span');
+      chk.className = 'wt-contact-badge';
+      chk.textContent = '✓';
+      btn.appendChild(chk);
+    } else if (hasActivity) {
       const badge = document.createElement('span');
       badge.className = 'wt-contact-badge';
       badge.textContent = '🔊';
@@ -1431,8 +1447,19 @@ function renderWtContacts() {
 }
 
 function selectWtTarget(empCode) {
-  wtSelectedTarget = empCode || null;
-  if (wtSelectedTarget && wtSelectedTarget === wtLastSpeakerId) wtLastSpeakerId = null;
+  if (!empCode) {
+    // All Staff — clear all selections back to broadcast
+    wtSelectedTargets.clear();
+    wtLastSpeakerId = null;
+  } else {
+    // Toggle the employee in/out of the target set
+    if (wtSelectedTargets.has(empCode)) {
+      wtSelectedTargets.delete(empCode);
+      if (wtLastSpeakerId === empCode) wtLastSpeakerId = null;
+    } else {
+      wtSelectedTargets.add(empCode);
+    }
+  }
   renderWtContacts();
   updateWtContactsToggle();
 
@@ -1441,11 +1468,15 @@ function selectWtTarget(empCode) {
   if (!pttBtn || pttBtn.classList.contains('wt-owner-activate') || wtIsRecording) return;
 
   const pttLabel = pttBtn.querySelector('.wt-ptt-text');
-  if (wtSelectedTarget) {
-    const emp = wtEmployeeList.find(e => e.empCode === wtSelectedTarget);
-    const n   = emp?.name || 'Staff';
+  if (wtSelectedTargets.size === 1) {
+    const code = [...wtSelectedTargets][0];
+    const emp  = wtEmployeeList.find(e => e.empCode === code);
+    const n    = emp?.name || 'Staff';
     if (pttLabel) pttLabel.textContent = `Reply to ${n}`;
     if (statusEl) statusEl.textContent = `Hold to reply to ${n} only`;
+  } else if (wtSelectedTargets.size > 1) {
+    if (pttLabel) pttLabel.textContent = `Talk to ${wtSelectedTargets.size}`;
+    if (statusEl) statusEl.textContent = `Hold to talk to ${wtSelectedTargets.size} employees`;
   } else {
     if (pttLabel) pttLabel.textContent = 'Hold to Talk';
     if (statusEl) statusEl.textContent = 'Hold to broadcast to all staff';
@@ -1469,14 +1500,18 @@ function toggleWtContacts() {
 function updateWtContactsToggle() {
   const el = qs('#wtContactsCurrent');
   if (!el) return;
-  if (!wtSelectedTarget) {
+  if (wtSelectedTargets.size === 0) {
     el.textContent = '📡 All Staff';
     el.classList.remove('has-activity');
-  } else {
-    const emp = wtEmployeeList.find(e => e.empCode === wtSelectedTarget);
-    const hasActivity = wtLastSpeakerId === wtSelectedTarget;
+  } else if (wtSelectedTargets.size === 1) {
+    const code = [...wtSelectedTargets][0];
+    const emp  = wtEmployeeList.find(e => e.empCode === code);
+    const hasActivity = wtLastSpeakerId === code;
     el.textContent = (emp?.name || 'Staff') + (hasActivity ? ' 🔊' : '');
     el.classList.toggle('has-activity', hasActivity);
+  } else {
+    el.textContent = `${wtSelectedTargets.size} Employees`;
+    el.classList.remove('has-activity');
   }
 }
 
@@ -1499,13 +1534,19 @@ function subscribeWtMessages() {
       if (wtPlayedSet.has(msgId)) return;
       wtPlayedSet.add(msgId);
 
+      // Skip messages not directed to owner (employee-to-employee private chats)
+      if (data.to) {
+        const toList = Array.isArray(data.to) ? data.to : [data.to];
+        if (!toList.includes('owner')) return;
+      }
+
       // Play audio + badge only for new real-time messages (not history)
       if (wtHistoryLoaded && data.from !== 'owner') {
         const name = data.fromName || 'Staff';
 
         // Auto-select the employee who just spoke and open the dropdown
         wtLastSpeakerId  = data.from;
-        wtSelectedTarget = data.from;
+        wtSelectedTargets = new Set([data.from]);
         openWtContacts();
         renderWtContacts();
         updateWtContactsToggle();
@@ -1520,6 +1561,7 @@ function subscribeWtMessages() {
           if (_st)  _st.textContent  = `Hold to reply to ${_n} only`;
         }
 
+        wtNotifyIncoming(name);
         if (data.audioUrl) {
           enqueueWtAudio(name, data.audioUrl, null);
         } else if (data.audioB64) {
@@ -1572,9 +1614,25 @@ function stopOwnerRecording(e) {
 }
 
 function resetOwnerPtt() {
-  qs('#wtOwnerPtt')?.classList.remove('recording');
+  const ptt = qs('#wtOwnerPtt');
+  ptt?.classList.remove('recording');
   const status = qs('#wtOwnerStatus');
-  if (status) status.textContent = 'Broadcast to all staff';
+  if (status) {
+    const lbl = ptt?.querySelector('.wt-ptt-text');
+    if (wtSelectedTargets.size === 1) {
+      const code = [...wtSelectedTargets][0];
+      const emp  = wtEmployeeList.find(e => e.empCode === code);
+      const n    = emp?.name || code;
+      status.textContent = `Hold to reply to ${n} only`;
+      if (lbl) lbl.textContent = `Reply to ${n}`;
+    } else if (wtSelectedTargets.size > 1) {
+      status.textContent = `Hold to talk to ${wtSelectedTargets.size} employees`;
+      if (lbl) lbl.textContent = `Talk to ${wtSelectedTargets.size}`;
+    } else {
+      status.textContent = 'Broadcast to all staff';
+      if (lbl) lbl.textContent = 'Hold to Talk';
+    }
+  }
   wtRecorder = null;
 }
 
@@ -1594,14 +1652,26 @@ async function onOwnerRecordingStop() {
   const durationSec = Math.max(1, Math.round(blob.size / 3000));
   const ownerName   = bizDoc?.name || ownerDoc?.companyName || 'Boss';
 
-  try {
-    const payload = { bizId, from: 'owner', fromName: ownerName, mimeType, duration: durationSec, createdAt: serverTimestamp() };
-    if (wtSelectedTarget) payload.to = wtSelectedTarget;
+  // Transcode to WAV so iOS Safari (which can't play webm) can play audio from Chrome senders
+  let sendBlob = blob;
+  let sendMime = 'audio/wav';
+  try { sendBlob = await wtEncodeToWav(blob); } catch { sendBlob = blob; sendMime = mimeType; }
 
-    // Always base64 — avoids CORS issues when employees play Storage URLs
-    payload.audioB64 = await wtBlobToBase64(blob);
+  try {
+    const payload = { bizId, from: 'owner', fromName: ownerName, mimeType: sendMime, duration: durationSec, createdAt: serverTimestamp() };
+    if (wtSelectedTargets.size === 1) {
+      payload.to = [...wtSelectedTargets][0];
+    } else if (wtSelectedTargets.size > 1) {
+      payload.to = [...wtSelectedTargets];
+    }
+
+    const aRef = storageRef(storage, `wt_audio/${bizId}/${Date.now()}_owner.wav`);
+    const snap  = await uploadBytes(aRef, sendBlob, { contentType: sendMime });
+    payload.audioUrl    = await getDownloadURL(snap.ref);
+    payload.storagePath = snap.ref.fullPath;
 
     await addDoc(collection(db, 'wt_messages'), payload);
+    wtSendPush(ownerName, payload.to ?? null);
   } catch (err) {
     console.error('sendWtAudio error:', err);
     showToast('Failed to send voice message.', 'error');
@@ -1660,13 +1730,122 @@ async function drainWtAudioQueue() {
   }
 }
 
-function wtBlobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload  = () => resolve(reader.result.split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+async function wtEncodeToWav(blob) {
+  const arrayBuf = await blob.arrayBuffer();
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  let decoded;
+  try {
+    decoded = await audioCtx.decodeAudioData(arrayBuf);
+  } finally {
+    audioCtx.close();
+  }
+  const targetSr = 16000;
+  const srcData  = decoded.getChannelData(0);
+  const ratio    = decoded.sampleRate / targetSr;
+  const outLen   = Math.ceil(srcData.length / ratio);
+  const pcm16    = new Int16Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    const v = Math.max(-1, Math.min(1, srcData[Math.floor(i * ratio)]));
+    pcm16[i] = v < 0 ? v * 32768 : v * 32767;
+  }
+  const dataBytes = pcm16.buffer.byteLength;
+  const wavBuf    = new ArrayBuffer(44 + dataBytes);
+  const dv        = new DataView(wavBuf);
+  const str = (off, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(off + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); dv.setUint32(4, 36 + dataBytes, true);
+  str(8, 'WAVE'); str(12, 'fmt '); dv.setUint32(16, 16, true);
+  dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+  dv.setUint32(24, targetSr, true); dv.setUint32(28, targetSr * 2, true);
+  dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+  str(36, 'data'); dv.setUint32(40, dataBytes, true);
+  new Int16Array(wavBuf, 44).set(pcm16);
+  return new Blob([wavBuf], { type: 'audio/wav' });
+}
+
+// ── WT Notifications ─────────────────────────────────────────
+let wtNotifGranted = false;
+
+function wtRequestNotifPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') { wtNotifGranted = true; return; }
+  if (Notification.permission !== 'denied') {
+    Notification.requestPermission().then(p => { wtNotifGranted = (p === 'granted'); }).catch(() => {});
+  }
+}
+
+function wtNotifyIncoming(senderName) {
+  if (!wtNotifGranted) return;
+  try {
+    new Notification(`📻 ${senderName} is talking`, {
+      body:     'Staff Radio — open dashboard to reply',
+      tag:      'wt-incoming',
+      renotify: true
+    });
+  } catch {}
+}
+
+function wtUrlBase64ToUint8Array(b64) {
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function wtRegisterSW() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    wtSwRegistration = await navigator.serviceWorker.register('/sw.js');
+  } catch {}
+}
+
+async function wtSubscribePush() {
+  if (!wtSwRegistration || !bizId) return;
+  try {
+    let sub = await wtSwRegistration.pushManager.getSubscription();
+    if (!sub) {
+      sub = await wtSwRegistration.pushManager.subscribe({
+        userVisibleOnly:      true,
+        applicationServerKey: wtUrlBase64ToUint8Array(WT_VAPID_PUBLIC_KEY)
+      });
+    }
+    await setDoc(doc(db, 'wt_push_subs', `${bizId}_owner`), {
+      bizId,
+      identity:     'owner',
+      subscription: sub.toJSON(),
+      url:          window.location.href,
+      updatedAt:    serverTimestamp()
+    });
+  } catch {}
+}
+
+async function wtSendPush(fromName, to) {
+  try {
+    let q;
+    if (!to) {
+      q = query(collection(db, 'wt_push_subs'), where('bizId', '==', bizId));
+    } else {
+      const toList = Array.isArray(to) ? to : [to];
+      q = query(collection(db, 'wt_push_subs'), where('bizId', '==', bizId), where('identity', 'in', toList));
+    }
+    const snap = await getDocs(q);
+    const items = [];
+    snap.forEach(d => {
+      const data = d.data();
+      if (data.identity !== 'owner' && data.subscription) {
+        items.push({ subscription: data.subscription, url: data.url || '/dashboard' });
+      }
+    });
+    if (!items.length) return;
+    fetch('/.netlify/functions/send-wt-push', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        items,
+        title: '📻 Staff Radio',
+        body:  `${fromName} sent a voice message — tap to listen`,
+        tag:   'wt-call'
+      })
+    }).catch(() => {});
+  } catch {}
 }
 
 // ── Doc Line Item helpers ────────────────────────────────────

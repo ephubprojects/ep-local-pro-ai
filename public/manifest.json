@@ -1,0 +1,10 @@
+{
+  "name": "EP Local Pro AI",
+  "short_name": "EP Local",
+  "description": "Staff Radio & Business Tools",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0d1a",
+  "theme_color": "#1a1a2e"
+}

@@ -21,6 +21,9 @@
 [functions."wt-tts"]
   timeout = 20
 
+[functions."cleanup-wt-messages"]
+  schedule = "0 3 * * *"
+
 [functions."ls-scan-biz"]
   timeout = 20
 
