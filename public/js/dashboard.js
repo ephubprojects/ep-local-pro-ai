@@ -3,7 +3,7 @@
    Business owner dashboard logic. Firebase module script.
    ============================================================ */
 
-import { auth, db, storage } from '/js/firebase.js';
+import { auth, db } from '/js/firebase.js';
 import {
   onAuthStateChanged,
   signOut
@@ -12,9 +12,6 @@ import {
   collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, onSnapshot, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-import {
-  ref as storageRef, uploadBytes, getDownloadURL
-} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 
 // ── State ────────────────────────────────────────────────────
 let currentUser  = null;
@@ -1227,7 +1224,6 @@ async function toggleEmployeeWt(empId, currentActive) {
 // ════════════════════════════════════════════════════════════
 
 let wtMsgUnsub    = null;
-let wtLoadTime    = 0;
 let wtUnread      = 0;
 let wtPanelOpen    = false;
 let wtHistoryLoaded = false;
@@ -1245,9 +1241,10 @@ let wtAudioQueue   = [];
 let wtAudioPlaying = false;
 
 // Contacts / channel targeting
-let wtSelectedTarget = null; // null = all staff; empCode string = specific employee
-let wtLastSpeakerId  = null; // empCode of most recent incoming employee message
-let wtEmployeeList   = [];   // [{empId, empCode, name, role, lastSeen, wtOnline}]
+let wtSelectedTarget = null;  // null = all staff; empCode string = specific employee
+let wtLastSpeakerId  = null;  // empCode of most recent incoming message
+let wtEmployeeList   = [];    // [{empId, empCode, name, role, lastSeen, wtOnline}]
+let wtContactsOpen   = false; // contacts dropdown state
 
 function initWalkieTalkie() {
   const fabWrap = qs('#wtFabWrap');
@@ -1258,6 +1255,7 @@ function initWalkieTalkie() {
     wtPanelOpen ? closeWtPanel() : openWtPanel();
   });
   qs('#wtPanelClose').addEventListener('click', closeWtPanel);
+  qs('#wtContactsToggle')?.addEventListener('click', toggleWtContacts);
 
   const pttBtn  = qs('#wtOwnerPtt');
   const statusEl = qs('#wtOwnerStatus');
@@ -1296,7 +1294,6 @@ function initWalkieTalkie() {
   pttBtn.addEventListener('click',      onOwnerActivate, { once: true, passive: false });
   pttBtn.addEventListener('touchstart', onOwnerActivate, { once: true, passive: false });
 
-  wtLoadTime = Date.now();
   subscribeWtMessages();
   refreshWtOnlineList();
   setInterval(refreshWtOnlineList, 30_000);
@@ -1430,12 +1427,14 @@ function renderWtContacts() {
     btn.addEventListener('click', () => selectWtTarget(emp.empCode));
     list.appendChild(btn);
   }
+  updateWtContactsToggle();
 }
 
 function selectWtTarget(empCode) {
   wtSelectedTarget = empCode || null;
   if (wtSelectedTarget && wtSelectedTarget === wtLastSpeakerId) wtLastSpeakerId = null;
   renderWtContacts();
+  updateWtContactsToggle();
 
   const pttBtn   = qs('#wtOwnerPtt');
   const statusEl = qs('#wtOwnerStatus');
@@ -1450,6 +1449,34 @@ function selectWtTarget(empCode) {
   } else {
     if (pttLabel) pttLabel.textContent = 'Hold to Talk';
     if (statusEl) statusEl.textContent = 'Hold to broadcast to all staff';
+  }
+}
+
+function openWtContacts() {
+  wtContactsOpen = true;
+  qs('#wtContacts')?.classList.add('open');
+}
+
+function closeWtContacts() {
+  wtContactsOpen = false;
+  qs('#wtContacts')?.classList.remove('open');
+}
+
+function toggleWtContacts() {
+  wtContactsOpen ? closeWtContacts() : openWtContacts();
+}
+
+function updateWtContactsToggle() {
+  const el = qs('#wtContactsCurrent');
+  if (!el) return;
+  if (!wtSelectedTarget) {
+    el.textContent = '📡 All Staff';
+    el.classList.remove('has-activity');
+  } else {
+    const emp = wtEmployeeList.find(e => e.empCode === wtSelectedTarget);
+    const hasActivity = wtLastSpeakerId === wtSelectedTarget;
+    el.textContent = (emp?.name || 'Staff') + (hasActivity ? ' 🔊' : '');
+    el.classList.toggle('has-activity', hasActivity);
   }
 }
 
@@ -1476,9 +1503,22 @@ function subscribeWtMessages() {
       if (wtHistoryLoaded && data.from !== 'owner') {
         const name = data.fromName || 'Staff';
 
-        // Track who just spoke and highlight in contacts
-        wtLastSpeakerId = data.from;
+        // Auto-select the employee who just spoke and open the dropdown
+        wtLastSpeakerId  = data.from;
+        wtSelectedTarget = data.from;
+        openWtContacts();
         renderWtContacts();
+        updateWtContactsToggle();
+        // Update PTT text to show targeted reply
+        const _ptt = qs('#wtOwnerPtt');
+        const _st  = qs('#wtOwnerStatus');
+        if (_ptt && !_ptt.classList.contains('wt-owner-activate') && !wtIsRecording) {
+          const _emp = wtEmployeeList.find(e => e.empCode === data.from);
+          const _n   = _emp?.name || data.fromName || 'Staff';
+          const _lbl = _ptt.querySelector('.wt-ptt-text');
+          if (_lbl) _lbl.textContent = `Reply to ${_n}`;
+          if (_st)  _st.textContent  = `Hold to reply to ${_n} only`;
+        }
 
         if (data.audioUrl) {
           enqueueWtAudio(name, data.audioUrl, null);
@@ -1558,16 +1598,8 @@ async function onOwnerRecordingStop() {
     const payload = { bizId, from: 'owner', fromName: ownerName, mimeType, duration: durationSec, createdAt: serverTimestamp() };
     if (wtSelectedTarget) payload.to = wtSelectedTarget;
 
-    // Try Firebase Storage first; fall back to base64 in Firestore
-    try {
-      const ext  = mimeType.includes('mp4') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : 'webm';
-      const path = `wt_audio/${bizId}/${Date.now()}_owner.${ext}`;
-      const sRef = storageRef(storage, path);
-      await uploadBytes(sRef, blob);
-      payload.audioUrl = await getDownloadURL(sRef);
-    } catch {
-      payload.audioB64 = await wtBlobToBase64(blob);
-    }
+    // Always base64 — avoids CORS issues when employees play Storage URLs
+    payload.audioB64 = await wtBlobToBase64(blob);
 
     await addDoc(collection(db, 'wt_messages'), payload);
   } catch (err) {

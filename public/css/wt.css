@@ -605,29 +605,68 @@ body {
 
 .wt-panel-audio-ind.hidden { display: none; }
 
-/* ── Contacts / channel selector ─────────────────────────── */
+/* ── Contacts / channel selector dropdown ────────────────── */
 .wt-contacts {
   flex-shrink: 0;
-  padding: 8px 12px 6px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
+
+/* Toggle row — always visible */
+.wt-contacts-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+.wt-contacts-toggle:hover { background: rgba(255,255,255,0.04); }
 
 .wt-contacts-label {
   font-size: 0.58rem;
   font-weight: 700;
   color: rgba(255,255,255,0.22);
   letter-spacing: 0.09em;
-  margin-bottom: 5px;
+  flex-shrink: 0;
 }
 
+.wt-contacts-current {
+  flex: 1;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.75);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wt-contacts-current.has-activity {
+  color: #86efac;
+}
+
+.wt-contacts-arrow {
+  font-size: 0.6rem;
+  color: rgba(255,255,255,0.3);
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+.wt-contacts.open .wt-contacts-arrow { transform: rotate(180deg); }
+
+/* Dropdown list — hidden until .open */
 .wt-contact-list {
-  display: flex;
+  display: none;
   flex-direction: column;
   gap: 2px;
-  max-height: 158px;
+  max-height: 162px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  padding: 4px 8px 8px;
 }
+.wt-contacts.open .wt-contact-list { display: flex; }
 
 .wt-contact-item {
   display: flex;

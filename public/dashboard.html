@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard — EP Local Pro AI</title>
-  <link rel="stylesheet" href="/css/main.css?v=10" />
-  <link rel="stylesheet" href="/css/dashboard.css?v=10" />
-  <link rel="stylesheet" href="/css/wt.css?v=10" />
+  <link rel="stylesheet" href="/css/main.css?v=11" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=11" />
+  <link rel="stylesheet" href="/css/wt.css?v=11" />
 </head>
 <body class="dash-body">
 
@@ -517,9 +517,13 @@
       <button class="wt-panel-close" id="wtPanelClose">✕</button>
     </div>
 
-    <!-- Contacts / channel selector -->
+    <!-- Contacts / channel selector dropdown -->
     <div class="wt-contacts" id="wtContacts">
-      <div class="wt-contacts-label">CHANNEL</div>
+      <button class="wt-contacts-toggle" id="wtContactsToggle">
+        <span class="wt-contacts-label">CHANNEL</span>
+        <span class="wt-contacts-current" id="wtContactsCurrent">📡 All Staff</span>
+        <span class="wt-contacts-arrow" id="wtContactsArrow">▼</span>
+      </button>
       <div class="wt-contact-list" id="wtContactList"></div>
     </div>
 
@@ -693,6 +697,6 @@
 </div>
 
 
-<script type="module" src="/js/dashboard.js?v=10"></script>
+<script type="module" src="/js/dashboard.js?v=11"></script>
 </body>
 </html>

@@ -5,14 +5,11 @@
    Owner mobile  : /wt?b=BIZID&o=OWNERTOKEN
    ============================================================ */
 
-import { db, storage } from '/js/firebase.js';
+import { db } from '/js/firebase.js';
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, onSnapshot,
   query, where, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-import {
-  ref, uploadBytes, getDownloadURL
-} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 
 // ── URL params ───────────────────────────────────────────────
 const params     = new URLSearchParams(window.location.search);
@@ -361,16 +358,8 @@ async function onRecordingStop() {
       createdAt: serverTimestamp()
     };
 
-    // Try Firebase Storage; fall back to base64 in Firestore.
-    try {
-      const ext  = mimeType.includes('mp4') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : 'webm';
-      const path = `wt_audio/${bizId}/${Date.now()}_${identity.from}.${ext}`;
-      const sRef = ref(storage, path);
-      await uploadBytes(sRef, blob);
-      payload.audioUrl = await getDownloadURL(sRef);
-    } catch {
-      payload.audioB64 = await blobToBase64(blob);
-    }
+    // Always base64 — avoids CORS issues when owner plays Storage URLs
+    payload.audioB64 = await blobToBase64(blob);
 
     await addDoc(collection(db, 'wt_messages'), payload);
     $pttHint.textContent = 'Hold to talk · Release to send';
