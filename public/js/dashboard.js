@@ -1254,12 +1254,35 @@ function initWalkieTalkie() {
   });
   qs('#wtPanelClose').addEventListener('click', closeWtPanel);
 
-  const pttBtn = qs('#wtOwnerPtt');
-  pttBtn.addEventListener('mousedown',  startOwnerRecording);
-  pttBtn.addEventListener('touchstart', startOwnerRecording, { passive: false });
-  pttBtn.addEventListener('mouseup',    stopOwnerRecording);
-  pttBtn.addEventListener('touchend',   stopOwnerRecording,  { passive: false });
-  pttBtn.addEventListener('mouseleave', stopOwnerRecording);
+  const pttBtn  = qs('#wtOwnerPtt');
+  const statusEl = qs('#wtOwnerStatus');
+
+  function onOwnerActivate(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    pttBtn.classList.remove('wt-owner-activate');
+    pttBtn.querySelector('.wt-ptt-text').textContent = 'Hold to Talk';
+    if (statusEl) statusEl.textContent = '🎤 Allow microphone in the popup…';
+
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      .then(stream => {
+        wtMediaStream = stream;
+        if (statusEl) statusEl.textContent = 'Hold to broadcast to all staff';
+        pttBtn.addEventListener('mousedown',  startOwnerRecording);
+        pttBtn.addEventListener('touchstart', startOwnerRecording, { passive: false });
+        pttBtn.addEventListener('mouseup',    stopOwnerRecording);
+        pttBtn.addEventListener('touchend',   stopOwnerRecording,  { passive: false });
+        pttBtn.addEventListener('mouseleave', stopOwnerRecording);
+      })
+      .catch(() => {
+        pttBtn.classList.add('wt-owner-activate');
+        pttBtn.querySelector('.wt-ptt-text').textContent = 'Activate Radio';
+        if (statusEl) statusEl.textContent = '⚠️ Mic blocked — allow mic then tap again';
+      });
+  }
+
+  pttBtn.addEventListener('click',      onOwnerActivate, { once: true, passive: false });
+  pttBtn.addEventListener('touchstart', onOwnerActivate, { once: true, passive: false });
 
   wtLoadTime = Date.now();
   subscribeWtMessages();
@@ -1385,23 +1408,7 @@ function escWt(s) {
 // ── Owner PTT ────────────────────────────────────────────────
 function startOwnerRecording(e) {
   e.preventDefault();
-  if (wtIsRecording) return;
-
-  // No mic yet — request right here inside the user gesture using .then()
-  if (!wtMediaStream) {
-    const status = qs('#wtOwnerStatus');
-    if (status) status.textContent = '🎤 Allow microphone access…';
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-      .then(stream => {
-        wtMediaStream = stream;
-        if (status) status.textContent = '✓ Mic ready — hold to talk';
-      })
-      .catch(() => {
-        showToast('Microphone access denied. Check browser permissions.', 'error');
-        if (status) status.textContent = 'Broadcast to all staff';
-      });
-    return; // first press = permission only
-  }
+  if (wtIsRecording || !wtMediaStream) return;
 
   wtIsRecording = true;
   wtAudioChunks = [];

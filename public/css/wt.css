@@ -572,6 +572,13 @@ body {
 
 .wt-owner-ptt:hover { background: rgba(79,70,229,0.4); border-color: rgba(129,140,248,0.6); }
 
+.wt-owner-ptt.wt-owner-activate {
+  background: rgba(37,211,102,0.15);
+  border-color: rgba(37,211,102,0.5);
+  animation: wtActivatePulse 2s ease infinite;
+}
+.wt-owner-ptt.wt-owner-activate .wt-ptt-text { color: #86efac; }
+
 .wt-owner-ptt.recording {
   background: rgba(239,68,68,0.25);
   border-color: #ef4444;
