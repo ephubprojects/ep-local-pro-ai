@@ -8,7 +8,7 @@
 import { db, storage } from '/js/firebase.js';
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, onSnapshot,
-  query, where, orderBy, limit, serverTimestamp
+  query, where, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import {
   ref, uploadBytes, getDownloadURL
@@ -178,9 +178,7 @@ async function loadOnlineList() {
 function subscribeMessages() {
   const q = query(
     collection(db, 'wt_messages'),
-    where('bizId', '==', bizId),
-    orderBy('createdAt', 'desc'),
-    limit(50)
+    where('bizId', '==', bizId)
   );
 
   onSnapshot(q, snap => {

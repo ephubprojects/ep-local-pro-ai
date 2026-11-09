@@ -1460,9 +1460,7 @@ function subscribeWtMessages() {
 
   const q = query(
     collection(db, 'wt_messages'),
-    where('bizId', '==', bizId),
-    orderBy('createdAt', 'desc'),
-    limit(50)
+    where('bizId', '==', bizId)
   );
 
   wtMsgUnsub = onSnapshot(q, snap => {
