@@ -192,6 +192,9 @@ function subscribeMessages() {
       if (playedSet.has(msgId)) return;
       playedSet.add(msgId);
 
+      // Skip messages directed to a different employee
+      if (data.to && data.to !== identity?.from) return;
+
       if (historyLoaded && data.from !== identity?.from) {
         const name = data.fromName || (data.from === 'owner' ? 'Boss' : 'Staff');
         if (data.audioUrl) {

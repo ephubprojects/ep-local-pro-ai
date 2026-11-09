@@ -1244,6 +1244,11 @@ let wtRecTimer     = null;
 let wtAudioQueue   = [];
 let wtAudioPlaying = false;
 
+// Contacts / channel targeting
+let wtSelectedTarget = null; // null = all staff; empCode string = specific employee
+let wtLastSpeakerId  = null; // empCode of most recent incoming employee message
+let wtEmployeeList   = [];   // [{empId, empCode, name, role, lastSeen, wtOnline}]
+
 function initWalkieTalkie() {
   const fabWrap = qs('#wtFabWrap');
   if (!fabWrap) return;
@@ -1267,7 +1272,14 @@ function initWalkieTalkie() {
     navigator.mediaDevices.getUserMedia({ audio: true, video: false })
       .then(stream => {
         wtMediaStream = stream;
-        if (statusEl) statusEl.textContent = 'Hold to broadcast to all staff';
+        if (statusEl) {
+          if (wtSelectedTarget) {
+            const emp = wtEmployeeList.find(e => e.empCode === wtSelectedTarget);
+            statusEl.textContent = `Hold to reply to ${emp?.name || 'Staff'} only`;
+          } else {
+            statusEl.textContent = 'Hold to broadcast to all staff';
+          }
+        }
         pttBtn.addEventListener('mousedown',  startOwnerRecording);
         pttBtn.addEventListener('touchstart', startOwnerRecording, { passive: false });
         pttBtn.addEventListener('mouseup',    stopOwnerRecording);
@@ -1288,19 +1300,16 @@ function initWalkieTalkie() {
   subscribeWtMessages();
   refreshWtOnlineList();
   setInterval(refreshWtOnlineList, 30_000);
+  loadWtEmployees();
 }
 
 function openWtPanel() {
   qs('#wtPanel').classList.add('open');
   qs('#wtFabBtn').classList.add('active');
   wtPanelOpen = true;
-  // Clear unread badge
   wtUnread = 0;
   const badge = qs('#wtFabBadge');
   if (badge) { badge.textContent = '0'; badge.classList.add('hidden'); }
-  // Scroll feed to bottom
-  const feed = qs('#wtMsgList');
-  if (feed) feed.scrollTop = feed.scrollHeight;
 }
 
 function closeWtPanel() {
@@ -1312,7 +1321,7 @@ function closeWtPanel() {
 async function refreshWtOnlineList() {
   if (!bizId) return;
   try {
-    const snap = await getDocs(query(collection(db, 'employees'), where('bizId', '==', bizId)));
+    const snap   = await getDocs(query(collection(db, 'employees'), where('bizId', '==', bizId)));
     const now    = Date.now();
     const twoMin = 120_000;
     const online = snap.docs.map(d => d.data()).filter(e => {
@@ -1325,7 +1334,123 @@ async function refreshWtOnlineList() {
         ? `${online.length} staff online: ${online.map(e => e.name || 'Staff').join(', ')}`
         : 'No staff online yet';
     }
+    // Sync online status into the contacts list
+    snap.docs.forEach(d => {
+      const idx = wtEmployeeList.findIndex(e => e.empId === d.id);
+      if (idx >= 0) {
+        wtEmployeeList[idx].lastSeen = d.data().lastSeen || null;
+        wtEmployeeList[idx].wtOnline = d.data().wtOnline || false;
+      }
+    });
+    renderWtContacts();
   } catch {}
+}
+
+async function loadWtEmployees() {
+  if (!bizId) return;
+  try {
+    const snap = await getDocs(query(collection(db, 'employees'), where('bizId', '==', bizId)));
+    wtEmployeeList = snap.docs
+      .filter(d => d.data().wtActive !== false)
+      .map(d => ({
+        empId:    d.id,
+        empCode:  d.data().code || '',
+        name:     d.data().name || 'Staff',
+        role:     d.data().role || '',
+        lastSeen: d.data().lastSeen || null,
+        wtOnline: d.data().wtOnline || false
+      }));
+    renderWtContacts();
+  } catch (err) {
+    console.error('loadWtEmployees error:', err);
+  }
+}
+
+function renderWtContacts() {
+  const list = qs('#wtContactList');
+  if (!list) return;
+  const now    = Date.now();
+  const twoMin = 120_000;
+
+  list.innerHTML = '';
+
+  // "All Staff" broadcast row
+  const allBtn = document.createElement('button');
+  allBtn.className = 'wt-contact-item' + (wtSelectedTarget === null ? ' selected' : '');
+  allBtn.dataset.target = '';
+  const allIcon = document.createElement('span');
+  allIcon.className = 'wt-contact-icon';
+  allIcon.textContent = '📡';
+  const allInfo = document.createElement('div');
+  allInfo.className = 'wt-contact-info';
+  const allName = document.createElement('span');
+  allName.className = 'wt-contact-name';
+  allName.textContent = 'All Staff';
+  const allRole = document.createElement('span');
+  allRole.className = 'wt-contact-role';
+  allRole.textContent = 'Broadcast';
+  allInfo.append(allName, allRole);
+  allBtn.append(allIcon, allInfo);
+  allBtn.addEventListener('click', () => selectWtTarget(null));
+  list.appendChild(allBtn);
+
+  for (const emp of wtEmployeeList) {
+    const isOnline   = emp.wtOnline && (now - (emp.lastSeen?.toMillis?.() ?? 0)) < twoMin;
+    const isSelected = wtSelectedTarget === emp.empCode;
+    const hasActivity = wtLastSpeakerId === emp.empCode;
+
+    const btn = document.createElement('button');
+    btn.className = 'wt-contact-item' +
+      (isSelected  ? ' selected'  : '') +
+      (hasActivity ? ' activity'  : '');
+    btn.dataset.empCode = emp.empCode;
+
+    const dot = document.createElement('span');
+    dot.className = 'wt-contact-dot' + (isOnline ? ' online' : '');
+
+    const info = document.createElement('div');
+    info.className = 'wt-contact-info';
+    const nameEl = document.createElement('span');
+    nameEl.className = 'wt-contact-name';
+    nameEl.textContent = emp.name;
+    const roleEl = document.createElement('span');
+    roleEl.className = 'wt-contact-role';
+    roleEl.textContent = emp.role;
+    info.append(nameEl, roleEl);
+
+    btn.append(dot, info);
+
+    if (hasActivity) {
+      const badge = document.createElement('span');
+      badge.className = 'wt-contact-badge';
+      badge.textContent = '🔊';
+      btn.appendChild(badge);
+    }
+
+    btn.addEventListener('click', () => selectWtTarget(emp.empCode));
+    list.appendChild(btn);
+  }
+}
+
+function selectWtTarget(empCode) {
+  wtSelectedTarget = empCode || null;
+  if (wtSelectedTarget && wtSelectedTarget === wtLastSpeakerId) wtLastSpeakerId = null;
+  renderWtContacts();
+
+  const pttBtn   = qs('#wtOwnerPtt');
+  const statusEl = qs('#wtOwnerStatus');
+  if (!pttBtn || pttBtn.classList.contains('wt-owner-activate') || wtIsRecording) return;
+
+  const pttLabel = pttBtn.querySelector('.wt-ptt-text');
+  if (wtSelectedTarget) {
+    const emp = wtEmployeeList.find(e => e.empCode === wtSelectedTarget);
+    const n   = emp?.name || 'Staff';
+    if (pttLabel) pttLabel.textContent = `Reply to ${n}`;
+    if (statusEl) statusEl.textContent = `Hold to reply to ${n} only`;
+  } else {
+    if (pttLabel) pttLabel.textContent = 'Hold to Talk';
+    if (statusEl) statusEl.textContent = 'Hold to broadcast to all staff';
+  }
 }
 
 // ── All-staff message feed ────────────────────────────────────
@@ -1352,6 +1477,11 @@ function subscribeWtMessages() {
       // Play audio + badge only for new real-time messages (not history)
       if (wtHistoryLoaded && data.from !== 'owner') {
         const name = data.fromName || 'Staff';
+
+        // Track who just spoke and highlight in contacts
+        wtLastSpeakerId = data.from;
+        renderWtContacts();
+
         if (data.audioUrl) {
           enqueueWtAudio(name, data.audioUrl, null);
         } else if (data.audioB64) {
@@ -1428,6 +1558,7 @@ async function onOwnerRecordingStop() {
 
   try {
     const payload = { bizId, from: 'owner', fromName: ownerName, mimeType, duration: durationSec, createdAt: serverTimestamp() };
+    if (wtSelectedTarget) payload.to = wtSelectedTarget;
 
     // Try Firebase Storage first; fall back to base64 in Firestore
     try {
