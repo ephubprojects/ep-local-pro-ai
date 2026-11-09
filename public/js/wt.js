@@ -43,7 +43,6 @@ let audioPlaying = false;
 const $loading    = document.getElementById('wtLoading');
 const $error      = document.getElementById('wtError');
 const $main       = document.getElementById('wtMain');
-const $feed       = document.getElementById('wtFeed');
 const $pttBtn     = document.getElementById('wtPttBtn');
 const $pttHint    = document.getElementById('wtPttHint');
 const $audioInd   = document.getElementById('wtAudioIndicator');
@@ -193,8 +192,6 @@ function subscribeMessages() {
       if (playedSet.has(msgId)) return;
       playedSet.add(msgId);
 
-      appendMessage(data);
-
       if (historyLoaded && data.from !== identity?.from) {
         const name = data.fromName || (data.from === 'owner' ? 'Boss' : 'Staff');
         if (data.audioUrl) {
@@ -209,30 +206,6 @@ function subscribeMessages() {
     console.error('wt_messages snapshot error:', err);
     $pttHint.textContent = '⚠️ Connection error — please refresh the page';
   });
-}
-
-function appendMessage(data) {
-  const hint = document.getElementById('wtFeedHint');
-  if (hint) hint.remove();
-
-  const isMe    = data.from === identity?.from;
-  const isOwner = data.from === 'owner';
-  const sender  = isMe ? 'You' : (data.fromName || (isOwner ? 'Boss' : 'Staff'));
-  const time    = data.createdAt?.toDate?.()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || '';
-  const dur     = data.duration ? ` · ${data.duration}s` : '';
-
-  const row = document.createElement('div');
-  row.className = 'wt-msg' + (isMe ? ' wt-msg-me' : isOwner ? ' wt-msg-owner' : '');
-  row.innerHTML = `
-    <span class="wt-msg-sender">${esc(sender)}</span>
-    <div class="wt-msg-bubble">🎤 Voice message${dur}</div>
-    <span class="wt-msg-time">${time}</span>`;
-  $feed.appendChild(row);
-  $feed.scrollTop = $feed.scrollHeight;
-}
-
-function esc(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // ── Audio playback queue ──────────────────────────────────────
