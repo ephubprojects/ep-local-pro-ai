@@ -1349,8 +1349,6 @@ function subscribeWtMessages() {
       if (wtPlayedSet.has(msgId)) return;
       wtPlayedSet.add(msgId);
 
-      appendWtMessage(data);
-
       // Play audio + badge only for new real-time messages (not history)
       if (wtHistoryLoaded && data.from !== 'owner') {
         const name = data.fromName || 'Staff';
@@ -1369,40 +1367,6 @@ function subscribeWtMessages() {
     });
     wtHistoryLoaded = true;
   }, err => console.error('wt_messages snapshot error:', err));
-}
-
-function appendWtMessage(data) {
-  const feed = qs('#wtMsgList');
-  if (!feed) return;
-
-  // Remove hint text on first message
-  const hint = feed.querySelector('.wt-panel-feed-hint');
-  if (hint) hint.remove();
-
-  const isOwner  = data.from === 'owner';
-  const sender   = isOwner ? (data.fromName || 'Boss') : (data.fromName || 'Staff');
-  const time     = data.createdAt?.toDate?.()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || '';
-  const dur      = data.duration ? ` · ${data.duration}s` : '';
-
-  const row = document.createElement('div');
-  row.className = 'wt-msg' + (isOwner ? ' wt-msg-owner' : '');
-  row.innerHTML = `
-    <span class="wt-msg-sender">${escWt(sender)}</span>
-    <div class="wt-msg-bubble">🎤 Voice message${dur}</div>
-    <span class="wt-msg-time">${time}</span>`;
-  feed.appendChild(row);
-
-  if (wtPanelOpen) feed.scrollTop = feed.scrollHeight;
-
-  // Auto-open panel on new incoming staff message
-  const msgTime = data.createdAt?.toMillis?.() ?? 0;
-  if (data.from !== 'owner' && msgTime >= wtLoadTime && !wtPanelOpen) {
-    openWtPanel();
-  }
-}
-
-function escWt(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // ── Owner PTT ────────────────────────────────────────────────
