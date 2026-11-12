@@ -3,11 +3,14 @@
    Super-admin panel logic. Firebase module script.
    ============================================================ */
 
-import { auth, db } from '/js/firebase.js';
+import { auth, db, storage } from '/js/firebase.js';
 import {
   onAuthStateChanged,
   signOut
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import {
+  ref as storageRef, uploadBytes, getDownloadURL
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 import {
   collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, onSnapshot, serverTimestamp
@@ -36,6 +39,11 @@ let demosPendingDeleteId = null;
 let allDemos = [];
 let customCategories = [];
 let catIconDataUrl = '';
+
+// Demo modal — widget / bg state
+let dmWidgetTheme  = 'cyan';
+let dmWidgetImgUrl = '';
+let dmBgImageUrl   = '';
 
 // ── Slug helper ─────────────────────────────────────────────
 function toSlug(name) {
@@ -418,6 +426,7 @@ function showSection(name) {
   // Load data for section on first visit
   if (name === 'demos')      loadDemos();
   if (name === 'businesses') loadBusinesses();
+  if (name === 'settings')   loadSettings();
 }
 
 // ============================================================
@@ -576,7 +585,7 @@ function renderDemoRow(demo, id) {
   const cat    = CAT_MAP[demo.categoryId] || {};
   const catStr = cat.emoji ? `${cat.emoji} ${cat.name}` : (demo.categoryId || '—');
   const slug   = demo.slug || '—';
-  const demoUrl = slug !== '—' ? `https://ep-local-pro-ai.netlify.app/demo/${slug}` : '—';
+  const demoUrl = slug !== '—' ? `https://ep-local-pro-ai.netlify.app/ai/${slug}` : '—';
   const ref    = demo.referrerUsername || '—';
   const created = fmtDate(demo.createdAt);
 
@@ -657,6 +666,24 @@ async function openEditDemoModal(demoId) {
     const menuList = document.getElementById('menuItemsList');
     menuList.innerHTML = '';
     (data.menuItems || []).forEach(item => addMenuItemRow(item));
+
+    // Widget theme / image
+    dmWidgetTheme  = data.widgetTheme  || 'cyan';
+    dmWidgetImgUrl = data.widgetImgUrl || '';
+    dmBgImageUrl   = data.aiBgImage    || '';
+    dmApplyThemeUI();
+    if (dmWidgetImgUrl) {
+      const thumb   = document.getElementById('dmWidgetImgThumb');
+      const preview = document.getElementById('dmWidgetImgPreview');
+      if (thumb)   thumb.src = dmWidgetImgUrl;
+      if (preview) preview.style.display = 'flex';
+    }
+    if (dmBgImageUrl) {
+      const bgThumb   = document.getElementById('dmBgThumb');
+      const bgPreview = document.getElementById('dmBgPreview');
+      if (bgThumb)   bgThumb.src = dmBgImageUrl;
+      if (bgPreview) bgPreview.style.display = 'flex';
+    }
   } catch (err) {
     console.error('openEditDemoModal error:', err);
     showToast('Error loading demo', 'error');
@@ -687,7 +714,102 @@ function clearDemoModal() {
   });
   const menuList = document.getElementById('menuItemsList');
   if (menuList) menuList.innerHTML = '';
+  dmWidgetTheme  = 'cyan';
+  dmWidgetImgUrl = '';
+  dmBgImageUrl   = '';
+  dmApplyThemeUI();
+  const bgPreview = document.getElementById('dmBgPreview');
+  if (bgPreview) bgPreview.style.display = 'none';
+  const bgStatus = document.getElementById('dmBgStatus');
+  if (bgStatus) bgStatus.textContent = '';
 }
+
+// ── Demo widget / bg helpers ──────────────────────────────
+function dmApplyThemeUI() {
+  document.querySelectorAll('#dmWidgetThemeRow .wt-swatch').forEach(s => {
+    s.classList.toggle('selected', s.dataset.theme === dmWidgetTheme && !dmWidgetImgUrl);
+  });
+  const labels   = { cyan: 'Cyan (default)', red: 'Red', gold: 'Gold' };
+  const statusEl = document.getElementById('dmWidgetThemeStatus');
+  if (statusEl) {
+    statusEl.textContent = dmWidgetImgUrl
+      ? 'Style: Custom Image'
+      : 'Style: ' + (labels[dmWidgetTheme] || dmWidgetTheme);
+  }
+}
+
+window.dmPickTheme = function(theme) {
+  dmWidgetTheme  = theme;
+  dmWidgetImgUrl = '';
+  const previewEl = document.getElementById('dmWidgetImgPreview');
+  if (previewEl) previewEl.style.display = 'none';
+  dmApplyThemeUI();
+};
+
+window.dmUploadWidgetImg = async function(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { showToast('Image must be under 2MB', 'error'); input.value = ''; return; }
+  const statusEl = document.getElementById('dmWidgetThemeStatus');
+  if (statusEl) statusEl.textContent = 'Uploading…';
+  try {
+    const path = `demos/widget-img/${Date.now()}_${file.name}`;
+    const snap = await uploadBytes(storageRef(storage, path), file);
+    dmWidgetImgUrl = await getDownloadURL(snap.ref);
+    const thumb   = document.getElementById('dmWidgetImgThumb');
+    const preview = document.getElementById('dmWidgetImgPreview');
+    if (thumb)   thumb.src = dmWidgetImgUrl;
+    if (preview) preview.style.display = 'flex';
+    dmApplyThemeUI();
+  } catch (err) {
+    console.error('dmUploadWidgetImg error:', err);
+    showToast('Upload failed', 'error');
+    if (statusEl) statusEl.textContent = '';
+  }
+  input.value = '';
+};
+
+window.dmClearWidgetImg = function() {
+  dmWidgetImgUrl = '';
+  const thumb   = document.getElementById('dmWidgetImgThumb');
+  const preview = document.getElementById('dmWidgetImgPreview');
+  if (thumb)   thumb.src = '';
+  if (preview) preview.style.display = 'none';
+  dmApplyThemeUI();
+};
+
+window.dmUploadBg = async function(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { showToast('Image must be under 5MB', 'error'); input.value = ''; return; }
+  const statusEl = document.getElementById('dmBgStatus');
+  if (statusEl) statusEl.textContent = 'Uploading…';
+  try {
+    const path = `demos/bg-img/${Date.now()}_${file.name}`;
+    const snap = await uploadBytes(storageRef(storage, path), file);
+    dmBgImageUrl = await getDownloadURL(snap.ref);
+    const thumb   = document.getElementById('dmBgThumb');
+    const preview = document.getElementById('dmBgPreview');
+    if (thumb)   thumb.src = dmBgImageUrl;
+    if (preview) preview.style.display = 'flex';
+    if (statusEl) statusEl.textContent = 'Background uploaded';
+  } catch (err) {
+    console.error('dmUploadBg error:', err);
+    showToast('Upload failed', 'error');
+    if (statusEl) statusEl.textContent = '';
+  }
+  input.value = '';
+};
+
+window.dmClearBg = function() {
+  dmBgImageUrl = '';
+  const thumb   = document.getElementById('dmBgThumb');
+  const preview = document.getElementById('dmBgPreview');
+  if (thumb)   thumb.src = '';
+  if (preview) preview.style.display = 'none';
+  const statusEl = document.getElementById('dmBgStatus');
+  if (statusEl) statusEl.textContent = '';
+};
 
 async function saveDemoModal() {
   const bizName = document.getElementById('dmBizName')?.value.trim();
@@ -733,6 +855,9 @@ async function saveDemoModal() {
     phone,
     services,
     bio,
+    widgetTheme:  dmWidgetTheme,
+    widgetImgUrl: dmWidgetImgUrl,
+    aiBgImage:    dmBgImageUrl,
     updatedAt: serverTimestamp()
   };
 
@@ -1325,18 +1450,48 @@ async function cancelMyAccount() {
 async function saveSettings() {
   const platformName = document.getElementById('settingPlatformName')?.value.trim() || '';
   const supportEmail = document.getElementById('settingSupportEmail')?.value.trim() || '';
+  const demoAgentId  = document.getElementById('settingDemoAgentId')?.value.trim()  || '';
+  const demoVoiceEn  = document.getElementById('settingDemoVoiceEn')?.value          || '';
+  const demoVoiceEs  = document.getElementById('settingDemoVoiceEs')?.value          || '';
 
   try {
     if (currentUser) {
-      await updateDoc(doc(db, 'owners', currentUser.uid), {
-        platformName, supportEmail,
-        updatedAt: serverTimestamp()
-      });
+      await Promise.all([
+        updateDoc(doc(db, 'owners', currentUser.uid), {
+          platformName, supportEmail, demoAgentId, demoVoiceEn, demoVoiceEs,
+          updatedAt: serverTimestamp()
+        }),
+        setDoc(doc(db, 'config', 'demo'), {
+          demoAgentId, demoVoiceEn, demoVoiceEs,
+          updatedAt: serverTimestamp()
+        })
+      ]);
     }
     showToast('Settings saved', 'success');
   } catch (err) {
     console.error('saveSettings error:', err);
     showToast('Error saving settings', 'error');
+  }
+}
+
+async function loadSettings() {
+  if (!currentUser) return;
+  try {
+    const snap = await getDoc(doc(db, 'owners', currentUser.uid));
+    if (!snap.exists()) return;
+    const d = snap.data();
+    const sfn = document.getElementById('settingPlatformName');
+    const sse = document.getElementById('settingSupportEmail');
+    const sda = document.getElementById('settingDemoAgentId');
+    const sde = document.getElementById('settingDemoVoiceEn');
+    const sds = document.getElementById('settingDemoVoiceEs');
+    if (sfn && d.platformName) sfn.value = d.platformName;
+    if (sse && d.supportEmail) sse.value = d.supportEmail;
+    if (sda && d.demoAgentId) sda.value = d.demoAgentId;
+    if (sde && d.demoVoiceEn) sde.value = d.demoVoiceEn;
+    if (sds && d.demoVoiceEs) sds.value = d.demoVoiceEs;
+  } catch (err) {
+    console.error('loadSettings error:', err);
   }
 }
 

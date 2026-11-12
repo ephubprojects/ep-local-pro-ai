@@ -436,6 +436,36 @@
           </div>
         </div>
 
+        <div class="settings-section" style="margin-top:28px;">
+          <h3>🎙️ Global Demo AI Agent</h3>
+          <p class="readonly-note" style="margin-bottom:16px;">This ElevenLabs agent is used for all demos you create. Business owners set their own agent in their dashboard.</p>
+          <div class="form-group">
+            <label for="settingDemoAgentId">ElevenLabs Demo Agent ID</label>
+            <input type="text" id="settingDemoAgentId" placeholder="e.g. agent_01jxxxxxxxxxxxxxxx" />
+            <div class="form-hint">Get this from your <a href="https://elevenlabs.io/app/conversational-ai" target="_blank" rel="noopener">ElevenLabs Conversational AI</a> dashboard.</div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="settingDemoVoiceEn">EN Voice (default)</label>
+              <select id="settingDemoVoiceEn">
+                <option value="21m00Tcm4TlvDq8ikWAM">Rachel (Female)</option>
+                <option value="9BWtsMINqrJLrRacOk9x">Aria (Female)</option>
+                <option value="IKne3meq5aSn9XLyUdCD">Charlie (Male)</option>
+                <option value="CwhRBWXHgrhyhFiotyx9">Roger (Male)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="settingDemoVoiceEs">ES Voice (default)</label>
+              <select id="settingDemoVoiceEs">
+                <option value="onwK4e9ZLuTAKqWW03F9">Valentina (Female)</option>
+                <option value="EXAVITQu4vr4xnSDxMaL">Sofía (Female)</option>
+                <option value="pNInz6obpgDQGcFmaJgB">Alejandro (Male)</option>
+                <option value="TxGEqnHWrfWFTfGW9XjX">Diego (Male)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <button class="btn-save" id="saveSettingsBtn">Save Settings</button>
       </div>
 
@@ -533,6 +563,41 @@
           <div class="menu-items-list" id="menuItemsList"></div>
           <div class="text-xs text-muted" style="margin-top:4px;">Name · Price · Emoji · Description</div>
         </div>
+      </div>
+
+      <!-- AI Widget Button Style -->
+      <div class="form-group">
+        <label>🎨 AI Widget Button Style</label>
+        <div class="widget-theme-row" id="dmWidgetThemeRow">
+          <div class="wt-swatch wt-cyan selected" data-theme="cyan" onclick="dmPickTheme('cyan')" title="Cyan (default)"><span>AI</span></div>
+          <div class="wt-swatch wt-red"           data-theme="red"  onclick="dmPickTheme('red')"  title="Red"><span>AI</span></div>
+          <div class="wt-swatch wt-gold"          data-theme="gold" onclick="dmPickTheme('gold')" title="Gold"><span>AI</span></div>
+          <label class="wt-custom-img">
+            📷 Custom Image
+            <input type="file" id="dmWidgetImgUpload" accept="image/*" style="display:none" onchange="dmUploadWidgetImg(this)" />
+          </label>
+          <div id="dmWidgetImgPreview" class="wt-img-preview" style="display:none">
+            <img id="dmWidgetImgThumb" src="" alt="custom" />
+            <button type="button" onclick="dmClearWidgetImg()">✕</button>
+          </div>
+        </div>
+        <div id="dmWidgetThemeStatus" class="form-hint" style="margin-top:4px;">Style: Cyan (default)</div>
+      </div>
+
+      <!-- Background Image -->
+      <div class="form-group">
+        <label>🖼️ AI Page Background Image <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
+        <div class="ai-bg-upload-row">
+          <label class="ai-bg-upload-btn">
+            📤 Upload Background
+            <input type="file" id="dmBgUpload" accept="image/*" style="display:none" onchange="dmUploadBg(this)" />
+          </label>
+          <div id="dmBgPreview" class="ai-bg-preview" style="display:none">
+            <img id="dmBgThumb" src="" alt="bg" />
+            <button type="button" onclick="dmClearBg()">✕ Remove</button>
+          </div>
+        </div>
+        <div id="dmBgStatus" class="form-hint" style="margin-top:4px;"></div>
       </div>
 
     </div><!-- /modal-body -->

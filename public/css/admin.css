@@ -1313,3 +1313,175 @@ input[type="color"]#catColorPicker {
 }
 .scan-status.ok  { color: var(--green); }
 .scan-status.err { color: var(--red); }
+
+/* ── AI Widget Theme Swatches ─────────────────────────────── */
+.widget-theme-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.wt-swatch {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 3px solid transparent;
+  transition: border-color 0.15s, transform 0.12s;
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: rgba(255,255,255,0.8);
+  letter-spacing: 0.03em;
+}
+
+.wt-swatch:hover { transform: scale(1.1); }
+
+.wt-swatch.selected {
+  border-color: var(--indigo, #4f46e5);
+  box-shadow: 0 0 0 2px rgba(79,70,229,0.3);
+}
+
+.wt-cyan {
+  background: radial-gradient(circle at 38% 32%, #0d2244, #020c1e);
+  box-shadow: 0 0 10px rgba(0,229,255,0.5);
+}
+
+.wt-red {
+  background: radial-gradient(circle at 38% 32%, #1a0000, #0a0000);
+  box-shadow: 0 0 10px rgba(255,64,64,0.5);
+}
+
+.wt-gold {
+  background: radial-gradient(circle at 38% 32%, #1a0e00, #0a0600);
+  box-shadow: 0 0 10px rgba(245,158,11,0.5);
+}
+
+.wt-custom-img {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: #fff;
+  border: 1px dashed var(--border, #e2e8f0);
+  border-radius: 7px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--indigo, #4f46e5);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.wt-custom-img:hover {
+  background: var(--indigo-50, #eef2ff);
+  border-color: var(--indigo, #4f46e5);
+}
+
+.wt-img-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wt-img-preview img {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border, #e2e8f0);
+}
+
+.wt-img-preview button {
+  background: none;
+  border: none;
+  color: var(--red, #ef4444);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background 0.12s;
+}
+
+.wt-img-preview button:hover { background: var(--red-50, #fef2f2); }
+
+/* ── AI Background Image Upload ───────────────────────────── */
+.ai-bg-upload-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.ai-bg-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  background: #fff;
+  border: 1px dashed var(--border, #e2e8f0);
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--indigo, #4f46e5);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.ai-bg-upload-btn:hover {
+  background: var(--indigo-50, #eef2ff);
+  border-color: var(--indigo, #4f46e5);
+}
+
+.ai-bg-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ai-bg-preview img {
+  width: 80px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border, #e2e8f0);
+}
+
+.ai-bg-preview button {
+  font-size: 0.78rem;
+  padding: 4px 10px;
+  background: var(--red-50, #fef2f2);
+  border: 1px solid #fecaca;
+  color: var(--red-700, #b91c1c);
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.12s;
+}
+
+.ai-bg-preview button:hover { background: #fee2e2; }
+
+/* ── AI URL Row (My Links / Share URL) ────────────────────── */
+.ai-url-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--light, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 4px;
+}
+
+.ai-url-display {
+  flex: 1;
+  font-size: 0.8rem;
+  font-family: var(--font-mono, monospace);
+  color: var(--ink, #1e293b);
+  word-break: break-all;
+  min-width: 0;
+}

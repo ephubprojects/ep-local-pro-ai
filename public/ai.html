@@ -208,7 +208,7 @@
 <script type="module">
 import { db } from '/js/firebase.js';
 import {
-  collection, query, where, getDocs
+  collection, doc, getDoc, query, where, getDocs
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // ── Voices ──────────────────────────────────────────────
@@ -267,15 +267,41 @@ let sdkLoading = false;
 // ── Boot ─────────────────────────────────────────────────
 (async () => {
   const parts = location.pathname.replace(/^\//, '').split('/');
-  const slug  = parts[1] || parts[0]; // /ai/:slug or fallback
+  const slug  = parts[1] || parts[0]; // /ai/:slug or /demo/:slug
 
   if (!slug) return showNotConfigured();
 
+  let isDemo = false;
   try {
-    const q    = query(collection(db, 'businesses'), where('slug','==', slug));
-    const snap = await getDocs(q);
+    // Check live businesses first
+    let q    = query(collection(db, 'businesses'), where('slug','==', slug));
+    let snap = await getDocs(q);
+
+    if (snap.empty) {
+      // Fall back to admin-created demos
+      q    = query(collection(db, 'demos'), where('slug','==', slug));
+      snap = await getDocs(q);
+      isDemo = true;
+    }
+
     if (snap.empty) return showNotConfigured();
     biz = { id: snap.docs[0].id, ...snap.docs[0].data() };
+
+    // Demos: normalize bizName field + pull global agent if none set per-demo
+    if (isDemo) {
+      if (!biz.name) biz.name = biz.bizName || '';
+      if (!biz.agentId) {
+        try {
+          const cfgSnap = await getDoc(doc(db, 'config', 'demo'));
+          if (cfgSnap.exists()) {
+            const cfg = cfgSnap.data();
+            biz.agentId  = cfg.demoAgentId  || '';
+            if (!biz.voiceIdEn && cfg.demoVoiceEn) biz.voiceIdEn = cfg.demoVoiceEn;
+            if (!biz.voiceIdEs && cfg.demoVoiceEs) biz.voiceIdEs = cfg.demoVoiceEs;
+          }
+        } catch {}
+      }
+    }
   } catch (e) {
     console.error(e);
     return showNotConfigured();
@@ -352,7 +378,7 @@ window.pickVoice = function(id) {
 
 function applyLangText() {
   const es   = lang === 'es';
-  const name = biz?.name || biz?.businessName || '';
+  const name = biz?.name || biz?.bizName || biz?.businessName || '';
   const greeting = biz?.greeting || (es
     ? `¡Hola! Bienvenido a ${name}. Soy su recepcionista virtual de IA. ¿En qué puedo ayudarle?`
     : `Hello! Welcome to ${name}. I'm your AI receptionist. How can I help you today?`);
@@ -389,21 +415,22 @@ async function startCall() {
     } catch {}
 
     const es      = lang === 'es';
-    const bizName = biz?.name || biz?.businessName || '';
-    const prompt  = biz?.greeting
+    const bizName = biz?.name || biz?.bizName || biz?.businessName || '';
+    const sysPrompt = biz?.aiPromptBase
       || (es
         ? `Eres el recepcionista de IA de ${bizName}. Sé profesional y amable. Responde en español.`
         : `You are the AI receptionist for ${bizName}. Be professional, friendly, and concise.`);
     const hours   = biz?.hours ? (es ? ` Horario: ${biz.hours}` : ` Hours: ${biz.hours}`) : '';
-    const firstMessage = es
-      ? `¡Hola! Bienvenido a ${bizName}. Soy su recepcionista virtual. ¿En qué le puedo ayudar?`
-      : `Hello! Welcome to ${bizName}. I'm your AI receptionist. How can I help you today?`;
+    const firstMessage = biz?.greeting
+      || (es
+        ? `¡Hola! Bienvenido a ${bizName}. Soy su recepcionista virtual. ¿En qué le puedo ayudar?`
+        : `Hello! Welcome to ${bizName}. I'm your AI receptionist. How can I help you today?`);
 
     session = await window._aiConvClass.startSession({
       agentId: biz.agentId,
       overrides: {
         agent: {
-          prompt: { prompt: prompt + hours },
+          prompt: { prompt: sysPrompt + hours },
           language: lang,
           firstMessage
         },
