@@ -355,7 +355,7 @@
           <div class="ai-share-row">
             <div class="ai-share-label">🔗 Share with your customers</div>
             <div class="ai-url-row">
-              <div class="ai-url-display" id="aiUrlDisplay">https://ep-local-pro-ai.netlify.app/—</div>
+              <div class="ai-url-display" id="aiUrlDisplay">https://ep-local-pro-ai.netlify.app/ai/—</div>
               <button class="btn-copy" id="copyUrlBtn">📋 Copy</button>
             </div>
           </div>
@@ -401,6 +401,47 @@
                 <option value="TxGEqnHWrfWFTfGW9XjX">Diego (Male)</option>
               </select>
             </div>
+          </div>
+
+          <!-- AI Widget Button Style -->
+          <div class="form-group">
+            <label>🎨 AI Widget Button Style</label>
+            <div class="widget-theme-row" id="widgetThemeRow">
+              <div class="wt-swatch wt-cyan" data-theme="cyan" onclick="pickWidgetTheme('cyan')" title="Cyan (default)">
+                <span>AI</span>
+              </div>
+              <div class="wt-swatch wt-red" data-theme="red" onclick="pickWidgetTheme('red')" title="Red">
+                <span>AI</span>
+              </div>
+              <div class="wt-swatch wt-gold" data-theme="gold" onclick="pickWidgetTheme('gold')" title="Gold">
+                <span>AI</span>
+              </div>
+              <label class="wt-custom-img" title="Custom button image">
+                📷 Custom Image
+                <input type="file" id="widgetImgUpload" accept="image/*" style="display:none" onchange="uploadWidgetImg(this)" />
+              </label>
+              <div id="widgetImgPreview" class="wt-img-preview" style="display:none">
+                <img id="widgetImgThumb" src="" alt="custom" />
+                <button onclick="clearWidgetImg()">✕</button>
+              </div>
+            </div>
+            <div id="widgetThemeStatus" class="form-hint" style="margin-top:4px;">Style: Cyan (default)</div>
+          </div>
+
+          <!-- AI Page Background Image -->
+          <div class="form-group">
+            <label>🖼️ AI Page Background Image <span style="font-weight:400;color:var(--muted);">(optional — covers the entire AI page)</span></label>
+            <div class="ai-bg-upload-row">
+              <label class="ai-bg-upload-btn" id="aiBgUploadLabel">
+                📤 Upload Background
+                <input type="file" id="aiBgUpload" accept="image/*" style="display:none" onchange="uploadAiBg(this)" />
+              </label>
+              <div id="aiBgPreview" class="ai-bg-preview" style="display:none">
+                <img id="aiBgThumb" src="" alt="bg" />
+                <button onclick="clearAiBg()">✕ Remove</button>
+              </div>
+            </div>
+            <div id="aiBgStatus" class="form-hint" style="margin-top:4px;"></div>
           </div>
 
           <div class="form-group">

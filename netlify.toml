@@ -68,6 +68,12 @@
   to     = "/kitchen.html"
   status = 200
 
+# ── Standalone AI voice page ─────────────────────────────
+[[redirects]]
+  from   = "/ai/:slug"
+  to     = "/ai.html"
+  status = 200
+
 # ── Demo AI page ─────────────────────────────────────
 [[redirects]]
   from   = "/demo/:slug"

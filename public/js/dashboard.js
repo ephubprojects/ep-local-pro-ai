@@ -980,6 +980,9 @@ let aitwVoiceId   = AI_VOICES_EN[0].id;
 let aitwSession   = null;
 let aitwActive    = false;
 let aitwSdkLoaded = false;
+let selectedWidgetTheme = 'cyan';
+let widgetImgUrl  = '';
+let aiBgImageUrl  = '';
 
 async function loadAiSettings() {
   if (!bizId) return;
@@ -1008,8 +1011,15 @@ async function loadAiSettings() {
     renderAitwVoicePills();
     updateAitwLangBtns();
 
+    // Widget theme + images
+    selectedWidgetTheme = data.widgetTheme || 'cyan';
+    widgetImgUrl  = data.widgetImgUrl  || '';
+    aiBgImageUrl  = data.aiBgImage     || '';
+    applyWidgetThemeUI();
+    applyBgImageUI();
+
     // AI page URL
-    qs('#aiUrlDisplay').textContent = `https://ep-local-pro-ai.netlify.app/${bizSlug || '—'}`;
+    qs('#aiUrlDisplay').textContent = `https://ep-local-pro-ai.netlify.app/ai/${bizSlug || '—'}`;
 
   } catch (err) {
     console.error('loadAiSettings error:', err);
@@ -1022,7 +1032,7 @@ async function loadAiSettings() {
   qs('#langES').onclick = () => { selectedLang = 'es'; updateLangToggle('es'); };
 
   qs('#copyUrlBtn').onclick = () => {
-    const url = `https://ep-local-pro-ai.netlify.app/${bizSlug}`;
+    const url = `https://ep-local-pro-ai.netlify.app/ai/${bizSlug}`;
     navigator.clipboard.writeText(url).then(() => {
       const btn = qs('#copyUrlBtn');
       btn.textContent = '✅ Copied!';
@@ -1167,9 +1177,108 @@ function endAiTestCall(skipEnd = false) {
 }
 
 // expose to onclick handlers
-window.setAiTestLang   = setAiTestLang;
-window.pickAitwVoice   = pickAitwVoice;
+window.setAiTestLang    = setAiTestLang;
+window.pickAitwVoice    = pickAitwVoice;
 window.toggleAiTestCall = toggleAiTestCall;
+
+// ── Widget theme ─────────────────────────────────────────────
+
+const THEME_LABELS = { cyan: 'Cyan (default)', red: 'Red', gold: 'Gold' };
+
+function applyWidgetThemeUI() {
+  document.querySelectorAll('.wt-swatch').forEach(el => {
+    el.classList.toggle('selected', el.dataset.theme === selectedWidgetTheme && !widgetImgUrl);
+  });
+  if (widgetImgUrl) {
+    const preview = qs('#widgetImgPreview');
+    const thumb   = qs('#widgetImgThumb');
+    if (preview && thumb) {
+      thumb.src            = widgetImgUrl;
+      preview.style.display = 'flex';
+    }
+  }
+  const status = qs('#widgetThemeStatus');
+  if (status) {
+    status.textContent = widgetImgUrl
+      ? 'Style: Custom Image'
+      : `Style: ${THEME_LABELS[selectedWidgetTheme] || 'Cyan (default)'}`;
+  }
+}
+
+window.pickWidgetTheme = function(theme) {
+  selectedWidgetTheme = theme;
+  widgetImgUrl = '';
+  const preview = qs('#widgetImgPreview');
+  if (preview) preview.style.display = 'none';
+  applyWidgetThemeUI();
+};
+
+window.uploadWidgetImg = async function(input) {
+  const file = input.files?.[0];
+  if (!file || !bizId) return;
+  const status = qs('#widgetThemeStatus');
+  if (status) status.textContent = 'Uploading…';
+  try {
+    const r    = storageRef(storage, `ai_widget_img/${bizId}/${Date.now()}_${file.name}`);
+    const snap = await uploadBytes(r, file, { contentType: file.type });
+    widgetImgUrl = await getDownloadURL(snap.ref);
+    const thumb   = qs('#widgetImgThumb');
+    const preview = qs('#widgetImgPreview');
+    if (thumb)   thumb.src             = widgetImgUrl;
+    if (preview) preview.style.display = 'flex';
+    document.querySelectorAll('.wt-swatch').forEach(el => el.classList.remove('selected'));
+    if (status)  status.textContent    = 'Style: Custom Image';
+  } catch (e) {
+    if (status) status.textContent = '⚠️ Upload failed';
+    console.error('Widget img upload error:', e);
+  }
+  input.value = '';
+};
+
+window.clearWidgetImg = function() {
+  widgetImgUrl = '';
+  const preview = qs('#widgetImgPreview');
+  if (preview) preview.style.display = 'none';
+  applyWidgetThemeUI();
+};
+
+// ── AI background image ──────────────────────────────────────
+
+function applyBgImageUI() {
+  const preview = qs('#aiBgPreview');
+  const thumb   = qs('#aiBgThumb');
+  const status  = qs('#aiBgStatus');
+  if (aiBgImageUrl) {
+    if (thumb)   thumb.src             = aiBgImageUrl;
+    if (preview) preview.style.display = 'flex';
+    if (status)  status.textContent    = '✅ Background image set';
+  } else {
+    if (preview) preview.style.display = 'none';
+    if (status)  status.textContent    = '';
+  }
+}
+
+window.uploadAiBg = async function(input) {
+  const file = input.files?.[0];
+  if (!file || !bizId) return;
+  const status = qs('#aiBgStatus');
+  if (status) status.textContent = 'Uploading…';
+  try {
+    const r    = storageRef(storage, `ai_bg_img/${bizId}/${Date.now()}_${file.name}`);
+    const snap = await uploadBytes(r, file, { contentType: file.type });
+    aiBgImageUrl = await getDownloadURL(snap.ref);
+    applyBgImageUI();
+  } catch (e) {
+    if (status) status.textContent = '⚠️ Upload failed';
+    console.error('BG image upload error:', e);
+  }
+  input.value = '';
+};
+
+window.clearAiBg = function() {
+  aiBgImageUrl = '';
+  applyBgImageUI();
+};
 
 async function saveAiSettings() {
   if (!bizId) return;
@@ -1179,12 +1288,15 @@ async function saveAiSettings() {
 
   try {
     await updateDoc(doc(db, 'businesses', bizId), {
-      agentId:    qs('#agentIdInput').value.trim(),
-      lang:       selectedLang,
-      voiceIdEn:  qs('#voiceIdEnSelect').value,
-      voiceIdEs:  qs('#voiceIdEsSelect').value,
-      greeting:   qs('#greetingInput').value.trim(),
-      hours:      qs('#hoursInput').value.trim()
+      agentId:      qs('#agentIdInput').value.trim(),
+      lang:         selectedLang,
+      voiceIdEn:    qs('#voiceIdEnSelect').value,
+      voiceIdEs:    qs('#voiceIdEsSelect').value,
+      widgetTheme:  selectedWidgetTheme,
+      widgetImgUrl: widgetImgUrl || null,
+      aiBgImage:    aiBgImageUrl || null,
+      greeting:     qs('#greetingInput').value.trim(),
+      hours:        qs('#hoursInput').value.trim()
     });
     showToast('AI settings saved!');
   } catch (err) {

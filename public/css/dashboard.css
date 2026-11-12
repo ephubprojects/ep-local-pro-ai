@@ -989,6 +989,144 @@
   margin-bottom: 8px;
 }
 
+/* ── Widget theme swatches ────────────────────────────────── */
+.widget-theme-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.wt-swatch {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 800;
+  flex-shrink: 0;
+  transition: transform .15s;
+  outline: none;
+}
+
+.wt-swatch:hover { transform: scale(1.1); }
+
+.wt-swatch.selected { outline: 3px solid #fff; outline-offset: 2px; }
+
+.wt-cyan {
+  background: radial-gradient(circle, #0d2244, #020c1e);
+  border: 3px solid #00e5ff;
+  color: #00e5ff;
+  box-shadow: 0 0 10px rgba(0,229,255,.5);
+}
+
+.wt-red {
+  background: radial-gradient(circle, #1a0000, #0a0000);
+  border: 3px solid #ff3030;
+  color: #ff6060;
+  box-shadow: 0 0 10px rgba(255,48,48,.5);
+}
+
+.wt-gold {
+  background: radial-gradient(circle, #1a0e00, #0a0600);
+  border: 3px solid #f59e0b;
+  color: #f59e0b;
+  box-shadow: 0 0 10px rgba(245,158,11,.5);
+}
+
+.wt-custom-img {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: var(--indigo-50, #eef2ff);
+  border: 1.5px dashed var(--indigo, #4f46e5);
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--indigo, #4f46e5);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.wt-img-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wt-img-preview img {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--indigo, #4f46e5);
+}
+
+.wt-img-preview button {
+  font-size: 10px;
+  background: var(--red-50, #fee2e2);
+  color: var(--red, #dc2626);
+  border: none;
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+/* ── AI background upload ─────────────────────────────────── */
+.ai-bg-upload-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.ai-bg-upload-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--green-50, #ecfdf5);
+  border: 1.5px dashed var(--green, #10b981);
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--green-700, #047857);
+  white-space: nowrap;
+}
+
+.ai-bg-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-bg-preview img {
+  width: 56px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1.5px solid var(--border, #e2e8f0);
+}
+
+.ai-bg-preview button {
+  font-size: 11px;
+  background: var(--red-50, #fee2e2);
+  color: var(--red, #dc2626);
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
 /* ── AI Settings Section ──────────────────────────────────── */
 .ai-settings-section {
   display: flex;

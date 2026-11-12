@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <meta name="theme-color" content="#020c1e"/>
+  <title>AI Assistant</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      min-height:100vh;height:100vh;overflow:hidden;
+      background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);
+      background-size:cover;background-position:center;
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    }
+    .bg-overlay{position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:0;pointer-events:none;}
+
+    /* ── Greeting card ── */
+    #greet-card{
+      position:fixed;top:50%;left:50%;transform:translate(-50%,-62%);
+      z-index:10;
+      background:linear-gradient(135deg,rgba(0,8,24,.92),rgba(0,28,56,.92));
+      border:1px solid rgba(0,229,255,.3);border-radius:20px;
+      padding:28px 28px 22px;max-width:340px;width:calc(100vw - 48px);
+      text-align:center;backdrop-filter:blur(16px);
+      box-shadow:0 12px 48px rgba(0,0,0,.6),0 0 32px rgba(0,229,255,.1);
+      transition:opacity .4s,transform .4s;
+    }
+    #greet-card.hidden{opacity:0;pointer-events:none;transform:translate(-50%,-57%)}
+    .gc-badge{
+      font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;
+      color:#00e5ff;text-shadow:0 0 8px rgba(0,229,255,.7);
+      background:rgba(0,8,24,.5);border:1px solid rgba(0,229,255,.25);
+      border-radius:20px;padding:3px 10px;display:inline-block;margin-bottom:14px;
+    }
+    #gc-biz{font-size:20px;font-weight:800;color:#fff;margin-bottom:3px;min-height:26px}
+    #gc-msg{font-size:13px;color:rgba(255,255,255,.8);line-height:1.65;margin-bottom:14px}
+    #gc-hint{font-size:11px;color:#00e5ff;opacity:.75;letter-spacing:.3px}
+
+    /* ── Widget ── */
+    #ep-widget{
+      position:fixed;bottom:24px;right:24px;z-index:2147483647;
+      display:flex;flex-direction:column;align-items:center;
+    }
+    #ai-title{
+      font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;
+      color:var(--accent,#00e5ff);text-shadow:0 0 8px var(--accent-glow,rgba(0,229,255,.7));
+      background:rgba(0,8,24,.7);backdrop-filter:blur(8px);
+      border:1px solid rgba(0,229,255,.2);
+      border-radius:20px;padding:3px 10px;white-space:nowrap;margin-bottom:6px;
+    }
+    #lang-row{display:flex;gap:5px;justify-content:center;margin-bottom:5px}
+    .lbtn{
+      font-size:10px;font-weight:700;border-radius:14px;padding:3px 9px;
+      cursor:pointer;border:1.5px solid transparent;transition:all .2s;line-height:1.4;
+    }
+    .lbtn.on{background:rgba(0,229,255,.15);color:#00e5ff;border-color:rgba(0,229,255,.6);text-shadow:0 0 6px rgba(0,229,255,.6)}
+    .lbtn:not(.on){background:rgba(0,8,24,.5);color:rgba(255,255,255,.6);border-color:rgba(255,255,255,.2)}
+    #voice-row{display:flex;gap:3px;flex-wrap:wrap;justify-content:center;max-width:220px;margin-bottom:8px;min-height:0}
+    .vpill{
+      font-size:8px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer;
+      border:1.5px solid rgba(0,229,255,.3);background:rgba(0,8,24,.5);
+      color:rgba(255,255,255,.6);transition:all .15s;
+    }
+    .vpill.sel{border-color:var(--accent,#00e5ff);background:rgba(0,229,255,.2);color:var(--accent,#00e5ff)}
+    #fab-wrap{
+      position:relative;display:flex;align-items:center;justify-content:center;
+      width:88px;height:88px;margin-bottom:6px;
+    }
+    #fab-ring{
+      position:absolute;inset:-8px;border-radius:50%;
+      border:3px solid var(--accent,rgba(0,229,255,.7));
+      display:none;animation:epRing 1.5s ease-in-out infinite;pointer-events:none;
+    }
+    #fab-ring.show{display:block}
+    #end-btn{
+      position:absolute;top:2px;right:2px;z-index:3;
+      width:22px;height:22px;border-radius:50%;
+      background:#ef4444;border:2.5px solid #fff;
+      color:#fff;font-size:10px;font-weight:800;
+      cursor:pointer;display:none;align-items:center;justify-content:center;
+      box-shadow:0 2px 6px rgba(0,0,0,.3);line-height:1;
+    }
+    #end-btn.show{display:flex}
+    #fab{
+      position:relative;z-index:2;
+      width:76px;height:76px;border-radius:50%;
+      background:var(--fab-bg,radial-gradient(circle at 38% 32%,#0d2244,#020c1e));
+      border:2px solid var(--accent,rgba(0,229,255,.3));
+      cursor:pointer;padding:0;transition:transform .15s;
+      animation:epGlow 2.6s ease-in-out infinite;
+      display:flex;align-items:center;justify-content:center;
+    }
+    #fab:active{transform:scale(.92);animation:none}
+    #fab.active-call{
+      background:radial-gradient(circle at 38% 32%,#2d0808,#1a0404)!important;
+      border-color:rgba(239,68,68,.7)!important;
+      animation:epGlowRed 2.6s ease-in-out infinite!important;
+    }
+    .fab-wave{display:flex;align-items:center;gap:3px;height:28px}
+    .fab-wave span{
+      display:block;width:3.5px;border-radius:2px;
+      background:linear-gradient(to top,rgba(0,180,255,.6),var(--accent,#00e5ff));
+      box-shadow:0 0 6px var(--accent-glow,rgba(0,229,255,.8));
+      transform-origin:bottom center;
+    }
+    .fab-wave span:nth-child(1){height:10px;animation:epWave 1.4s ease-in-out infinite}
+    .fab-wave span:nth-child(2){height:18px;animation:epWave 1.1s ease-in-out infinite .12s}
+    .fab-wave span:nth-child(3){height:24px;animation:epWave 1.3s ease-in-out infinite .05s}
+    .fab-wave span:nth-child(4){height:28px;animation:epWave 1.0s ease-in-out infinite .18s}
+    .fab-wave span:nth-child(5){height:22px;animation:epWave 1.2s ease-in-out infinite .08s}
+    .fab-wave span:nth-child(6){height:16px;animation:epWave 1.5s ease-in-out infinite .14s}
+    .fab-wave span:nth-child(7){height:10px;animation:epWave 1.3s ease-in-out infinite .06s}
+    #lbl{
+      font-size:10px;font-weight:700;
+      color:var(--accent,#00e5ff);text-shadow:0 0 6px var(--accent-glow,rgba(0,229,255,.6));
+      background:rgba(0,8,24,.65);backdrop-filter:blur(8px);
+      border:1px solid rgba(0,229,255,.18);
+      border-radius:20px;padding:3px 10px;white-space:nowrap;letter-spacing:.3px;
+    }
+    #call-status{
+      font-size:11px;color:rgba(255,255,255,.8);
+      background:rgba(0,8,24,.65);backdrop-filter:blur(8px);
+      border:1px solid rgba(0,229,255,.18);border-radius:20px;
+      padding:3px 10px;margin-top:5px;text-align:center;max-width:200px;
+      display:none;
+    }
+    #call-status.show{display:block}
+
+    /* Powered by */
+    #powered-by{
+      position:fixed;bottom:10px;left:0;right:0;text-align:center;z-index:50;
+    }
+    #powered-by a{
+      font-size:11px;color:var(--powered-color,#f59e0b);
+      text-decoration:none;font-weight:700;
+      text-shadow:0 1px 6px rgba(0,0,0,.6);
+    }
+
+    /* Animations */
+    @keyframes epWave{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.6)}}
+    @keyframes epRing{0%,100%{opacity:.6;transform:scale(1)}50%{opacity:1;transform:scale(1.08)}}
+    @keyframes epGlow{
+      0%,100%{box-shadow:0 0 10px 4px var(--glow1,rgba(0,229,255,.45)),0 0 24px 8px var(--glow2,rgba(0,140,255,.28))}
+      50%{box-shadow:0 0 26px 10px var(--glow1-hi,rgba(0,229,255,.85)),0 0 52px 22px var(--glow2-hi,rgba(0,140,255,.5))}
+    }
+    @keyframes epGlowRed{
+      0%,100%{box-shadow:0 0 10px 4px rgba(239,68,68,.45),0 0 24px 8px rgba(180,0,0,.28)}
+      50%{box-shadow:0 0 26px 10px rgba(239,68,68,.85),0 0 52px 22px rgba(180,0,0,.5)}
+    }
+
+    /* Not configured state */
+    #not-configured{
+      position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+      flex-direction:column;gap:14px;text-align:center;padding:24px;z-index:20;
+    }
+    #not-configured p{font-size:14px;color:rgba(255,255,255,.7);max-width:300px;line-height:1.6}
+    #not-configured .nc-icon{font-size:52px}
+    #not-configured .nc-title{font-size:20px;font-weight:800;color:#fff}
+    #not-configured{display:none}
+  </style>
+</head>
+<body>
+<div class="bg-overlay"></div>
+
+<!-- Not configured state -->
+<div id="not-configured">
+  <div class="nc-icon">🎙️</div>
+  <div class="nc-title">AI Not Configured</div>
+  <p>This business hasn't set up their AI Assistant yet. Ask the business owner to configure it in their dashboard.</p>
+</div>
+
+<!-- Greeting card -->
+<div id="greet-card">
+  <div class="gc-badge" id="gc-badge">AI ASSISTANT</div>
+  <div id="gc-biz"></div>
+  <div id="gc-msg"></div>
+  <div id="gc-hint"></div>
+</div>
+
+<!-- Widget -->
+<div id="ep-widget">
+  <div id="ai-title">AI ASSISTANT</div>
+  <div id="lang-row">
+    <button class="lbtn on" id="lb-en" onclick="setLang('en')">EN</button>
+    <button class="lbtn"    id="lb-es" onclick="setLang('es')">ES</button>
+  </div>
+  <div id="voice-row"></div>
+  <div id="fab-wrap">
+    <div id="fab-ring"></div>
+    <button id="end-btn" title="End call" onclick="endCall()">&#x2715;</button>
+    <button id="fab" onclick="handleTalk()">
+      <div class="fab-wave">
+        <span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span>
+      </div>
+    </button>
+  </div>
+  <div id="lbl">Talk to AI</div>
+  <div id="call-status"></div>
+</div>
+
+<!-- Powered by -->
+<div id="powered-by">
+  <a href="https://ep-local-pro-ai.netlify.app" target="_blank" rel="noopener">Powered by EP Local Pro AI</a>
+</div>
+
+<script type="module">
+import { db } from '/js/firebase.js';
+import {
+  collection, query, where, getDocs
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+// ── Voices ──────────────────────────────────────────────
+const VOICES_EN = [
+  { id:'21m00Tcm4TlvDq8ikWAM', n:'Rachel'    },
+  { id:'9BWtsMINqrJLrRacOk9x', n:'Aria'      },
+  { id:'IKne3meq5aSn9XLyUdCD', n:'Charlie'   },
+  { id:'CwhRBWXHgrhyhFiotyx9', n:'Roger'     },
+];
+const VOICES_ES = [
+  { id:'onwK4e9ZLuTAKqWW03F9', n:'Valentina' },
+  { id:'EXAVITQu4vr4xnSDxMaL', n:'Sofía'     },
+  { id:'pNInz6obpgDQGcFmaJgB', n:'Alejandro' },
+  { id:'TxGEqnHWrfWFTfGW9XjX', n:'Diego'     },
+];
+
+// ── Widget themes ────────────────────────────────────────
+const THEMES = {
+  cyan: {
+    '--accent':       '#00e5ff',
+    '--accent-glow':  'rgba(0,229,255,.8)',
+    '--fab-bg':       'radial-gradient(circle at 38% 32%,#0d2244,#020c1e)',
+    '--glow1':        'rgba(0,229,255,.45)',
+    '--glow2':        'rgba(0,140,255,.28)',
+    '--glow1-hi':     'rgba(0,229,255,.85)',
+    '--glow2-hi':     'rgba(0,140,255,.5)',
+  },
+  red: {
+    '--accent':       '#ff4040',
+    '--accent-glow':  'rgba(255,64,64,.8)',
+    '--fab-bg':       'radial-gradient(circle at 38% 32%,#1a0000,#0a0000)',
+    '--glow1':        'rgba(255,48,48,.45)',
+    '--glow2':        'rgba(180,0,0,.28)',
+    '--glow1-hi':     'rgba(255,48,48,.85)',
+    '--glow2-hi':     'rgba(180,0,0,.5)',
+  },
+  gold: {
+    '--accent':       '#f59e0b',
+    '--accent-glow':  'rgba(245,158,11,.8)',
+    '--fab-bg':       'radial-gradient(circle at 38% 32%,#1a0e00,#0a0600)',
+    '--glow1':        'rgba(245,158,11,.45)',
+    '--glow2':        'rgba(161,105,0,.28)',
+    '--glow1-hi':     'rgba(245,158,11,.85)',
+    '--glow2-hi':     'rgba(161,105,0,.5)',
+  },
+};
+
+// ── State ────────────────────────────────────────────────
+let biz       = null;
+let lang      = 'en';
+let voiceId   = VOICES_EN[0].id;
+let session   = null;
+let callActive = false;
+let sdkLoading = false;
+
+// ── Boot ─────────────────────────────────────────────────
+(async () => {
+  const parts = location.pathname.replace(/^\//, '').split('/');
+  const slug  = parts[1] || parts[0]; // /ai/:slug or fallback
+
+  if (!slug) return showNotConfigured();
+
+  try {
+    const q    = query(collection(db, 'businesses'), where('slug','==', slug));
+    const snap = await getDocs(q);
+    if (snap.empty) return showNotConfigured();
+    biz = { id: snap.docs[0].id, ...snap.docs[0].data() };
+  } catch (e) {
+    console.error(e);
+    return showNotConfigured();
+  }
+
+  if (!biz.agentId) return showNotConfigured();
+
+  // Apply background
+  if (biz.aiBgImage) {
+    document.body.style.backgroundImage    = `url(${biz.aiBgImage})`;
+    document.body.style.backgroundSize     = 'cover';
+    document.body.style.backgroundPosition = 'center';
+  }
+
+  // Apply theme
+  const theme = THEMES[biz.widgetTheme] || THEMES.cyan;
+  for (const [k, v] of Object.entries(theme)) {
+    document.documentElement.style.setProperty(k, v);
+  }
+
+  // Widget label
+  const bizName = biz.name || biz.businessName || '';
+  document.getElementById('ai-title').textContent = bizName || 'AI ASSISTANT';
+  document.getElementById('gc-badge').textContent = (bizName || 'AI') + ' ASSISTANT';
+  document.getElementById('gc-biz').textContent   = bizName;
+
+  // Language + voices
+  lang    = biz.lang || 'en';
+  voiceId = lang === 'es'
+    ? (biz.voiceIdEs || VOICES_ES[0].id)
+    : (biz.voiceIdEn || VOICES_EN[0].id);
+
+  setLang(lang);  // sets up UI + voice pills
+  applyLangText();
+
+  // Preload SDK
+  if (!window._aiConvClass) {
+    import('https://esm.sh/@elevenlabs/client@0.15.0')
+      .then(m => { window._aiConvClass = m.Conversation || null; })
+      .catch(() => {});
+  }
+})();
+
+function showNotConfigured() {
+  document.getElementById('greet-card').style.display  = 'none';
+  document.getElementById('ep-widget').style.display   = 'none';
+  document.getElementById('not-configured').style.display = 'flex';
+}
+
+// ── Lang / voice UI ──────────────────────────────────────
+window.setLang = function(l) {
+  lang = l;
+  document.getElementById('lb-en').classList.toggle('on', l === 'en');
+  document.getElementById('lb-es').classList.toggle('on', l === 'es');
+
+  const voices = l === 'es' ? VOICES_ES : VOICES_EN;
+  if (!voices.find(v => v.id === voiceId)) voiceId = voices[0].id;
+  renderVoicePills(voices);
+  applyLangText();
+};
+
+function renderVoicePills(voices) {
+  const row = document.getElementById('voice-row');
+  row.innerHTML = voices.map(v => `
+    <button class="vpill${v.id === voiceId ? ' sel' : ''}" onclick="pickVoice('${v.id}')">${v.n}</button>
+  `).join('');
+}
+
+window.pickVoice = function(id) {
+  if (callActive) return;
+  voiceId = id;
+  renderVoicePills(lang === 'es' ? VOICES_ES : VOICES_EN);
+};
+
+function applyLangText() {
+  const es   = lang === 'es';
+  const name = biz?.name || biz?.businessName || '';
+  const greeting = biz?.greeting || (es
+    ? `¡Hola! Bienvenido a ${name}. Soy su recepcionista virtual de IA. ¿En qué puedo ayudarle?`
+    : `Hello! Welcome to ${name}. I'm your AI receptionist. How can I help you today?`);
+  document.getElementById('gc-msg').textContent  = greeting;
+  document.getElementById('gc-hint').textContent = es ? '👇 Toca el botón brillante para iniciar' : '👇 Tap the glowing button to start';
+  document.getElementById('lbl').textContent     = es ? 'Hablar con AI' : 'Talk to AI';
+}
+
+// ── Call ─────────────────────────────────────────────────
+window.handleTalk = async function() {
+  if (callActive) { endCall(); return; }
+  await startCall();
+};
+
+async function startCall() {
+  callActive = true;
+  document.getElementById('fab').classList.add('active-call');
+  document.getElementById('fab-ring').classList.add('show');
+  setStatus(lang === 'es' ? '📡 Conectando…' : '📡 Connecting…');
+
+  try {
+    if (!window._aiConvClass) {
+      if (sdkLoading) return;
+      sdkLoading = true;
+      const m = await import('https://esm.sh/@elevenlabs/client@0.15.0');
+      window._aiConvClass = m.Conversation || null;
+      sdkLoading = false;
+    }
+    if (!window._aiConvClass) throw new Error('SDK unavailable');
+
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+      s.getTracks().forEach(t => t.stop());
+    } catch {}
+
+    const es      = lang === 'es';
+    const bizName = biz?.name || biz?.businessName || '';
+    const prompt  = biz?.greeting
+      || (es
+        ? `Eres el recepcionista de IA de ${bizName}. Sé profesional y amable. Responde en español.`
+        : `You are the AI receptionist for ${bizName}. Be professional, friendly, and concise.`);
+    const hours   = biz?.hours ? (es ? ` Horario: ${biz.hours}` : ` Hours: ${biz.hours}`) : '';
+    const firstMessage = es
+      ? `¡Hola! Bienvenido a ${bizName}. Soy su recepcionista virtual. ¿En qué le puedo ayudar?`
+      : `Hello! Welcome to ${bizName}. I'm your AI receptionist. How can I help you today?`;
+
+    session = await window._aiConvClass.startSession({
+      agentId: biz.agentId,
+      overrides: {
+        agent: {
+          prompt: { prompt: prompt + hours },
+          language: lang,
+          firstMessage
+        },
+        tts: { voiceId, modelId: 'eleven_turbo_v2_5' }
+      },
+      onConnect: () => {
+        document.getElementById('greet-card').classList.add('hidden');
+        document.getElementById('end-btn').classList.add('show');
+        setStatus(es ? '🟢 Conectado — hablando…' : '🟢 Connected — speaking…');
+      },
+      onDisconnect: () => { endCall(true); },
+      onError: (e) => {
+        const msg = e?.message || '';
+        setStatus('⚠️ ' + (msg.slice(0, 60) || (es ? 'Error de conexión.' : 'Connection error.')));
+        endCall(true);
+      }
+    });
+
+  } catch (e) {
+    console.error(e);
+    setStatus('⚠️ ' + (e.message?.slice(0, 70) || 'Could not connect.'));
+    endCall(true);
+  }
+}
+
+window.endCall = function(skipEnd = false) {
+  if (session && !skipEnd) {
+    try { session.endSession().catch(() => {}); } catch {}
+  }
+  session    = null;
+  callActive = false;
+  sdkLoading = false;
+  document.getElementById('fab').classList.remove('active-call');
+  document.getElementById('fab-ring').classList.remove('show');
+  document.getElementById('end-btn').classList.remove('show');
+  document.getElementById('greet-card').classList.remove('hidden');
+  applyLangText();
+  setTimeout(() => setStatus(''), 2500);
+};
+
+function setStatus(msg) {
+  const el = document.getElementById('call-status');
+  el.textContent = msg;
+  el.classList.toggle('show', !!msg);
+}
+</script>
+</body>
+</html>
