@@ -176,42 +176,52 @@
     <!-- ════════════ SECTION: Documents ════════════ -->
     <div data-section="documents" class="hidden">
 
-      <div class="section-card">
-        <div class="section-card-header">
+      <!-- Page header -->
+      <div class="docs-page-header">
+        <div>
           <h2>Documents</h2>
-          <div class="btn-dropdown-wrap">
-            <button class="btn-primary" id="generateDocBtn">📄 Generate Document ▾</button>
-            <div class="btn-dropdown-menu" id="generateDocMenu">
-              <button data-doc-type="invoice">🧾 Generate Invoice</button>
-              <button data-doc-type="estimate">📋 Generate Estimate</button>
-              <button data-doc-type="contract">📝 Generate Contract</button>
-              <button data-doc-type="receipt">🧾 Generate Receipt</button>
-            </div>
-          </div>
+          <p class="docs-page-sub">Invoices, estimates, contracts &amp; receipts — all in one place</p>
         </div>
+      </div>
 
-        <div class="docs-table-wrap">
-          <table class="docs-table">
-            <thead>
-              <tr>
-                <th>Type</th>
-                <th>Customer / Job</th>
-                <th>Date</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="docsTableBody">
-              <tr>
-                <td colspan="5">
-                  <div class="empty-state">
-                    <div class="empty-state-icon">📄</div>
-                    <p>No documents yet.</p>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      <!-- Quick create cards -->
+      <div class="docs-create-grid">
+        <button class="docs-create-card dcc-invoice" data-doc-type="invoice">
+          <span class="dcc-icon">🧾</span>
+          <span class="dcc-title">Invoice</span>
+          <span class="dcc-desc">Bill customers for completed work</span>
+        </button>
+        <button class="docs-create-card dcc-estimate" data-doc-type="estimate">
+          <span class="dcc-icon">📋</span>
+          <span class="dcc-title">Estimate</span>
+          <span class="dcc-desc">Quote a job or project</span>
+        </button>
+        <button class="docs-create-card dcc-contract" data-doc-type="contract">
+          <span class="dcc-icon">📝</span>
+          <span class="dcc-title">Contract</span>
+          <span class="dcc-desc">Formalize agreements &amp; terms</span>
+        </button>
+        <button class="docs-create-card dcc-receipt" data-doc-type="receipt">
+          <span class="dcc-icon">✅</span>
+          <span class="dcc-title">Receipt</span>
+          <span class="dcc-desc">Confirm payments received</span>
+        </button>
+      </div>
+
+      <!-- Filter tabs -->
+      <div class="docs-tabs-bar">
+        <button class="docs-tab active" data-filter="all">All <span class="docs-tab-count" id="countAll">0</span></button>
+        <button class="docs-tab" data-filter="invoice">Invoices <span class="docs-tab-count" id="countInvoice">0</span></button>
+        <button class="docs-tab" data-filter="estimate">Estimates <span class="docs-tab-count" id="countEstimate">0</span></button>
+        <button class="docs-tab" data-filter="contract">Contracts <span class="docs-tab-count" id="countContract">0</span></button>
+        <button class="docs-tab" data-filter="receipt">Receipts <span class="docs-tab-count" id="countReceipt">0</span></button>
+      </div>
+
+      <!-- Documents list -->
+      <div id="docsList" class="docs-list">
+        <div class="empty-state">
+          <div class="empty-state-icon">📄</div>
+          <p>No documents yet. Create your first one above.</p>
         </div>
       </div>
 
@@ -596,7 +606,10 @@
 <div class="modal-overlay hidden" id="generateDocModal">
   <div class="modal-card modal-lg">
     <div class="modal-header">
-      <h3 id="genDocModalTitle">Generate Invoice</h3>
+      <div>
+        <span class="gen-doc-label label-invoice" id="genDocLabel">INVOICE</span>
+        <h3 id="genDocModalTitle">New Invoice</h3>
+      </div>
       <button class="modal-close" data-close="generateDocModal">✕</button>
     </div>
     <div class="modal-body">
@@ -635,33 +648,80 @@
         </div>
       </div>
 
-      <!-- Line items -->
-      <div class="form-group">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-          <label style="margin:0;">Items / Services <span style="color:var(--red)">*</span></label>
-          <button class="btn-add-item" id="addDocItemBtn" type="button">＋ Add Item</button>
+      <!-- Contract-specific fields -->
+      <div id="genDocContractFields" class="hidden">
+        <hr class="form-divider" />
+        <p class="form-section-label">Contract Details</p>
+        <div class="form-group">
+          <label>Scope of Work</label>
+          <textarea id="genDocJobDesc" placeholder="Describe the work to be performed…" style="min-height:80px;"></textarea>
         </div>
-        <div class="doc-line-items" id="genDocItemsList"></div>
-
-        <!-- Totals row -->
-        <div class="doc-totals" id="genDocTotals">
-          <div class="doc-totals-row">
-            <span>Subtotal</span>
-            <span id="genDocSubtotal">$0.00</span>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Start Date</label>
+            <input type="date" id="genDocStartDate" />
           </div>
-          <div class="doc-totals-row" id="genDocTaxRow" style="display:none;">
-            <span>Tax</span>
-            <span id="genDocTaxAmt">$0.00</span>
+          <div class="form-group">
+            <label>Completion Date</label>
+            <input type="date" id="genDocEndDate" />
           </div>
-          <div class="doc-totals-row total">
-            <span>Total</span>
-            <span id="genDocTotal">$0.00</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Contract Total ($)</label>
+            <input type="number" id="genDocContractTotal" placeholder="0.00" min="0" step="0.01" />
+          </div>
+          <div class="form-group">
+            <label>Payment Terms</label>
+            <input type="text" id="genDocPaymentTerms" placeholder="50% upfront, 50% on completion" />
           </div>
         </div>
       </div>
 
-      <!-- Tax rate -->
-      <div class="form-group" style="max-width:180px;">
+      <!-- Receipt-specific: payment method -->
+      <div class="form-group hidden" id="genDocPayMethodGroup">
+        <label>Payment Method</label>
+        <select id="genDocPayMethod" class="form-select">
+          <option value="Cash">Cash</option>
+          <option value="Credit Card">Credit Card</option>
+          <option value="Debit Card">Debit Card</option>
+          <option value="Check">Check</option>
+          <option value="Zelle">Zelle</option>
+          <option value="Venmo">Venmo</option>
+          <option value="CashApp">CashApp</option>
+          <option value="PayPal">PayPal</option>
+          <option value="Bank Transfer">Bank Transfer</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+
+      <!-- Line items (hidden for contract) -->
+      <div id="genDocLineItemsSection">
+        <div class="form-group">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <label style="margin:0;">Items / Services <span style="color:var(--red)">*</span></label>
+            <button class="btn-add-item" id="addDocItemBtn" type="button">＋ Add Item</button>
+          </div>
+          <div class="doc-line-items" id="genDocItemsList"></div>
+          <div class="doc-totals" id="genDocTotals">
+            <div class="doc-totals-row">
+              <span>Subtotal</span>
+              <span id="genDocSubtotal">$0.00</span>
+            </div>
+            <div class="doc-totals-row" id="genDocTaxRow" style="display:none;">
+              <span>Tax</span>
+              <span id="genDocTaxAmt">$0.00</span>
+            </div>
+            <div class="doc-totals-row total">
+              <span>Total</span>
+              <span id="genDocTotal">$0.00</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tax rate (hidden for contract) -->
+      <div class="form-group" style="max-width:180px;" id="genDocTaxGroup">
         <label>Tax Rate (%)</label>
         <input type="number" id="genDocTaxRate" placeholder="0" min="0" max="100" step="0.5" value="0" />
       </div>
@@ -674,13 +734,29 @@
 
       <!-- Contract terms -->
       <div class="form-group hidden" id="genDocTermsGroup">
-        <label>Contract Terms</label>
-        <textarea id="genDocTerms" placeholder="Enter contract terms and conditions…" style="min-height:100px;"></textarea>
+        <label>Terms &amp; Conditions</label>
+        <textarea id="genDocTerms" placeholder="Enter your contract terms and conditions…" style="min-height:100px;"></textarea>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn-secondary" data-close="generateDocModal">Cancel</button>
-      <button class="btn-primary" id="confirmGenDocBtn">Generate</button>
+      <button class="btn-primary" id="confirmGenDocBtn">✨ Generate</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: Document Preview ══════════════ -->
+<div class="modal-overlay hidden" id="docPreviewModal">
+  <div class="modal-card doc-preview-card">
+    <div class="modal-header">
+      <h3 id="docPreviewTitle">Document Preview</h3>
+      <div class="doc-preview-actions">
+        <button class="btn-secondary" id="docPrintBtn">🖨️ Print / Save PDF</button>
+        <button class="modal-close" data-close="docPreviewModal">✕</button>
+      </div>
+    </div>
+    <div class="doc-preview-body">
+      <iframe id="docPreviewFrame" title="Document Preview"></iframe>
     </div>
   </div>
 </div>
@@ -702,6 +778,6 @@
 </div>
 
 
-<script type="module" src="/js/dashboard.js?v=19"></script>
+<script type="module" src="/js/dashboard.js?v=21"></script>
 </body>
 </html>

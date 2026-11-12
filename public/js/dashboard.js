@@ -15,14 +15,16 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // ── State ────────────────────────────────────────────────────
-let currentUser  = null;
-let ownerDoc     = null;
-let bizDoc       = null;
-let bizId        = null;
-let bizSlug      = null;
-let bizCategory  = null;
-let selectedLang = 'en';
-let ordersUnsub  = null;
+let currentUser       = null;
+let ownerDoc          = null;
+let bizDoc            = null;
+let bizId             = null;
+let bizSlug           = null;
+let bizCategory       = null;
+let selectedLang      = 'en';
+let ordersUnsub       = null;
+let allDocs           = [];
+let currentDocFilter  = 'all';
 
 // ── Helpers ──────────────────────────────────────────────────
 function relativeTime(ts) {
@@ -700,22 +702,22 @@ async function deleteMenuItem(index) {
 // ── Documents ────────────────────────────────────────────────
 async function loadDocuments() {
   if (!bizId) return;
-  const tbody = qs('#docsTableBody');
-  tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><p>Loading…</p></div></td></tr>`;
+  const list = qs('#docsList');
+  if (!list) return;
+  list.innerHTML = `<div class="empty-state"><p>Loading…</p></div>`;
 
-  // Wire generate button + dropdown
-  const genBtn  = qs('#generateDocBtn');
-  const genMenu = qs('#generateDocMenu');
+  // Wire create cards
+  document.querySelectorAll('[data-doc-type]').forEach(btn => {
+    btn.onclick = () => openGenerateDocModal(btn.dataset.docType);
+  });
 
-  genBtn.onclick = (e) => {
-    e.stopPropagation();
-    genMenu.classList.toggle('open');
-  };
-
-  document.querySelectorAll('#generateDocMenu button[data-doc-type]').forEach(btn => {
-    btn.onclick = () => {
-      genMenu.classList.remove('open');
-      openGenerateDocModal(btn.dataset.docType);
+  // Wire filter tabs
+  document.querySelectorAll('.docs-tab').forEach(tab => {
+    tab.onclick = () => {
+      document.querySelectorAll('.docs-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentDocFilter = tab.dataset.filter;
+      renderDocCards();
     };
   });
 
@@ -726,117 +728,198 @@ async function loadDocuments() {
       orderBy('createdAt', 'desc')
     );
     const snap = await getDocs(q);
-
-    if (snap.empty) {
-      tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">📄</div><p>No documents yet.</p></div></td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = '';
-    snap.forEach(d => {
-      const data = d.data();
-      const typeCap = data.type ? data.type.charAt(0).toUpperCase() + data.type.slice(1) : '—';
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><span class="badge badge-${data.type || ''}">${typeCap}</span></td>
-        <td>${data.customerName || '—'}</td>
-        <td>${fmtDate(data.createdAt)}</td>
-        <td>${data.status || 'generated'}</td>
-        <td>
-          <div class="row-actions">
-            ${data.url ? `<a class="btn-action" href="${data.url}" target="_blank">View</a>` : ''}
-            ${data.url ? `<a class="btn-action primary" href="${data.url}" download>Download</a>` : ''}
-          </div>
-        </td>`;
-      tbody.appendChild(tr);
-    });
-
+    allDocs = [];
+    snap.forEach(d => allDocs.push({ id: d.id, ...d.data() }));
+    updateDocCounts();
+    renderDocCards();
   } catch (err) {
     console.error('loadDocuments error:', err);
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><p>Failed to load documents.</p></div></td></tr>`;
+    list.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><p>Failed to load documents.</p></div>`;
   }
 }
 
+function updateDocCounts() {
+  const counts = { all: allDocs.length, invoice: 0, estimate: 0, contract: 0, receipt: 0 };
+  allDocs.forEach(d => { if (d.type && counts[d.type] !== undefined) counts[d.type]++; });
+  Object.entries(counts).forEach(([type, count]) => {
+    const key = type.charAt(0).toUpperCase() + type.slice(1);
+    const el = qs(`#count${key}`);
+    if (el) el.textContent = count;
+  });
+}
+
+function renderDocCards() {
+  const list = qs('#docsList');
+  if (!list) return;
+  const filtered = currentDocFilter === 'all'
+    ? allDocs
+    : allDocs.filter(d => d.type === currentDocFilter);
+
+  if (!filtered.length) {
+    const msg = currentDocFilter === 'all'
+      ? 'No documents yet. Create your first one above.'
+      : `No ${currentDocFilter}s yet.`;
+    list.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📄</div><p>${msg}</p></div>`;
+    return;
+  }
+
+  const typeLabels  = { invoice: 'Invoice', estimate: 'Estimate', contract: 'Contract', receipt: 'Receipt' };
+  const badgeCls    = { invoice: 'badge-invoice', estimate: 'badge-estimate', contract: 'badge-contract', receipt: 'badge-receipt' };
+
+  list.innerHTML = '';
+  filtered.forEach(docData => {
+    const typeLbl   = typeLabels[docData.type] || docData.type || '—';
+    const badgeClass = badgeCls[docData.type] || '';
+    const amount    = docData.amount
+      ? `$${Number(docData.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : '—';
+
+    const card = document.createElement('div');
+    card.className = 'doc-card';
+    card.innerHTML = `
+      <div class="doc-card-stripe stripe-${docData.type || ''}"></div>
+      <div class="doc-card-body">
+        <div class="doc-card-type">
+          <span class="badge ${badgeClass}">${typeLbl}</span>
+          ${docData.docNumber ? `<div class="doc-card-num">${docData.docNumber}</div>` : ''}
+        </div>
+        <div class="doc-card-info">
+          <div class="doc-card-customer">${docData.customerName || '—'}</div>
+          <div class="doc-card-meta">
+            <span>${fmtDate(docData.createdAt)}</span>
+            ${docData.status ? `<span class="doc-card-meta-dot">${docData.status}</span>` : ''}
+          </div>
+        </div>
+        <div class="doc-card-amount">${amount}</div>
+      </div>
+      <div class="doc-card-actions">
+        ${docData.htmlContent ? `<button class="btn-action" data-view>👁 View</button>` : ''}
+        ${docData.htmlContent ? `<button class="btn-action primary" data-dl>↓ PDF</button>` : ''}
+      </div>`;
+
+    if (docData.htmlContent) {
+      const label = docData.docNumber || typeLbl;
+      card.querySelector('[data-view]')?.addEventListener('click', () => viewDocument(docData.htmlContent, label));
+      card.querySelector('[data-dl]')?.addEventListener('click',   () => downloadDocument(docData.htmlContent, label));
+    }
+    list.appendChild(card);
+  });
+}
+
+function viewDocument(htmlContent, label) {
+  const frame = qs('#docPreviewFrame');
+  if (!frame) return;
+  qs('#docPreviewTitle').textContent = label || 'Document Preview';
+  frame.srcdoc = htmlContent;
+  qs('#docPreviewModal').classList.remove('hidden');
+  qs('#docPrintBtn').onclick = () => frame.contentWindow?.print();
+}
+
+function downloadDocument(htmlContent, label) {
+  viewDocument(htmlContent, label);
+  setTimeout(() => qs('#docPreviewFrame')?.contentWindow?.print(), 700);
+}
+
 function openGenerateDocModal(type) {
-  const titles = { invoice: 'Generate Invoice', estimate: 'Generate Estimate', contract: 'Generate Contract', receipt: 'Generate Receipt' };
-  qs('#genDocModalTitle').textContent = titles[type] || 'Generate Document';
+  const configs = {
+    invoice:  { title: 'New Invoice',  label: 'INVOICE',  cls: 'label-invoice'  },
+    estimate: { title: 'New Estimate', label: 'ESTIMATE', cls: 'label-estimate' },
+    contract: { title: 'New Contract', label: 'CONTRACT', cls: 'label-contract' },
+    receipt:  { title: 'New Receipt',  label: 'RECEIPT',  cls: 'label-receipt'  },
+  };
+  const cfg = configs[type] || configs.invoice;
+  qs('#genDocModalTitle').textContent = cfg.title;
+  const labelEl = qs('#genDocLabel');
+  labelEl.textContent = cfg.label;
+  labelEl.className = `gen-doc-label ${cfg.cls}`;
   qs('#genDocType').value = type;
+
+  const isContract = type === 'contract';
+  const isReceipt  = type === 'receipt';
+  qs('#genDocContractFields').classList.toggle('hidden', !isContract);
+  qs('#genDocLineItemsSection').classList.toggle('hidden', isContract);
+  qs('#genDocTaxGroup').classList.toggle('hidden', isContract);
+  qs('#genDocTermsGroup').classList.toggle('hidden', !isContract);
+  qs('#genDocPayMethodGroup').classList.toggle('hidden', !isReceipt);
 
   // Populate business profile banner
   const biz = bizDoc || {};
-  const logoUrl = biz.logoUrl || '';
   const logoEl = qs('#docBizLogoPreview');
-  if (logoUrl) { logoEl.src = logoUrl; logoEl.style.display = 'block'; }
+  if (biz.logoUrl) { logoEl.src = biz.logoUrl; logoEl.style.display = 'block'; }
   else logoEl.style.display = 'none';
   qs('#docBizNamePreview').textContent = biz.companyName || biz.name || '—';
   const details = [biz.address, biz.phone, biz.email].filter(Boolean).join(' · ');
   qs('#docBizDetailPreview').textContent = details || 'Complete your Business Profile to personalize documents.';
 
-  // Wire edit profile link inside modal
   const editLink = qs('#docBizBanner [data-nav="profile"]');
-  if (editLink) {
-    editLink.onclick = () => {
-      qs('#generateDocModal').classList.add('hidden');
-      showSection('profile');
-    };
-  }
+  if (editLink) editLink.onclick = () => { qs('#generateDocModal').classList.add('hidden'); showSection('profile'); };
 
-  // Reset fields
-  qs('#genDocCustomer').value = '';
-  qs('#genDocCustEmail').value = '';
-  qs('#genDocCustAddress').value = '';
+  // Reset all fields
+  ['#genDocCustomer','#genDocCustEmail','#genDocCustAddress','#genDocNotes','#genDocTerms',
+   '#genDocJobDesc','#genDocPaymentTerms','#genDocContractTotal','#genDocStartDate','#genDocEndDate']
+    .forEach(sel => { const el = qs(sel); if (el) el.value = ''; });
   qs('#genDocDate').value = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   qs('#genDocTaxRate').value = '0';
-  qs('#genDocNotes').value = '';
-  qs('#genDocTerms').value = '';
-  qs('#genDocTermsGroup').classList.toggle('hidden', type !== 'contract');
 
-  // Reset line items — start with 1 blank row
-  const list = qs('#genDocItemsList');
-  list.innerHTML = '';
-  addDocLineItem();
+  if (!isContract) {
+    qs('#genDocItemsList').innerHTML = '';
+    addDocLineItem();
+    updateDocTotals();
+  }
 
-  updateDocTotals();
-  qs('#generateDocModal').classList.remove('hidden');
-
-  // Wire add item + tax rate change
-  qs('#addDocItemBtn').onclick = addDocLineItem;
-  qs('#genDocTaxRate').oninput = updateDocTotals;
+  qs('#addDocItemBtn').onclick   = addDocLineItem;
+  qs('#genDocTaxRate').oninput   = updateDocTotals;
   qs('#confirmGenDocBtn').onclick = () => generateDocument(type);
+  qs('#generateDocModal').classList.remove('hidden');
 }
 
 async function generateDocument(type) {
   const customer = qs('#genDocCustomer').value.trim();
   if (!customer) { showToast('Customer name is required.', 'error'); return; }
 
-  // Collect line items
-  const items = [];
-  document.querySelectorAll('#genDocItemsList .doc-line-item-row').forEach(row => {
-    const name  = row.querySelector('.dli-name').value.trim();
-    const qty   = parseFloat(row.querySelector('.dli-qty').value) || 1;
-    const price = parseFloat(row.querySelector('.dli-price').value) || 0;
-    const desc  = row.querySelector('.dli-desc').value.trim();
-    if (name) items.push({ name, qty, price, desc });
-  });
-  if (!items.length) { showToast('Add at least one item.', 'error'); return; }
+  const biz        = bizDoc || {};
+  const isContract = type === 'contract';
 
-  const biz = bizDoc || {};
-  const taxRate = parseFloat(qs('#genDocTaxRate').value) || 0;
+  let items, taxRate, totalAmount;
+
+  if (isContract) {
+    const contractTotal = parseFloat(qs('#genDocContractTotal').value) || 0;
+    const jobDesc       = qs('#genDocJobDesc').value.trim() || 'Professional Services';
+    items       = [{ name: jobDesc, qty: 1, price: contractTotal, desc: '' }];
+    taxRate     = 0;
+    totalAmount = contractTotal;
+  } else {
+    items = [];
+    document.querySelectorAll('#genDocItemsList .doc-line-item-row').forEach(row => {
+      const name  = row.querySelector('.dli-name').value.trim();
+      const qty   = parseFloat(row.querySelector('.dli-qty').value)   || 1;
+      const price = parseFloat(row.querySelector('.dli-price').value) || 0;
+      const desc  = row.querySelector('.dli-desc').value.trim();
+      if (name) items.push({ name, qty, price, desc });
+    });
+    if (!items.length) { showToast('Add at least one item.', 'error'); return; }
+    taxRate     = parseFloat(qs('#genDocTaxRate').value) || 0;
+    const sub   = items.reduce((s, i) => s + i.qty * i.price, 0);
+    totalAmount = sub + sub * taxRate / 100;
+  }
 
   const payload = {
     type,
-    bizName:    biz.companyName || biz.name || '',
-    bizAddress: biz.address  || '',
-    bizPhone:   biz.phone    || '',
-    bizEmail:   biz.email    || '',
-    bizLogo:    biz.logoUrl  || '',
+    bizName:        biz.companyName || biz.name || '',
+    bizAddress:     biz.address     || '',
+    bizPhone:       biz.phone       || '',
+    bizEmail:       biz.email       || '',
+    bizLogo:        biz.logoUrl     || '',
     customerName:    customer,
     customerEmail:   qs('#genDocCustEmail').value.trim(),
     customerAddress: qs('#genDocCustAddress').value.trim(),
     items,
     taxRate,
-    notes:         qs('#genDocNotes').value.trim(),
-    contractTerms: type === 'contract' ? qs('#genDocTerms').value.trim() : ''
+    notes:          qs('#genDocNotes').value.trim(),
+    jobDescription: isContract ? qs('#genDocJobDesc').value.trim()       : '',
+    contractTerms:  isContract ? qs('#genDocTerms').value.trim()         : '',
+    paymentTerms:   isContract ? qs('#genDocPaymentTerms').value.trim()  : '',
+    paymentMethod:  type === 'receipt' ? qs('#genDocPayMethod').value    : '',
   };
 
   const btn = qs('#confirmGenDocBtn');
@@ -845,34 +928,35 @@ async function generateDocument(type) {
 
   try {
     const res = await fetch('/.netlify/functions/invoice-generate', {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body:    JSON.stringify(payload)
     });
     const result = await res.json();
     if (!res.ok) throw new Error(result.error || 'Server error');
 
-    // Store in Firestore
     await addDoc(collection(db, 'documents'), {
       businessId:   bizId,
       type,
+      docNumber:    result.docNumber    || null,
       customerName: customer,
-      amount:       result.total || 0,
+      amount:       result.total        || totalAmount || 0,
       status:       'generated',
-      htmlContent:  result.htmlContent || null,
+      htmlContent:  result.htmlContent  || null,
       createdAt:    serverTimestamp()
     });
 
     qs('#generateDocModal').classList.add('hidden');
-    showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} generated!`);
+    const typeCap = type.charAt(0).toUpperCase() + type.slice(1);
+    showToast(`${typeCap} ${result.docNumber || ''} generated!`);
     loadDocuments();
 
   } catch (err) {
     console.error('generateDocument error:', err);
-    showToast('Failed to generate document.', 'error');
+    showToast('Failed to generate document. Check your connection.', 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Generate';
+    btn.textContent = '✨ Generate';
   }
 }
 

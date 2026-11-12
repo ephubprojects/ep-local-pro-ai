@@ -38,6 +38,9 @@
     <a data-nav="categories">
       <span class="nav-icon">📂</span> Categories
     </a>
+    <a data-nav="documents">
+      <span class="nav-icon">📄</span> Documents
+    </a>
     <a data-nav="profile">
       <span class="nav-icon">👤</span> Profile
     </a>
@@ -302,6 +305,37 @@
       </div>
 
     </div><!-- /categories -->
+
+
+    <!-- ════════════ SECTION: Documents ════════════ -->
+    <div data-section="documents" class="hidden">
+
+      <!-- Page header -->
+      <div class="docs-page-header">
+        <div>
+          <h2>Documents</h2>
+          <p class="docs-page-sub">All invoices, estimates, contracts &amp; receipts across every business</p>
+        </div>
+      </div>
+
+      <!-- Filter tabs -->
+      <div class="docs-tabs-bar">
+        <button class="docs-tab active" data-filter="all">All <span class="docs-tab-count" id="adCountAll">0</span></button>
+        <button class="docs-tab" data-filter="invoice">Invoices <span class="docs-tab-count" id="adCountInvoice">0</span></button>
+        <button class="docs-tab" data-filter="estimate">Estimates <span class="docs-tab-count" id="adCountEstimate">0</span></button>
+        <button class="docs-tab" data-filter="contract">Contracts <span class="docs-tab-count" id="adCountContract">0</span></button>
+        <button class="docs-tab" data-filter="receipt">Receipts <span class="docs-tab-count" id="adCountReceipt">0</span></button>
+      </div>
+
+      <!-- Documents list -->
+      <div id="adminDocsList" class="docs-list">
+        <div class="empty-state">
+          <div class="empty-state-icon">📄</div>
+          <p>No documents found.</p>
+        </div>
+      </div>
+
+    </div><!-- /documents -->
 
 
     <!-- ════════════ SECTION: Profile ════════════ -->
@@ -599,6 +633,6 @@
 </div>
 
 
-<script type="module" src="/js/admin.js?v=2"></script>
+<script type="module" src="/js/admin.js?v=3"></script>
 </body>
 </html>

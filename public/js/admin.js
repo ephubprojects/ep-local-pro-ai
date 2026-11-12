@@ -264,6 +264,7 @@ async function onAdminReady(user) {
       if (name === 'users')          loadUsers();
       if (name === 'localBusiness')  loadLocalBiz();
       if (name === 'categories')     renderCategoriesSection();
+      if (name === 'documents')      loadAdminDocuments();
     });
   });
 
@@ -1384,6 +1385,101 @@ window._adminDeleteCat       = id => deleteCustomCategory(id);
 window._adminCancelUser      = (uid, name) => cancelUserAccount(uid, name);
 window.filterUsers           = filterUsers;
 window.filterLocalBiz        = filterLocalBiz;
+
+// ── Admin Documents ───────────────────────────────────────────
+let adminAllDocs        = [];
+let adminDocFilter      = 'all';
+
+async function loadAdminDocuments() {
+  const list = document.getElementById('adminDocsList');
+  if (!list) return;
+  list.innerHTML = `<div class="empty-state"><p>Loading…</p></div>`;
+
+  document.querySelectorAll('#adminDocsList ~ .docs-tabs-bar .docs-tab, [data-section="documents"] .docs-tab').forEach(tab => {
+    tab.onclick = () => {
+      document.querySelectorAll('[data-section="documents"] .docs-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      adminDocFilter = tab.dataset.filter;
+      renderAdminDocCards();
+    };
+  });
+
+  try {
+    const snap = await getDocs(query(collection(db, 'documents'), orderBy('createdAt', 'desc'), limit(300)));
+    adminAllDocs = [];
+    snap.forEach(d => adminAllDocs.push({ id: d.id, ...d.data() }));
+    updateAdminDocCounts();
+    renderAdminDocCards();
+  } catch (err) {
+    console.error('loadAdminDocuments error:', err);
+    list.innerHTML = `<div class="empty-state"><p>Failed to load documents.</p></div>`;
+  }
+}
+
+function updateAdminDocCounts() {
+  const counts = { all: adminAllDocs.length, invoice: 0, estimate: 0, contract: 0, receipt: 0 };
+  adminAllDocs.forEach(d => { if (d.type && counts[d.type] !== undefined) counts[d.type]++; });
+  const map = { all: 'adCountAll', invoice: 'adCountInvoice', estimate: 'adCountEstimate', contract: 'adCountContract', receipt: 'adCountReceipt' };
+  Object.entries(map).forEach(([type, id]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = counts[type] ?? 0;
+  });
+}
+
+function renderAdminDocCards() {
+  const list = document.getElementById('adminDocsList');
+  if (!list) return;
+  const filtered = adminDocFilter === 'all'
+    ? adminAllDocs
+    : adminAllDocs.filter(d => d.type === adminDocFilter);
+
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📄</div><p>No ${adminDocFilter === 'all' ? '' : adminDocFilter + ' '}documents found.</p></div>`;
+    return;
+  }
+
+  const typeLabels = { invoice: 'Invoice', estimate: 'Estimate', contract: 'Contract', receipt: 'Receipt' };
+  const badgeCls   = { invoice: 'badge-invoice', estimate: 'badge-estimate', contract: 'badge-contract', receipt: 'badge-receipt' };
+
+  list.innerHTML = '';
+  filtered.forEach(docData => {
+    const typeLbl   = typeLabels[docData.type] || docData.type || '—';
+    const badgeClass = badgeCls[docData.type] || '';
+    const amount    = docData.amount
+      ? `$${Number(docData.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : '—';
+
+    const card = document.createElement('div');
+    card.className = 'doc-card';
+    card.innerHTML = `
+      <div class="doc-card-stripe stripe-${docData.type || ''}"></div>
+      <div class="doc-card-body">
+        <div class="doc-card-type">
+          <span class="badge ${badgeClass}">${typeLbl}</span>
+          ${docData.docNumber ? `<div class="doc-card-num">${docData.docNumber}</div>` : ''}
+        </div>
+        <div class="doc-card-info">
+          <div class="doc-card-customer">${docData.customerName || '—'}</div>
+          <div class="doc-card-meta">
+            <span>${fmtDate(docData.createdAt)}</span>
+            ${docData.businessId ? `<span class="doc-card-meta-dot">${docData.businessId}</span>` : ''}
+          </div>
+        </div>
+        <div class="doc-card-amount">${amount}</div>
+      </div>
+      <div class="doc-card-actions">
+        ${docData.htmlContent ? `<button class="btn-action" data-view>👁 View</button>` : ''}
+      </div>`;
+
+    if (docData.htmlContent) {
+      card.querySelector('[data-view]')?.addEventListener('click', () => {
+        const win = window.open('', '_blank');
+        if (win) { win.document.write(docData.htmlContent); win.document.close(); }
+      });
+    }
+    list.appendChild(card);
+  });
+}
 
 // ── Boot ─────────────────────────────────────────────────────
 initAdmin();
