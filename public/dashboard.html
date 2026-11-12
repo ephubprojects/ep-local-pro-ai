@@ -9,9 +9,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="EP Local Pro AI" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <link rel="stylesheet" href="/css/main.css?v=19" />
-  <link rel="stylesheet" href="/css/dashboard.css?v=19" />
-  <link rel="stylesheet" href="/css/wt.css?v=19" />
+  <link rel="stylesheet" href="/css/main.css?v=22" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=22" />
+  <link rel="stylesheet" href="/css/wt.css?v=22" />
 </head>
 <body class="dash-body">
 
@@ -309,6 +309,60 @@
           <h2>AI Settings</h2>
         </div>
 
+        <!-- ── AI Hero / Live Test Widget ── -->
+        <div class="ai-hero-card">
+
+          <div class="ai-hero-top">
+            <div class="ai-hero-icon">🎙️</div>
+            <div>
+              <div class="ai-hero-title">Your AI Receptionist</div>
+              <div class="ai-hero-sub">24/7 bilingual AI assistant · Powered by EP Local Pro AI</div>
+            </div>
+          </div>
+
+          <div class="ai-ready-badge">
+            <span>✅ AI Receptionist Active &amp; Ready</span>
+            <div class="ai-ready-sub">Answers calls · Takes orders · Bilingual EN/ES</div>
+          </div>
+
+          <!-- Glowing FAB test widget -->
+          <div class="aitw-wrap">
+            <div class="aitw-top-label">EP LOCAL PRO AI</div>
+
+            <div class="aitw-lang-row">
+              <button id="aitwLangEN" class="aitw-lang-btn aitw-lang-active" onclick="setAiTestLang('en')">EN</button>
+              <button id="aitwLangES" class="aitw-lang-btn" onclick="setAiTestLang('es')">ES</button>
+            </div>
+
+            <div id="aitwVoiceRow" class="aitw-voice-row"></div>
+
+            <div class="aitw-fab-container">
+              <div id="aitwWaves" class="aitw-ring"></div>
+              <button id="aitwFab" class="aitw-fab" onclick="toggleAiTestCall()" title="Talk to your AI">
+                <div class="aitw-bars">
+                  <span class="wb"></span><span class="wb"></span><span class="wb"></span>
+                  <span class="wb"></span><span class="wb"></span><span class="wb"></span>
+                  <span class="wb"></span>
+                </div>
+              </button>
+            </div>
+
+            <div id="aitwFabLabel" class="aitw-fab-label">Talk to Your AI</div>
+            <div id="aitwStatus" class="aitw-status"></div>
+          </div>
+
+          <!-- Share URL -->
+          <div class="ai-share-row">
+            <div class="ai-share-label">🔗 Share with your customers</div>
+            <div class="ai-url-row">
+              <div class="ai-url-display" id="aiUrlDisplay">https://ep-local-pro-ai.netlify.app/—</div>
+              <button class="btn-copy" id="copyUrlBtn">📋 Copy</button>
+            </div>
+          </div>
+
+        </div><!-- /.ai-hero-card -->
+
+        <!-- ── Configuration Form ── -->
         <div class="ai-settings-section">
 
           <div class="form-group">
@@ -328,6 +382,27 @@
             </div>
           </div>
 
+          <div class="form-row">
+            <div class="form-group">
+              <label for="voiceIdEnSelect">EN Voice</label>
+              <select id="voiceIdEnSelect">
+                <option value="21m00Tcm4TlvDq8ikWAM">Rachel (Female)</option>
+                <option value="9BWtsMINqrJLrRacOk9x">Aria (Female)</option>
+                <option value="IKne3meq5aSn9XLyUdCD">Charlie (Male)</option>
+                <option value="CwhRBWXHgrhyhFiotyx9">Roger (Male)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="voiceIdEsSelect">ES Voice</label>
+              <select id="voiceIdEsSelect">
+                <option value="onwK4e9ZLuTAKqWW03F9">Valentina (Female)</option>
+                <option value="EXAVITQu4vr4xnSDxMaL">Sofía (Female)</option>
+                <option value="pNInz6obpgDQGcFmaJgB">Alejandro (Male)</option>
+                <option value="TxGEqnHWrfWFTfGW9XjX">Diego (Male)</option>
+              </select>
+            </div>
+          </div>
+
           <div class="form-group">
             <label for="greetingInput">Custom Greeting Override</label>
             <textarea id="greetingInput" placeholder="e.g. Hi there! Welcome to Mario's Pizza. How can I help you today?"></textarea>
@@ -342,14 +417,6 @@
 
           <div>
             <button class="btn-primary" id="saveAiSettingsBtn">Save AI Settings</button>
-          </div>
-
-          <div class="form-group" style="margin:0;">
-            <label>Your AI Page URL</label>
-            <div class="ai-url-row">
-              <div class="ai-url-display" id="aiUrlDisplay">https://eplocalproai.com/—</div>
-              <button class="btn-copy" id="copyUrlBtn">📋 Copy</button>
-            </div>
           </div>
 
         </div>
@@ -778,6 +845,6 @@
 </div>
 
 
-<script type="module" src="/js/dashboard.js?v=21"></script>
+<script type="module" src="/js/dashboard.js?v=22"></script>
 </body>
 </html>

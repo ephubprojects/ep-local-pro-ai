@@ -172,6 +172,11 @@ async function startAiCall() {
     'https://cdn.jsdelivr.net/npm/@11labs/client@latest/dist/index.esm.js'
   );
 
+  const lang    = bizData.lang || 'en';
+  const voiceId = lang === 'es'
+    ? (bizData.voiceIdEs || 'onwK4e9ZLuTAKqWW03F9')
+    : (bizData.voiceIdEn || '21m00Tcm4TlvDq8ikWAM');
+
   currentSession = await Conversation.startSession({
     agentId: bizData.agentId || 'DEFAULT_AGENT_ID',
     overrides: {
@@ -179,11 +184,13 @@ async function startAiCall() {
         prompt: {
           prompt: buildAiPrompt(bizData)
         },
+        language: lang,
         firstMessage:
           bizData.greeting ||
           bizData.aiGreeting?.en ||
           'Hello! How can I help you today?'
-      }
+      },
+      tts: { voiceId, modelId: 'eleven_turbo_v2_5' }
     },
     clientTools: {
       place_order: (params) => {

@@ -961,6 +961,26 @@ async function generateDocument(type) {
 }
 
 // ── AI Settings ──────────────────────────────────────────────
+
+const AI_VOICES_EN = [
+  { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel' },
+  { id: '9BWtsMINqrJLrRacOk9x', name: 'Aria'   },
+  { id: 'IKne3meq5aSn9XLyUdCD', name: 'Charlie' },
+  { id: 'CwhRBWXHgrhyhFiotyx9', name: 'Roger'  },
+];
+const AI_VOICES_ES = [
+  { id: 'onwK4e9ZLuTAKqWW03F9', name: 'Valentina' },
+  { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sofía'     },
+  { id: 'pNInz6obpgDQGcFmaJgB', name: 'Alejandro' },
+  { id: 'TxGEqnHWrfWFTfGW9XjX', name: 'Diego'     },
+];
+
+let aitwLang      = 'en';
+let aitwVoiceId   = AI_VOICES_EN[0].id;
+let aitwSession   = null;
+let aitwActive    = false;
+let aitwSdkLoaded = false;
+
 async function loadAiSettings() {
   if (!bizId) return;
 
@@ -976,6 +996,18 @@ async function loadAiSettings() {
     selectedLang = data.lang || 'en';
     updateLangToggle(selectedLang);
 
+    // Voice dropdowns
+    qs('#voiceIdEnSelect').value = data.voiceIdEn || AI_VOICES_EN[0].id;
+    qs('#voiceIdEsSelect').value = data.voiceIdEs || AI_VOICES_ES[0].id;
+
+    // Sync test widget with saved settings
+    aitwLang    = selectedLang;
+    aitwVoiceId = selectedLang === 'es'
+      ? (data.voiceIdEs || AI_VOICES_ES[0].id)
+      : (data.voiceIdEn || AI_VOICES_EN[0].id);
+    renderAitwVoicePills();
+    updateAitwLangBtns();
+
     // AI page URL
     qs('#aiUrlDisplay').textContent = `https://ep-local-pro-ai.netlify.app/${bizSlug || '—'}`;
 
@@ -984,14 +1016,11 @@ async function loadAiSettings() {
     showToast('Failed to load AI settings.', 'error');
   }
 
-  // Wire save
   qs('#saveAiSettingsBtn').onclick = saveAiSettings;
 
-  // Wire lang toggle
   qs('#langEN').onclick = () => { selectedLang = 'en'; updateLangToggle('en'); };
   qs('#langES').onclick = () => { selectedLang = 'es'; updateLangToggle('es'); };
 
-  // Wire copy URL
   qs('#copyUrlBtn').onclick = () => {
     const url = `https://ep-local-pro-ai.netlify.app/${bizSlug}`;
     navigator.clipboard.writeText(url).then(() => {
@@ -1001,12 +1030,146 @@ async function loadAiSettings() {
       setTimeout(() => { btn.textContent = '📋 Copy'; btn.classList.remove('copied'); }, 2000);
     }).catch(() => showToast('Could not copy to clipboard.', 'error'));
   };
+
+  // Preload ElevenLabs SDK in background
+  if (!aitwSdkLoaded && !window._aitwConvClass) {
+    import('https://esm.sh/@elevenlabs/client@0.15.0')
+      .then(m => { window._aitwConvClass = m.Conversation || null; aitwSdkLoaded = true; })
+      .catch(() => {});
+  }
 }
 
 function updateLangToggle(lang) {
   qs('#langEN').classList.toggle('active', lang === 'en');
   qs('#langES').classList.toggle('active', lang === 'es');
 }
+
+// ── AI Test Widget helpers ───────────────────────────────────
+
+function setAiTestLang(lang) {
+  if (aitwActive) return;
+  aitwLang = lang;
+  const voices = lang === 'es' ? AI_VOICES_ES : AI_VOICES_EN;
+  if (!voices.find(v => v.id === aitwVoiceId)) aitwVoiceId = voices[0].id;
+  renderAitwVoicePills();
+  updateAitwLangBtns();
+}
+
+function updateAitwLangBtns() {
+  qs('#aitwLangEN')?.classList.toggle('aitw-lang-active', aitwLang === 'en');
+  qs('#aitwLangES')?.classList.toggle('aitw-lang-active', aitwLang === 'es');
+  qs('#aitwLangEN')?.classList.toggle('aitw-lang-btn', true);
+  qs('#aitwLangES')?.classList.toggle('aitw-lang-btn', true);
+}
+
+function renderAitwVoicePills() {
+  const row = qs('#aitwVoiceRow');
+  if (!row) return;
+  const voices = aitwLang === 'es' ? AI_VOICES_ES : AI_VOICES_EN;
+  row.innerHTML = voices.map(v => `
+    <button class="aitw-voice-pill${v.id === aitwVoiceId ? ' selected' : ''}"
+      onclick="pickAitwVoice('${v.id}')">${v.name}</button>
+  `).join('');
+}
+
+function pickAitwVoice(id) {
+  if (aitwActive) return;
+  aitwVoiceId = id;
+  renderAitwVoicePills();
+}
+
+async function toggleAiTestCall() {
+  if (aitwActive) {
+    endAiTestCall();
+  } else {
+    await startAiTestCall();
+  }
+}
+
+function setAitwStatus(msg) {
+  const el = qs('#aitwStatus');
+  if (el) el.textContent = msg;
+}
+
+async function startAiTestCall() {
+  const agentId = qs('#agentIdInput')?.value.trim();
+  if (!agentId) {
+    showToast('Enter your ElevenLabs Agent ID first.', 'error');
+    return;
+  }
+
+  aitwActive = true;
+  qs('#aitwFab')?.classList.add('active-call');
+  qs('#aitwWaves')?.classList.add('active');
+  qs('#aitwFabLabel').textContent = aitwLang === 'es' ? 'Toca para terminar' : 'Tap to end';
+  setAitwStatus(aitwLang === 'es' ? '📡 Conectando…' : '📡 Connecting…');
+
+  try {
+    if (!window._aitwConvClass) {
+      const m = await import('https://esm.sh/@elevenlabs/client@0.15.0');
+      window._aitwConvClass = m.Conversation || null;
+      aitwSdkLoaded = true;
+    }
+    if (!window._aitwConvClass) throw new Error('ElevenLabs SDK unavailable');
+
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+      s.getTracks().forEach(t => t.stop());
+    } catch {}
+
+    const bizName = bizDoc?.name || '';
+    const es = aitwLang === 'es';
+    const prompt = qs('#greetingInput')?.value.trim() ||
+      (es ? `Eres el recepcionista de IA de ${bizName}. Sé profesional y amable.`
+           : `You are the AI receptionist for ${bizName}. Be professional and friendly.`);
+    const firstMessage = es
+      ? `¡Hola! Bienvenido a ${bizName}. Soy su recepcionista virtual. ¿En qué le puedo ayudar?`
+      : `Hello! Welcome to ${bizName}. I'm your AI receptionist. How can I help you today?`;
+
+    aitwSession = await window._aitwConvClass.startSession({
+      agentId,
+      overrides: {
+        agent: {
+          prompt: { prompt },
+          language: aitwLang,
+          firstMessage
+        },
+        tts: { voiceId: aitwVoiceId, modelId: 'eleven_turbo_v2_5' }
+      },
+      onConnect: () => {
+        setAitwStatus(es ? '🟢 Conectado — hablando…' : '🟢 Connected — speaking…');
+      },
+      onDisconnect: () => { endAiTestCall(); },
+      onError: (e) => {
+        const msg = e?.message || '';
+        setAitwStatus('⚠️ ' + (msg.slice(0, 60) || (es ? 'Error de conexión.' : 'Connection error.')));
+        endAiTestCall(true);
+      }
+    });
+
+  } catch (err) {
+    console.error('AI test call error:', err);
+    setAitwStatus('⚠️ ' + (err.message?.slice(0, 70) || 'Could not connect.'));
+    endAiTestCall(true);
+  }
+}
+
+function endAiTestCall(skipEnd = false) {
+  if (aitwSession && !skipEnd) {
+    try { aitwSession.endSession().catch(() => {}); } catch {}
+  }
+  aitwSession = null;
+  aitwActive  = false;
+  qs('#aitwFab')?.classList.remove('active-call');
+  qs('#aitwWaves')?.classList.remove('active');
+  if (qs('#aitwFabLabel')) qs('#aitwFabLabel').textContent = 'Talk to Your AI';
+  setAitwStatus('');
+}
+
+// expose to onclick handlers
+window.setAiTestLang   = setAiTestLang;
+window.pickAitwVoice   = pickAitwVoice;
+window.toggleAiTestCall = toggleAiTestCall;
 
 async function saveAiSettings() {
   if (!bizId) return;
@@ -1016,10 +1179,12 @@ async function saveAiSettings() {
 
   try {
     await updateDoc(doc(db, 'businesses', bizId), {
-      agentId:  qs('#agentIdInput').value.trim(),
-      lang:     selectedLang,
-      greeting: qs('#greetingInput').value.trim(),
-      hours:    qs('#hoursInput').value.trim()
+      agentId:    qs('#agentIdInput').value.trim(),
+      lang:       selectedLang,
+      voiceIdEn:  qs('#voiceIdEnSelect').value,
+      voiceIdEs:  qs('#voiceIdEsSelect').value,
+      greeting:   qs('#greetingInput').value.trim(),
+      hours:      qs('#hoursInput').value.trim()
     });
     showToast('AI settings saved!');
   } catch (err) {
