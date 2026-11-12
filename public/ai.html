@@ -13,31 +13,50 @@
       background-size:cover;background-position:center;
       font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
     }
-    .bg-overlay{position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:0;pointer-events:none;}
-
-    /* ── Greeting card ── */
-    #greet-card{
-      position:fixed;top:50%;left:50%;transform:translate(-50%,-62%);
-      z-index:10;
-      background:linear-gradient(135deg,rgba(0,8,24,.92),rgba(0,28,56,.92));
-      border:1px solid rgba(0,229,255,.3);border-radius:20px;
-      padding:28px 28px 22px;max-width:340px;width:calc(100vw - 48px);
-      text-align:center;backdrop-filter:blur(16px);
-      box-shadow:0 12px 48px rgba(0,0,0,.6),0 0 32px rgba(0,229,255,.1);
-      transition:opacity .4s,transform .4s;
+    .bg-overlay{
+      position:fixed;inset:0;
+      background:linear-gradient(100deg,rgba(0,0,0,.62) 0%,rgba(0,0,0,.35) 55%,rgba(0,0,0,.08) 100%);
+      z-index:0;pointer-events:none;
     }
-    #greet-card.hidden{opacity:0;pointer-events:none;transform:translate(-50%,-57%)}
-    .gc-badge{
+
+    /* ── Left panel ──────────────────────────────────────── */
+    #left-panel{
+      position:fixed;left:32px;top:50%;transform:translateY(-50%);
+      z-index:10;width:380px;max-width:calc(100vw - 180px);
+      background:linear-gradient(135deg,rgba(0,20,60,.84),rgba(0,8,24,.9));
+      border:1px solid rgba(0,229,255,.35);border-radius:20px;
+      padding:28px 26px 22px;
+      backdrop-filter:blur(18px);
+      box-shadow:0 12px 56px rgba(0,0,0,.65),0 0 44px rgba(0,229,255,.13);
+    }
+    #lp-badge{
       font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;
       color:#00e5ff;text-shadow:0 0 8px rgba(0,229,255,.7);
       background:rgba(0,8,24,.5);border:1px solid rgba(0,229,255,.25);
-      border-radius:20px;padding:3px 10px;display:inline-block;margin-bottom:14px;
+      border-radius:20px;padding:3px 10px;display:inline-block;margin-bottom:11px;
     }
-    #gc-biz{font-size:20px;font-weight:800;color:#fff;margin-bottom:3px;min-height:26px}
-    #gc-msg{font-size:13px;color:rgba(255,255,255,.8);line-height:1.65;margin-bottom:14px}
-    #gc-hint{font-size:11px;color:#00e5ff;opacity:.75;letter-spacing:.3px}
+    #lp-title{
+      font-size:21px;font-weight:800;color:#fff;
+      text-shadow:0 2px 14px rgba(0,0,0,.5);
+      margin-bottom:16px;line-height:1.2;min-height:26px;
+    }
+    #lp-benefits{
+      list-style:none;display:flex;flex-direction:column;gap:7px;margin-bottom:18px;
+    }
+    #lp-benefits li{
+      display:flex;align-items:center;gap:10px;
+      font-size:12.5px;color:rgba(255,255,255,.88);line-height:1.35;
+    }
+    .lp-ic{
+      flex-shrink:0;width:22px;height:22px;border-radius:50%;
+      background:rgba(0,229,255,.15);border:1.5px solid rgba(0,229,255,.5);
+      display:flex;align-items:center;justify-content:center;font-size:11px;line-height:1;
+    }
+    #lp-cta{
+      font-size:11px;color:#00e5ff;opacity:.82;letter-spacing:.3px;text-align:center;
+    }
 
-    /* ── Widget ── */
+    /* ── Widget ──────────────────────────────────────────── */
     #ep-widget{
       position:fixed;bottom:24px;right:24px;z-index:2147483647;
       display:flex;flex-direction:column;align-items:center;
@@ -151,13 +170,26 @@
 
     /* Not configured state */
     #not-configured{
-      position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+      position:fixed;inset:0;display:none;align-items:center;justify-content:center;
       flex-direction:column;gap:14px;text-align:center;padding:24px;z-index:20;
     }
     #not-configured p{font-size:14px;color:rgba(255,255,255,.7);max-width:300px;line-height:1.6}
     #not-configured .nc-icon{font-size:52px}
     #not-configured .nc-title{font-size:20px;font-weight:800;color:#fff}
-    #not-configured{display:none}
+
+    /* Mobile */
+    @media(max-width:640px){
+      #left-panel{
+        position:fixed;left:12px;right:12px;top:16px;
+        transform:none;width:auto;max-width:none;
+        padding:16px 16px 12px;
+      }
+      #lp-title{font-size:17px;margin-bottom:10px}
+      #lp-benefits{gap:5px;margin-bottom:12px}
+      #lp-benefits li{font-size:11.5px}
+      #ep-widget{bottom:16px;right:16px}
+      #lp-benefits li:nth-child(n+8){display:none}
+    }
   </style>
 </head>
 <body>
@@ -170,12 +202,12 @@
   <p>This business hasn't set up their AI Assistant yet. Ask the business owner to configure it in their dashboard.</p>
 </div>
 
-<!-- Greeting card -->
-<div id="greet-card">
-  <div class="gc-badge" id="gc-badge">AI ASSISTANT</div>
-  <div id="gc-biz"></div>
-  <div id="gc-msg"></div>
-  <div id="gc-hint"></div>
+<!-- Left panel: business info + benefits -->
+<div id="left-panel">
+  <div id="lp-badge">AI RECEPTIONIST</div>
+  <div id="lp-title"></div>
+  <ul id="lp-benefits"></ul>
+  <div id="lp-cta"></div>
 </div>
 
 <!-- Widget -->
@@ -211,7 +243,7 @@ import {
   collection, doc, getDoc, query, where, getDocs
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
-// ── Voices ──────────────────────────────────────────────
+// ── Voices ───────────────────────────────────────────────
 const VOICES_EN = [
   { id:'21m00Tcm4TlvDq8ikWAM', n:'Rachel'    },
   { id:'9BWtsMINqrJLrRacOk9x', n:'Aria'      },
@@ -225,46 +257,74 @@ const VOICES_ES = [
   { id:'TxGEqnHWrfWFTfGW9XjX', n:'Diego'     },
 ];
 
-// ── Widget themes ────────────────────────────────────────
+// ── Benefits list (matches EP HUB demo page) ─────────────
+const BENEFITS = {
+  en: [
+    ['✓','Answer More Calls'],
+    ['🤖','Automate Routine Conversations'],
+    ['📅','Book Appointments Automatically'],
+    ['🎯','Capture More Leads'],
+    ['🌐','Serve Customers in Multiple Languages'],
+    ['🕐','Available 24/7'],
+    ['💬','Respond Instantly'],
+    ['👥','Reduce Repetitive Staff Tasks'],
+    ['💰','Turn More Inquiries Into Opportunities'],
+    ['🚀','Give Your Business a More Professional Customer Experience'],
+  ],
+  es: [
+    ['✓','Responder Más Llamadas'],
+    ['🤖','Automatizar Conversaciones Rutinarias'],
+    ['📅','Reservar Citas Automáticamente'],
+    ['🎯','Capturar Más Clientes Potenciales'],
+    ['🌐','Atender en Múltiples Idiomas'],
+    ['🕐','Disponible 24/7'],
+    ['💬','Responder al Instante'],
+    ['👥','Reducir Tareas Repetitivas del Personal'],
+    ['💰','Convertir Consultas en Oportunidades'],
+    ['🚀','Experiencia más Profesional para su Negocio'],
+  ],
+};
+
+// ── Widget themes ─────────────────────────────────────────
 const THEMES = {
   cyan: {
-    '--accent':       '#00e5ff',
-    '--accent-glow':  'rgba(0,229,255,.8)',
-    '--fab-bg':       'radial-gradient(circle at 38% 32%,#0d2244,#020c1e)',
-    '--glow1':        'rgba(0,229,255,.45)',
-    '--glow2':        'rgba(0,140,255,.28)',
-    '--glow1-hi':     'rgba(0,229,255,.85)',
-    '--glow2-hi':     'rgba(0,140,255,.5)',
+    '--accent':      '#00e5ff',
+    '--accent-glow': 'rgba(0,229,255,.8)',
+    '--fab-bg':      'radial-gradient(circle at 38% 32%,#0d2244,#020c1e)',
+    '--glow1':       'rgba(0,229,255,.45)',
+    '--glow2':       'rgba(0,140,255,.28)',
+    '--glow1-hi':    'rgba(0,229,255,.85)',
+    '--glow2-hi':    'rgba(0,140,255,.5)',
   },
   red: {
-    '--accent':       '#ff4040',
-    '--accent-glow':  'rgba(255,64,64,.8)',
-    '--fab-bg':       'radial-gradient(circle at 38% 32%,#1a0000,#0a0000)',
-    '--glow1':        'rgba(255,48,48,.45)',
-    '--glow2':        'rgba(180,0,0,.28)',
-    '--glow1-hi':     'rgba(255,48,48,.85)',
-    '--glow2-hi':     'rgba(180,0,0,.5)',
+    '--accent':      '#ff4040',
+    '--accent-glow': 'rgba(255,64,64,.8)',
+    '--fab-bg':      'radial-gradient(circle at 38% 32%,#1a0000,#0a0000)',
+    '--glow1':       'rgba(255,48,48,.45)',
+    '--glow2':       'rgba(180,0,0,.28)',
+    '--glow1-hi':    'rgba(255,48,48,.85)',
+    '--glow2-hi':    'rgba(180,0,0,.5)',
   },
   gold: {
-    '--accent':       '#f59e0b',
-    '--accent-glow':  'rgba(245,158,11,.8)',
-    '--fab-bg':       'radial-gradient(circle at 38% 32%,#1a0e00,#0a0600)',
-    '--glow1':        'rgba(245,158,11,.45)',
-    '--glow2':        'rgba(161,105,0,.28)',
-    '--glow1-hi':     'rgba(245,158,11,.85)',
-    '--glow2-hi':     'rgba(161,105,0,.5)',
+    '--accent':      '#f59e0b',
+    '--accent-glow': 'rgba(245,158,11,.8)',
+    '--fab-bg':      'radial-gradient(circle at 38% 32%,#1a0e00,#0a0600)',
+    '--glow1':       'rgba(245,158,11,.45)',
+    '--glow2':       'rgba(161,105,0,.28)',
+    '--glow1-hi':    'rgba(245,158,11,.85)',
+    '--glow2-hi':    'rgba(161,105,0,.5)',
   },
 };
 
-// ── State ────────────────────────────────────────────────
-let biz       = null;
-let lang      = 'en';
-let voiceId   = VOICES_EN[0].id;
-let session   = null;
+// ── State ─────────────────────────────────────────────────
+let biz        = null;
+let lang       = 'en';
+let voiceId    = VOICES_EN[0].id;
+let session    = null;
 let callActive = false;
 let sdkLoading = false;
 
-// ── Boot ─────────────────────────────────────────────────
+// ── Boot ──────────────────────────────────────────────────
 (async () => {
   const parts = location.pathname.replace(/^\//, '').split('/');
   const slug  = parts[1] || parts[0]; // /ai/:slug or /demo/:slug
@@ -279,15 +339,15 @@ let sdkLoading = false;
 
     if (snap.empty) {
       // Fall back to admin-created demos
-      q    = query(collection(db, 'demos'), where('slug','==', slug));
-      snap = await getDocs(q);
+      q      = query(collection(db, 'demos'), where('slug','==', slug));
+      snap   = await getDocs(q);
       isDemo = true;
     }
 
     if (snap.empty) return showNotConfigured();
     biz = { id: snap.docs[0].id, ...snap.docs[0].data() };
 
-    // Demos: normalize bizName field + pull global agent if none set per-demo
+    // Demos: normalize bizName + pull global agent if no per-demo agentId
     if (isDemo) {
       if (!biz.name) biz.name = biz.bizName || '';
       if (!biz.agentId) {
@@ -295,7 +355,7 @@ let sdkLoading = false;
           const cfgSnap = await getDoc(doc(db, 'config', 'demo'));
           if (cfgSnap.exists()) {
             const cfg = cfgSnap.data();
-            biz.agentId  = cfg.demoAgentId  || '';
+            biz.agentId = cfg.demoAgentId || '';
             if (!biz.voiceIdEn && cfg.demoVoiceEn) biz.voiceIdEn = cfg.demoVoiceEn;
             if (!biz.voiceIdEs && cfg.demoVoiceEs) biz.voiceIdEs = cfg.demoVoiceEs;
           }
@@ -309,24 +369,23 @@ let sdkLoading = false;
 
   if (!biz.agentId) return showNotConfigured();
 
-  // Apply background
+  // Apply background image
   if (biz.aiBgImage) {
     document.body.style.backgroundImage    = `url(${biz.aiBgImage})`;
     document.body.style.backgroundSize     = 'cover';
     document.body.style.backgroundPosition = 'center';
   }
 
-  // Apply theme
+  // Apply widget theme
   const theme = THEMES[biz.widgetTheme] || THEMES.cyan;
   for (const [k, v] of Object.entries(theme)) {
     document.documentElement.style.setProperty(k, v);
   }
 
-  // Widget label
-  const bizName = biz.name || biz.businessName || '';
+  // Widget label (business name)
+  const bizName = biz.name || biz.bizName || biz.businessName || '';
   document.getElementById('ai-title').textContent = bizName || 'AI ASSISTANT';
-  document.getElementById('gc-badge').textContent = (bizName || 'AI') + ' ASSISTANT';
-  document.getElementById('gc-biz').textContent   = bizName;
+  document.getElementById('lp-title').textContent = bizName;
 
   // Language + voices
   lang    = biz.lang || 'en';
@@ -334,8 +393,7 @@ let sdkLoading = false;
     ? (biz.voiceIdEs || VOICES_ES[0].id)
     : (biz.voiceIdEn || VOICES_EN[0].id);
 
-  setLang(lang);  // sets up UI + voice pills
-  applyLangText();
+  setLang(lang);
 
   // Preload SDK
   if (!window._aiConvClass) {
@@ -346,17 +404,16 @@ let sdkLoading = false;
 })();
 
 function showNotConfigured() {
-  document.getElementById('greet-card').style.display  = 'none';
-  document.getElementById('ep-widget').style.display   = 'none';
+  document.getElementById('left-panel').style.display    = 'none';
+  document.getElementById('ep-widget').style.display     = 'none';
   document.getElementById('not-configured').style.display = 'flex';
 }
 
-// ── Lang / voice UI ──────────────────────────────────────
+// ── Lang / voice UI ───────────────────────────────────────
 window.setLang = function(l) {
   lang = l;
   document.getElementById('lb-en').classList.toggle('on', l === 'en');
   document.getElementById('lb-es').classList.toggle('on', l === 'es');
-
   const voices = l === 'es' ? VOICES_ES : VOICES_EN;
   if (!voices.find(v => v.id === voiceId)) voiceId = voices[0].id;
   renderVoicePills(voices);
@@ -365,9 +422,9 @@ window.setLang = function(l) {
 
 function renderVoicePills(voices) {
   const row = document.getElementById('voice-row');
-  row.innerHTML = voices.map(v => `
-    <button class="vpill${v.id === voiceId ? ' sel' : ''}" onclick="pickVoice('${v.id}')">${v.n}</button>
-  `).join('');
+  row.innerHTML = voices.map(v =>
+    `<button class="vpill${v.id === voiceId ? ' sel' : ''}" onclick="pickVoice('${v.id}')">${v.n}</button>`
+  ).join('');
 }
 
 window.pickVoice = function(id) {
@@ -377,17 +434,24 @@ window.pickVoice = function(id) {
 };
 
 function applyLangText() {
-  const es   = lang === 'es';
-  const name = biz?.name || biz?.bizName || biz?.businessName || '';
-  const greeting = biz?.greeting || (es
-    ? `¡Hola! Bienvenido a ${name}. Soy su recepcionista virtual de IA. ¿En qué puedo ayudarle?`
-    : `Hello! Welcome to ${name}. I'm your AI receptionist. How can I help you today?`);
-  document.getElementById('gc-msg').textContent  = greeting;
-  document.getElementById('gc-hint').textContent = es ? '👇 Toca el botón brillante para iniciar' : '👇 Tap the glowing button to start';
-  document.getElementById('lbl').textContent     = es ? 'Hablar con AI' : 'Talk to AI';
+  const es = lang === 'es';
+
+  // Benefits list
+  const benefitsList = document.getElementById('lp-benefits');
+  if (benefitsList) {
+    benefitsList.innerHTML = (BENEFITS[es ? 'es' : 'en']).map(([ic, txt]) =>
+      `<li><span class="lp-ic">${ic}</span>${txt}</li>`
+    ).join('');
+  }
+
+  // CTA + widget label
+  document.getElementById('lp-cta').textContent =
+    es ? '👉 Toca el botón brillante para hablar con la IA'
+       : '👉 Tap the glowing button to talk to the AI';
+  document.getElementById('lbl').textContent = es ? 'Hablar con AI' : 'Talk to AI';
 }
 
-// ── Call ─────────────────────────────────────────────────
+// ── Call ──────────────────────────────────────────────────
 window.handleTalk = async function() {
   if (callActive) { endCall(); return; }
   await startCall();
@@ -420,7 +484,9 @@ async function startCall() {
       || (es
         ? `Eres el recepcionista de IA de ${bizName}. Sé profesional y amable. Responde en español.`
         : `You are the AI receptionist for ${bizName}. Be professional, friendly, and concise.`);
-    const hours   = biz?.hours ? (es ? ` Horario: ${biz.hours}` : ` Hours: ${biz.hours}`) : '';
+    const hours = biz?.hours
+      ? (es ? ` Horario: ${biz.hours}` : ` Hours: ${biz.hours}`)
+      : '';
     const firstMessage = biz?.greeting
       || (es
         ? `¡Hola! Bienvenido a ${bizName}. Soy su recepcionista virtual. ¿En qué le puedo ayudar?`
@@ -430,14 +496,13 @@ async function startCall() {
       agentId: biz.agentId,
       overrides: {
         agent: {
-          prompt: { prompt: sysPrompt + hours },
-          language: lang,
-          firstMessage
+          prompt:       { prompt: sysPrompt + hours },
+          language:     lang,
+          firstMessage,
         },
         tts: { voiceId, modelId: 'eleven_turbo_v2_5' }
       },
       onConnect: () => {
-        document.getElementById('greet-card').classList.add('hidden');
         document.getElementById('end-btn').classList.add('show');
         setStatus(es ? '🟢 Conectado — hablando…' : '🟢 Connected — speaking…');
       },
@@ -466,7 +531,6 @@ window.endCall = function(skipEnd = false) {
   document.getElementById('fab').classList.remove('active-call');
   document.getElementById('fab-ring').classList.remove('show');
   document.getElementById('end-btn').classList.remove('show');
-  document.getElementById('greet-card').classList.remove('hidden');
   applyLangText();
   setTimeout(() => setStatus(''), 2500);
 };
