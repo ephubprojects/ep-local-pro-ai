@@ -214,6 +214,28 @@
         </div>
       </div><!-- /AI Voice Demo Widget -->
 
+      <!-- Demo Requests -->
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Demo Requests <span id="demoReqBadge" style="display:none;background:#ef4444;color:#fff;font-size:10px;font-weight:800;border-radius:20px;padding:2px 8px;margin-left:6px;"></span></h2>
+          <button class="btn-secondary" style="font-size:12px;padding:6px 14px;" onclick="window._adminLoadDemoRequests()">↻ Refresh</button>
+        </div>
+        <div id="demoRequestsList" style="display:flex;flex-direction:column;gap:10px;padding:4px 0;">
+          <div class="empty-state"><div class="empty-state-icon">📬</div><p>No demo requests yet.</p></div>
+        </div>
+      </div>
+
+      <!-- Demo Templates -->
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Demo Templates</h2>
+          <button class="btn-secondary" style="font-size:12px;padding:6px 14px;" onclick="window._adminLoadTemplates()">Load Templates</button>
+        </div>
+        <div id="demoTemplatesList" style="display:flex;flex-wrap:wrap;gap:10px;padding:4px 0;">
+          <div class="empty-state" style="width:100%;"><div class="empty-state-icon">📂</div><p>Click Load Templates to show saved templates.</p></div>
+        </div>
+      </div>
+
       <div class="section-card">
         <div class="section-card-header">
           <h2>Demo Management</h2>
@@ -629,6 +651,11 @@
         <input type="url" id="dmCalendarUrl" placeholder="https://calendly.com/yourbusiness (optional)" />
       </div>
 
+      <div class="form-group">
+        <label>Assign to User <span style="font-size:0.75rem;font-weight:400;color:var(--muted)">— EP Local Pro AI username to notify when demo is ready (optional)</span></label>
+        <input type="text" id="dmAssignedUser" placeholder="e.g. eddieeph (optional)" />
+      </div>
+
       <div class="form-row">
         <div class="form-group">
           <label>Phone</label>
@@ -694,6 +721,7 @@
     </div><!-- /modal-body -->
     <div class="modal-footer">
       <button class="btn-secondary" data-close="demoModal">Cancel</button>
+      <button class="btn-secondary" id="saveAsTemplateBtn" type="button" onclick="window._adminSaveAsTemplate()" style="background:#f1f5f9;color:#374151;">💾 Save as Template</button>
       <button class="btn-create-demo" id="saveDemoBtn">Save Demo</button>
     </div>
   </div>

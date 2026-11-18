@@ -424,7 +424,7 @@ function showSection(name) {
   });
 
   // Load data for section on first visit
-  if (name === 'demos')      loadDemos();
+  if (name === 'demos')      { loadDemos(); window._adminLoadDemoRequests(); }
   if (name === 'businesses') loadBusinesses();
   if (name === 'settings')   loadSettings();
 }
@@ -650,11 +650,12 @@ async function openEditDemoModal(demoId) {
     slugEl.dataset.edited = 'true';
     const preview = document.getElementById('dmSlugPreview');
     if (preview) preview.textContent = data.slug || '…';
-    document.getElementById('dmReferrer').value    = data.referrerUsername || '';
-    document.getElementById('dmGreeting').value    = data.greeting || '';
-    document.getElementById('dmWebsite').value     = data.website  || '';
-    document.getElementById('dmAiPrompt').value    = data.aiPromptBase || '';
-    document.getElementById('dmCalendarUrl').value = data.calendarUrl || '';
+    document.getElementById('dmReferrer').value      = data.referrerUsername || '';
+    document.getElementById('dmGreeting').value      = data.greeting        || '';
+    document.getElementById('dmWebsite').value       = data.website         || '';
+    document.getElementById('dmAiPrompt').value      = data.aiPromptBase    || '';
+    document.getElementById('dmCalendarUrl').value   = data.calendarUrl     || '';
+    document.getElementById('dmAssignedUser').value  = data.assignedUser    || '';
     document.getElementById('dmPhone').value       = data.phone    || '';
     document.getElementById('dmServices').value    = data.services || '';
     document.getElementById('dmBio').value         = data.bio      || '';
@@ -703,11 +704,12 @@ function clearDemoModal() {
   delete slugEl.dataset.edited;
   const preview = document.getElementById('dmSlugPreview');
   if (preview) preview.textContent = '…';
-  document.getElementById('dmReferrer').value    = '';
-  document.getElementById('dmGreeting').value    = '';
-  document.getElementById('dmWebsite').value     = '';
-  document.getElementById('dmAiPrompt').value    = '';
-  document.getElementById('dmCalendarUrl').value = '';
+  document.getElementById('dmReferrer').value     = '';
+  document.getElementById('dmGreeting').value     = '';
+  document.getElementById('dmWebsite').value      = '';
+  document.getElementById('dmAiPrompt').value     = '';
+  document.getElementById('dmCalendarUrl').value  = '';
+  document.getElementById('dmAssignedUser').value = '';
   document.getElementById('dmPhone').value     = '';
   document.getElementById('dmServices').value  = '';
   document.getElementById('dmBio').value       = '';
@@ -840,9 +842,10 @@ async function saveDemoModal() {
 
   const demoId = document.getElementById('demoModalId')?.value;
 
-  const website      = document.getElementById('dmWebsite')?.value.trim()     || '';
-  const aiPromptBase = document.getElementById('dmAiPrompt')?.value.trim()    || '';
-  const calendarUrl  = document.getElementById('dmCalendarUrl')?.value.trim() || '';
+  const website        = document.getElementById('dmWebsite')?.value.trim()       || '';
+  const aiPromptBase   = document.getElementById('dmAiPrompt')?.value.trim()      || '';
+  const calendarUrl    = document.getElementById('dmCalendarUrl')?.value.trim()   || '';
+  const assignedUser   = document.getElementById('dmAssignedUser')?.value.trim()  || '';
   const phone       = document.getElementById('dmPhone')?.value.trim()    || '';
   const services    = document.getElementById('dmServices')?.value.trim() || '';
   const bio         = document.getElementById('dmBio')?.value.trim()      || '';
@@ -858,6 +861,7 @@ async function saveDemoModal() {
     website,
     aiPromptBase,
     calendarUrl,
+    assignedUser,
     phone,
     services,
     bio,
@@ -1575,6 +1579,174 @@ window._setDemoShareUrl = function (bizEncoded) {
   if (!input) return;
   const params = bizEncoded ? '?biz=' + bizEncoded : '';
   input.value = location.origin + '/demo.html' + params;
+};
+
+// ============================================================
+// DEMO REQUESTS
+// ============================================================
+window._adminLoadDemoRequests = async function () {
+  const list  = document.getElementById('demoRequestsList');
+  const badge = document.getElementById('demoReqBadge');
+  if (!list) return;
+  list.innerHTML = '<div style="color:#94a3b8;font-size:13px;padding:12px;">Loading…</div>';
+  try {
+    const snap = await getDocs(query(collection(db, 'demoRequests'), orderBy('createdAt', 'desc')));
+    if (snap.empty) {
+      list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📬</div><p>No demo requests yet.</p></div>';
+      if (badge) badge.style.display = 'none';
+      return;
+    }
+    const pending = snap.docs.filter(d => d.data().status === 'pending').length;
+    if (badge) { badge.textContent = pending; badge.style.display = pending ? 'inline' : 'none'; }
+    list.innerHTML = snap.docs.map(d => _renderDemoRequestCard(d.data(), d.id)).join('');
+  } catch (e) {
+    console.error('loadDemoRequests:', e);
+    list.innerHTML = '<div style="color:#ef4444;font-size:12px;padding:12px;">Error loading requests.</div>';
+  }
+};
+
+function _renderDemoRequestCard(r, id) {
+  const statusColor = { pending: '#f59e0b', created: '#10b981', paused: '#6366f1' }[r.status] || '#94a3b8';
+  return `<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+      <div>
+        <span style="font-size:14px;font-weight:800;color:#1e293b;">${escHTML(r.bizName || '—')}</span>
+        <span style="font-size:11px;color:#64748b;margin-left:8px;">${escHTML(r.bizType || '')}</span>
+      </div>
+      <span style="font-size:10px;font-weight:800;text-transform:uppercase;padding:2px 10px;border-radius:20px;background:${statusColor}20;color:${statusColor};">${r.status || 'pending'}</span>
+    </div>
+    <div style="font-size:12px;color:#475569;display:flex;flex-wrap:wrap;gap:12px;">
+      ${r.clientName ? `<span>👤 ${escHTML(r.clientName)}</span>` : ''}
+      ${r.referrerUsername ? `<span>@ ${escHTML(r.referrerUsername)}</span>` : ''}
+      ${r.phone   ? `<span>📞 ${escHTML(r.phone)}</span>`   : ''}
+      ${r.email   ? `<span>✉️ ${escHTML(r.email)}</span>`   : ''}
+      ${r.location ? `<span>📍 ${escHTML(r.location)}</span>` : ''}
+    </div>
+    ${r.notes ? `<div style="font-size:11px;color:#64748b;font-style:italic;">${escHTML(r.notes)}</div>` : ''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+      <button class="btn-action primary" onclick="window._adminFillFromRequest('${id}')">✏️ Fill Form</button>
+      <button class="btn-action" onclick="window._adminEditRequest('${id}')">Edit</button>
+      <button class="btn-action danger" onclick="window._adminDeleteRequest('${id}')">Delete</button>
+    </div>
+  </div>`;
+}
+
+window._adminFillFromRequest = async function (id) {
+  try {
+    const snap = await getDoc(doc(db, 'demoRequests', id));
+    if (!snap.exists()) { showToast('Request not found', 'error'); return; }
+    const r = snap.data();
+    clearDemoModal();
+    document.getElementById('demoModalId').value  = '';
+    document.getElementById('dmBizName').value    = r.bizName    || '';
+    document.getElementById('dmReferrer').value   = r.referrerUsername || '';
+    document.getElementById('dmPhone').value      = r.phone      || '';
+    document.getElementById('dmServices').value   = r.services   || '';
+    document.getElementById('dmBio').value        = r.bio        || '';
+    document.getElementById('dmWebsite').value    = r.website    || '';
+    document.getElementById('dmAiPrompt').value   = r.aiPrompt   || '';
+    document.getElementById('dmAssignedUser').value = r.assignedUser || r.referrerUsername || '';
+    const catEl = document.getElementById('dmCategory');
+    if (catEl && r.bizType) catEl.value = r.bizType;
+    openModal('demoModal');
+    showToast('Form filled from request — review and save', 'success');
+  } catch (e) { showToast('Error filling form', 'error'); }
+};
+
+window._adminDeleteRequest = async function (id) {
+  if (!confirm('Delete this demo request?')) return;
+  try {
+    await deleteDoc(doc(db, 'demoRequests', id));
+    showToast('Request deleted', 'success');
+    window._adminLoadDemoRequests();
+  } catch (e) { showToast('Error deleting request', 'error'); }
+};
+
+window._adminEditRequest = async function (id) {
+  const bizName = prompt('Business Name:');
+  if (bizName === null) return;
+  try {
+    await updateDoc(doc(db, 'demoRequests', id), { bizName, updatedAt: serverTimestamp() });
+    showToast('Request updated', 'success');
+    window._adminLoadDemoRequests();
+  } catch (e) { showToast('Error updating request', 'error'); }
+};
+
+// ============================================================
+// DEMO TEMPLATES
+// ============================================================
+window._adminLoadTemplates = async function () {
+  const list = document.getElementById('demoTemplatesList');
+  if (!list) return;
+  list.innerHTML = '<div style="color:#94a3b8;font-size:13px;padding:12px;">Loading…</div>';
+  try {
+    const snap = await getDocs(query(collection(db, 'demoTemplates'), orderBy('createdAt', 'desc')));
+    if (snap.empty) {
+      list.innerHTML = '<div class="empty-state" style="width:100%;"><div class="empty-state-icon">📂</div><p>No templates saved yet. Create a demo and click "Save as Template".</p></div>';
+      return;
+    }
+    list.innerHTML = snap.docs.map(d => _renderTemplateCard(d.data(), d.id)).join('');
+  } catch (e) {
+    list.innerHTML = '<div style="color:#ef4444;font-size:12px;padding:12px;">Error loading templates.</div>';
+  }
+};
+
+function _renderTemplateCard(t, id) {
+  return `<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px;min-width:200px;max-width:280px;flex:1;">
+    <div style="font-size:13px;font-weight:800;color:#1e293b;margin-bottom:4px;">${escHTML(t.templateName || 'Unnamed Template')}</div>
+    <div style="font-size:11px;color:#6366f1;margin-bottom:6px;">${escHTML(t.bizType || '')}</div>
+    ${t.services ? `<div style="font-size:11px;color:#64748b;margin-bottom:8px;">${escHTML(t.services)}</div>` : ''}
+    <div style="display:flex;gap:6px;">
+      <button class="btn-action primary" onclick="window._adminApplyTemplate('${id}')" style="flex:1;">Use Template</button>
+      <button class="btn-action danger" onclick="window._adminDeleteTemplate('${id}')">🗑</button>
+    </div>
+  </div>`;
+}
+
+window._adminSaveAsTemplate = async function () {
+  const bizName    = document.getElementById('dmBizName')?.value.trim();
+  const bizType    = document.getElementById('dmCategory')?.value;
+  const services   = document.getElementById('dmServices')?.value.trim()   || '';
+  const bio        = document.getElementById('dmBio')?.value.trim()        || '';
+  const aiPrompt   = document.getElementById('dmAiPrompt')?.value.trim()   || '';
+  const greeting   = document.getElementById('dmGreeting')?.value.trim()   || '';
+  const calendarUrl= document.getElementById('dmCalendarUrl')?.value.trim()|| '';
+  if (!bizName) { showToast('Enter a business name before saving as template', 'error'); return; }
+  const templateName = prompt('Template name:', bizName + (bizType ? ` (${bizType})` : ''));
+  if (!templateName) return;
+  try {
+    await addDoc(collection(db, 'demoTemplates'), {
+      templateName, bizType: bizType || '', services, bio, aiPromptBase: aiPrompt, greeting, calendarUrl,
+      createdAt: serverTimestamp(),
+    });
+    showToast('Template saved!', 'success');
+  } catch (e) { showToast('Error saving template', 'error'); }
+};
+
+window._adminApplyTemplate = async function (id) {
+  try {
+    const snap = await getDoc(doc(db, 'demoTemplates', id));
+    if (!snap.exists()) { showToast('Template not found', 'error'); return; }
+    const t = snap.data();
+    const catEl = document.getElementById('dmCategory');
+    if (catEl && t.bizType) catEl.value = t.bizType;
+    if (t.services)    document.getElementById('dmServices').value    = t.services;
+    if (t.bio)         document.getElementById('dmBio').value         = t.bio;
+    if (t.aiPromptBase)document.getElementById('dmAiPrompt').value    = t.aiPromptBase;
+    if (t.greeting)    document.getElementById('dmGreeting').value    = t.greeting;
+    if (t.calendarUrl) document.getElementById('dmCalendarUrl').value = t.calendarUrl;
+    openModal('demoModal');
+    showToast('Template applied — fill in business name & save', 'success');
+  } catch (e) { showToast('Error applying template', 'error'); }
+};
+
+window._adminDeleteTemplate = async function (id) {
+  if (!confirm('Delete this template?')) return;
+  try {
+    await deleteDoc(doc(db, 'demoTemplates', id));
+    showToast('Template deleted', 'success');
+    window._adminLoadTemplates();
+  } catch (e) { showToast('Error deleting template', 'error'); }
 };
 
 // ============================================================
