@@ -654,6 +654,7 @@ async function openEditDemoModal(demoId) {
     document.getElementById('dmGreeting').value    = data.greeting || '';
     document.getElementById('dmWebsite').value     = data.website  || '';
     document.getElementById('dmAiPrompt').value    = data.aiPromptBase || '';
+    document.getElementById('dmCalendarUrl').value = data.calendarUrl || '';
     document.getElementById('dmPhone').value       = data.phone    || '';
     document.getElementById('dmServices').value    = data.services || '';
     document.getElementById('dmBio').value         = data.bio      || '';
@@ -702,10 +703,11 @@ function clearDemoModal() {
   delete slugEl.dataset.edited;
   const preview = document.getElementById('dmSlugPreview');
   if (preview) preview.textContent = '…';
-  document.getElementById('dmReferrer').value  = '';
-  document.getElementById('dmGreeting').value  = '';
-  document.getElementById('dmWebsite').value   = '';
-  document.getElementById('dmAiPrompt').value  = '';
+  document.getElementById('dmReferrer').value    = '';
+  document.getElementById('dmGreeting').value    = '';
+  document.getElementById('dmWebsite').value     = '';
+  document.getElementById('dmAiPrompt').value    = '';
+  document.getElementById('dmCalendarUrl').value = '';
   document.getElementById('dmPhone').value     = '';
   document.getElementById('dmServices').value  = '';
   document.getElementById('dmBio').value       = '';
@@ -838,8 +840,9 @@ async function saveDemoModal() {
 
   const demoId = document.getElementById('demoModalId')?.value;
 
-  const website     = document.getElementById('dmWebsite')?.value.trim()  || '';
-  const aiPromptBase = document.getElementById('dmAiPrompt')?.value.trim() || '';
+  const website      = document.getElementById('dmWebsite')?.value.trim()     || '';
+  const aiPromptBase = document.getElementById('dmAiPrompt')?.value.trim()    || '';
+  const calendarUrl  = document.getElementById('dmCalendarUrl')?.value.trim() || '';
   const phone       = document.getElementById('dmPhone')?.value.trim()    || '';
   const services    = document.getElementById('dmServices')?.value.trim() || '';
   const bio         = document.getElementById('dmBio')?.value.trim()      || '';
@@ -854,6 +857,7 @@ async function saveDemoModal() {
     menuItems,
     website,
     aiPromptBase,
+    calendarUrl,
     phone,
     services,
     bio,
