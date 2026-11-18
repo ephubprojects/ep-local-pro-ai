@@ -478,6 +478,36 @@
   color: #15803d;
 }
 
+.badge-paused {
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 800;
+}
+
+.btn-action.paused-on {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #fff;
+  font-weight: 700;
+}
+
+.btn-action.paused-on:hover {
+  background: #d97706;
+  border-color: #d97706;
+}
+
+.btn-action.paused-off {
+  background: #fff;
+  border-color: #e2e8f0;
+  color: #64748b;
+}
+
+.btn-action.paused-off:hover {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #b45309;
+}
+
 /* ── Activity Feed ────────────────────────────────────────── */
 .activity-feed {
   display: flex;

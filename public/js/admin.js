@@ -92,6 +92,7 @@ function badgeHTML(status) {
     active:    'badge-active',
     demo:      'badge-demo',
     live:      'badge-live',
+    paused:    'badge-paused',
     inactive:  'badge-inactive',
     trial:     'badge-trial',
     invited:   'badge-invited',
@@ -590,7 +591,8 @@ function renderDemoRow(demo, id) {
   const ref    = demo.referrerUsername || '—';
   const created = fmtDate(demo.createdAt);
   const bizEncoded = encodeURIComponent(demo.bizName || '');
-  const isLive = demo.status === 'live';
+  const isPaused = demo.status === 'paused';
+  const isLive   = demo.status === 'live';
 
   return `
     <tr>
@@ -608,8 +610,14 @@ function renderDemoRow(demo, id) {
         <div class="row-actions">
           <button class="btn-action ${isLive ? 'live-on' : 'live-off'}"
             onclick="window._adminToggleDemoLive('${id}','${demo.status || 'demo'}')"
-            title="${isLive ? 'Click to set back to Demo mode' : 'Click to go Live'}">
+            title="${isLive ? 'Click to set back to Demo mode' : 'Click to go Live'}"
+            ${isPaused ? 'disabled' : ''}>
             ${isLive ? '🟢 Live' : '⚪ Demo'}
+          </button>
+          <button class="btn-action ${isPaused ? 'paused-on' : 'paused-off'}"
+            onclick="window._adminToggleDemoPaused('${id}','${demo.status || 'demo'}','${escAttr(demo.prevStatus || '')}')"
+            title="${isPaused ? 'Click to unpause' : 'Click to pause this demo'}">
+            ${isPaused ? '⏸ Paused' : '▶ Pause'}
           </button>
           <button class="btn-action" onclick="window._adminEditDemo('${id}')">Edit</button>
           <button class="btn-action primary" onclick="window._adminConvertDemo('${id}')">Convert</button>
@@ -1778,6 +1786,41 @@ async function toggleDemoLive(id, currentStatus) {
   }
 }
 
+async function toggleDemoPaused(id, currentStatus, prevStatus) {
+  const pausing = currentStatus !== 'paused';
+
+  if (pausing) {
+    if (!confirm('Pause this demo?\n\nThe AI page will be inaccessible until you unpause it.')) return;
+    try {
+      await updateDoc(doc(db, 'demos', id), {
+        status: 'paused',
+        prevStatus: currentStatus,
+        updatedAt: serverTimestamp()
+      });
+      showToast('⏸ Demo paused', 'success');
+      loadDemos();
+    } catch (err) {
+      console.error('toggleDemoPaused error:', err);
+      showToast('Error pausing demo', 'error');
+    }
+  } else {
+    const restoreTo = prevStatus || 'demo';
+    if (!confirm(`Unpause this demo?\n\nIt will be restored to "${restoreTo}" status.`)) return;
+    try {
+      await updateDoc(doc(db, 'demos', id), {
+        status: restoreTo,
+        prevStatus: null,
+        updatedAt: serverTimestamp()
+      });
+      showToast(`▶ Demo unpaused — restored to ${restoreTo}`, 'success');
+      loadDemos();
+    } catch (err) {
+      console.error('toggleDemoPaused error:', err);
+      showToast('Error unpausing demo', 'error');
+    }
+  }
+}
+
 // ============================================================
 // ESCAPE HELPERS
 // ============================================================
@@ -1815,7 +1858,8 @@ async function cancelUserAccount(uid, name) {
 window._adminEditDemo        = id => openEditDemoModal(id);
 window._adminDeleteDemo      = id => deleteDemoConfirm(id);
 window._adminConvertDemo     = id => convertDemoToAccount(id);
-window._adminToggleDemoLive  = (id, status) => toggleDemoLive(id, status);
+window._adminToggleDemoLive   = (id, status) => toggleDemoLive(id, status);
+window._adminToggleDemoPaused = (id, status, prev) => toggleDemoPaused(id, status, prev);
 window._adminToggleBizDetail = id => toggleBizDetail(id);
 window._adminViewBiz         = id => viewBiz(id);
 window._adminSuspendBiz      = (id, name) => suspendBiz(id, name);
