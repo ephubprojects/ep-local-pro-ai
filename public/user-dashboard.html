@@ -35,6 +35,9 @@
     <a data-nav="referrals">
       <span class="nav-icon">🤝</span> My Referrals
     </a>
+    <a data-nav="calendar">
+      <span class="nav-icon">📅</span> Calendar
+    </a>
     <a data-nav="account">
       <span class="nav-icon">👤</span> Account
     </a>
@@ -145,6 +148,51 @@
       </div>
 
     </div><!-- /referrals -->
+
+
+    <!-- ════════════ SECTION: Calendar ════════════ -->
+    <div data-section="calendar" class="hidden">
+
+      <!-- Public booking link -->
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Your Booking Link</h2>
+        </div>
+        <p style="font-size:0.85rem;color:#64748b;margin-bottom:10px;">
+          Share this link so customers can book appointments directly.
+        </p>
+        <div class="ai-url-row">
+          <div class="ai-url-display" id="userCalBookingLink">—</div>
+          <button class="btn-copy" id="userCalCopyLinkBtn">📋 Copy</button>
+          <a id="userCalBookingLinkOpen" href="#" target="_blank" class="btn-copy" style="text-decoration:none;">↗ Open</a>
+        </div>
+      </div>
+
+      <!-- Bookings list -->
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Appointments</h2>
+          <button class="btn-copy" id="userCalRefreshBtn">↺ Refresh</button>
+        </div>
+        <div class="docs-table-wrap bookings-table-wrap">
+          <table class="docs-table bookings-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>Date &amp; Time</th>
+                <th>Notes</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="userBookingsTableBody">
+              <tr><td colspan="5"><div class="empty-state"><p>Loading…</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /calendar -->
 
 
     <!-- ════════════ SECTION: Account ════════════ -->

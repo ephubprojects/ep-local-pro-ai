@@ -275,7 +275,17 @@ async function onAdminReady(user) {
       if (name === 'localBusiness')  loadLocalBiz();
       if (name === 'categories')     renderCategoriesSection();
       if (name === 'documents')      loadAdminDocuments();
+      if (name === 'calendar')       { loadCalendarConfig(); window._adminLoadBookings(); }
     });
+  });
+
+  // Calendar: copy booking link
+  document.getElementById('calCopyLinkBtn')?.addEventListener('click', () => {
+    const urlEl = document.getElementById('calBookingLink');
+    if (!urlEl) return;
+    navigator.clipboard.writeText(urlEl.textContent.trim())
+      .then(() => { const b = document.getElementById('calCopyLinkBtn'); if(b){ const t=b.textContent; b.textContent='Copied!'; setTimeout(()=>b.textContent=t,1500); } })
+      .catch(() => {});
   });
 
   // Create Demo buttons
@@ -409,6 +419,7 @@ function showSection(name) {
     users:         'Registered Users',
     localBusiness: 'Local Business Accounts',
     categories:    'Categories',
+    calendar:      'Calendar',
     profile:       'My Profile',
     settings:      'Settings'
   };
@@ -429,6 +440,7 @@ function showSection(name) {
   if (name === 'demos')      { loadDemos(); window._adminLoadDemoRequests(); }
   if (name === 'businesses') loadBusinesses();
   if (name === 'settings')   loadSettings();
+  if (name === 'calendar')   { loadCalendarConfig(); window._adminLoadBookings(); }
 }
 
 // ============================================================
@@ -1963,6 +1975,169 @@ function renderAdminDocCards() {
     list.appendChild(card);
   });
 }
+
+// ============================================================
+// CALENDAR MANAGEMENT
+// ============================================================
+
+const CAL_DAYS = [
+  { key: 'mon', label: 'Mon' },
+  { key: 'tue', label: 'Tue' },
+  { key: 'wed', label: 'Wed' },
+  { key: 'thu', label: 'Thu' },
+  { key: 'fri', label: 'Fri' },
+  { key: 'sat', label: 'Sat' },
+  { key: 'sun', label: 'Sun' }
+];
+
+function renderCalAvailGrid(availability = {}) {
+  const grid = document.getElementById('calAvailGrid');
+  if (!grid) return;
+  grid.innerHTML = CAL_DAYS.map(({ key, label }) => {
+    const av = availability[key];
+    const enabled = !!(av && av.length >= 2);
+    const start = enabled ? av[0] : '09:00';
+    const end   = enabled ? av[1] : '17:00';
+    return `
+      <div class="cal-avail-row">
+        <input type="checkbox" id="calDay_${key}" ${enabled ? 'checked' : ''}
+          onchange="window._adminCalDayToggle('${key}')">
+        <span class="day-label">${label}</span>
+        <input type="time" id="calStart_${key}" value="${start}" ${enabled ? '' : 'disabled'}>
+        <input type="time" id="calEnd_${key}"   value="${end}"   ${enabled ? '' : 'disabled'}>
+      </div>`;
+  }).join('');
+}
+
+window._adminCalDayToggle = function(key) {
+  const cb = document.getElementById(`calDay_${key}`);
+  const s  = document.getElementById(`calStart_${key}`);
+  const e  = document.getElementById(`calEnd_${key}`);
+  if (!cb || !s || !e) return;
+  s.disabled = !cb.checked;
+  e.disabled = !cb.checked;
+};
+
+async function loadCalendarConfig() {
+  renderCalAvailGrid();
+  try {
+    const snap = await getDoc(doc(db, 'config', 'calendar'));
+    const data = snap.exists() ? snap.data() : {};
+    const biz  = (data.businesses || [])[0] || {};
+
+    const nameEl = document.getElementById('calBizName');
+    const slotEl = document.getElementById('calSlotDuration');
+    const descEl = document.getElementById('calDescription');
+    const actEl  = document.getElementById('calActive');
+    if (nameEl) nameEl.value = biz.name        || '';
+    if (slotEl) slotEl.value = biz.slotDuration || 30;
+    if (descEl) descEl.value = biz.description  || '';
+    if (actEl)  actEl.checked = biz.active !== false;
+
+    renderCalAvailGrid(biz.availability || {});
+    _updateCalBookingLink();
+  } catch(e) {
+    console.error('loadCalendarConfig', e);
+  }
+}
+
+function _updateCalBookingLink() {
+  const urlEl = document.getElementById('calBookingLink');
+  if (!urlEl) return;
+  const base = window.location.origin;
+  urlEl.textContent = `${base}/calendar.html?biz=0`;
+}
+
+window._adminSaveCalConfig = async function() {
+  const btn = document.querySelector('[onclick="window._adminSaveCalConfig()"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const name     = document.getElementById('calBizName')?.value.trim()     || 'Book an Appointment';
+    const slotDur  = parseInt(document.getElementById('calSlotDuration')?.value) || 30;
+    const desc     = document.getElementById('calDescription')?.value.trim() || '';
+    const active   = document.getElementById('calActive')?.checked !== false;
+
+    const availability = {};
+    CAL_DAYS.forEach(({ key }) => {
+      const cb = document.getElementById(`calDay_${key}`);
+      const s  = document.getElementById(`calStart_${key}`);
+      const e  = document.getElementById(`calEnd_${key}`);
+      if (cb?.checked && s?.value && e?.value) {
+        availability[key] = [s.value, e.value];
+      }
+    });
+
+    const snap = await getDoc(doc(db, 'config', 'calendar'));
+    const existing = snap.exists() ? snap.data() : {};
+    const businesses = [...(existing.businesses || [])];
+    businesses[0] = { ...(businesses[0] || {}), name, slotDuration: slotDur, description: desc, active, availability };
+
+    await setDoc(doc(db, 'config', 'calendar'), { businesses }, { merge: true });
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Save Calendar Config'; }
+    alert('Calendar configuration saved!');
+  } catch(e) {
+    console.error('saveCalConfig', e);
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Save Calendar Config'; }
+    alert('Error saving: ' + e.message);
+  }
+};
+
+window._adminLoadBookings = async function() {
+  const tbody = document.getElementById('bookingsTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:20px">Loading…</td></tr>';
+  try {
+    const q = query(collection(db, 'bookings'), orderBy('createdAt', 'desc'), limit(100));
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:20px">No bookings yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML = '';
+    snap.forEach(d => {
+      const b = d.data();
+      const dateStr = b.date || '—';
+      const timeStr = b.time || '—';
+      const status  = b.status || 'pending';
+      const badgeCls = status === 'confirmed' ? 'badge-booking-confirmed'
+                     : status === 'cancelled' ? 'badge-booking-cancelled'
+                     : 'badge-booking-pending';
+      const created = b.createdAt?.toDate?.()?.toLocaleDateString() || '—';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${b.clientName || '—'}</td>
+        <td>${b.clientPhone || '—'}</td>
+        <td>${b.clientEmail || '—'}</td>
+        <td>${dateStr} ${timeStr}</td>
+        <td>${b.notes || '—'}</td>
+        <td><span class="badge ${badgeCls}">${status}</span></td>
+        <td style="white-space:nowrap">
+          ${status !== 'confirmed' ? `<button class="btn-action btn-sm" onclick="window._adminConfirmBooking('${d.id}')">✓ Confirm</button>` : ''}
+          ${status !== 'cancelled' ? `<button class="btn-action btn-sm" style="margin-left:4px" onclick="window._adminCancelBooking('${d.id}')">✕ Cancel</button>` : ''}
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  } catch(e) {
+    console.error('loadBookings', e);
+    tbody.innerHTML = `<tr><td colspan="7" style="color:#ef4444;padding:20px">${e.message}</td></tr>`;
+  }
+};
+
+window._adminConfirmBooking = async function(id) {
+  if (!confirm('Mark this booking as confirmed?')) return;
+  try {
+    await updateDoc(doc(db, 'bookings', id), { status: 'confirmed' });
+    window._adminLoadBookings();
+  } catch(e) { alert('Error: ' + e.message); }
+};
+
+window._adminCancelBooking = async function(id) {
+  if (!confirm('Cancel this booking?')) return;
+  try {
+    await updateDoc(doc(db, 'bookings', id), { status: 'cancelled' });
+    window._adminLoadBookings();
+  } catch(e) { alert('Error: ' + e.message); }
+};
 
 // ── Boot ─────────────────────────────────────────────────────
 initAdmin();

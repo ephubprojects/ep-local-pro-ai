@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Book an Appointment</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/calendar.css"/>
+</head>
+<body>
+
+<div id="cal-loading" class="cal-loading">
+  <div class="cal-loading-inner">
+    <div class="cal-spinner"></div>
+    <p>Loading calendar…</p>
+  </div>
+</div>
+
+<div id="cal-error" class="cal-error hidden">
+  <div class="cal-error-icon">📅</div>
+  <div class="cal-error-title">Calendar Unavailable</div>
+  <p id="cal-error-msg">This calendar is not configured yet.</p>
+</div>
+
+<div id="cal-main" class="cal-main hidden">
+
+  <!-- Header -->
+  <header class="cal-header">
+    <div class="cal-header-inner">
+      <div class="cal-brand">EP LOCAL PRO AI</div>
+      <div class="cal-biz-info">
+        <h1 id="cal-biz-name">Book an Appointment</h1>
+        <p id="cal-biz-desc"></p>
+      </div>
+      <div class="cal-lang-row">
+        <button class="cal-lang-btn" id="clbEn" onclick="setCalLang('en')">EN</button>
+        <button class="cal-lang-btn" id="clbEs" onclick="setCalLang('es')">ES</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main layout -->
+  <div class="cal-layout">
+
+    <!-- Left: Month calendar -->
+    <div class="cal-panel">
+      <div class="cal-month-nav">
+        <button class="cal-nav-btn" id="calPrev" onclick="navMonth(-1)">&#8249;</button>
+        <span class="cal-month-label" id="calMonthLabel"></span>
+        <button class="cal-nav-btn" id="calNext" onclick="navMonth(1)">&#8250;</button>
+      </div>
+      <div class="cal-grid-head" id="calGridHead"></div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="cal-legend">
+        <span class="cal-legend-dot avail"></span><span id="lbl-avail">Available</span>
+        <span class="cal-legend-dot taken"></span><span id="lbl-taken">Fully booked</span>
+      </div>
+    </div>
+
+    <!-- Right: Slots or Form -->
+    <div class="cal-panel cal-right-panel">
+
+      <!-- Slots view -->
+      <div id="slotsView" class="hidden">
+        <div class="cal-section-title" id="slotDateLabel"></div>
+        <div class="slots-grid" id="slotsGrid"></div>
+      </div>
+
+      <!-- Booking form -->
+      <div id="bookingForm" class="hidden">
+        <div class="cal-section-title" id="formDateLabel"></div>
+        <div class="booking-form-inner">
+          <div class="form-group">
+            <label id="lbl-name">Full Name *</label>
+            <input type="text" id="bfName" placeholder="Jane Smith"/>
+          </div>
+          <div class="form-group">
+            <label id="lbl-phone">Phone *</label>
+            <input type="tel" id="bfPhone" placeholder="+1 (555) 000-0000"/>
+          </div>
+          <div class="form-group">
+            <label id="lbl-email">Email</label>
+            <input type="email" id="bfEmail" placeholder="jane@email.com"/>
+          </div>
+          <div class="form-group">
+            <label id="lbl-reason">Reason / Notes</label>
+            <textarea id="bfReason" rows="3" placeholder="What's the appointment for?"></textarea>
+          </div>
+          <button class="cal-btn-primary" id="submitBookingBtn" onclick="submitBooking()">
+            <span id="submitBtnLabel">Confirm Appointment</span>
+          </button>
+          <button class="cal-btn-ghost" id="backToSlotsBtn" onclick="backToSlots()">← Back to time slots</button>
+        </div>
+      </div>
+
+      <!-- Confirmation -->
+      <div id="bookingConfirm" class="hidden">
+        <div class="booking-confirm-card">
+          <div class="confirm-icon">✅</div>
+          <div class="confirm-title" id="confirmTitle">Appointment Confirmed!</div>
+          <div class="confirm-detail" id="confirmDetail"></div>
+          <button class="cal-btn-ghost" id="bookAnotherBtn" onclick="resetBooking()" style="margin-top:16px;">Book another</button>
+        </div>
+      </div>
+
+      <!-- Placeholder (no date selected) -->
+      <div id="calPlaceholder" class="cal-placeholder">
+        <div class="cal-placeholder-icon">📅</div>
+        <p id="cal-placeholder-txt">Select a date to see available time slots</p>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Floating AI Chat Button -->
+<button class="cal-chat-fab" id="calChatFab" onclick="toggleChat()" title="Book with AI assistant">🤖</button>
+
+<!-- AI Chat Panel -->
+<div class="cal-chat-panel" id="calChatPanel">
+  <div class="chat-header">
+    <span id="chatHeaderTitle">AI Booking Assistant</span>
+    <button class="chat-close" onclick="toggleChat()">✕</button>
+  </div>
+  <div class="chat-messages" id="chatMessages"></div>
+  <div class="chat-input-row">
+    <input type="text" class="chat-input" id="chatInput"
+      placeholder="Type a message…"
+      onkeydown="if(event.key==='Enter')sendChatMsg()"/>
+    <button class="chat-send" onclick="sendChatMsg()">➤</button>
+  </div>
+</div>
+
+<div class="cal-powered">Powered by EP Local Pro AI</div>
+
+<script type="module" src="/js/calendar.js"></script>
+</body>
+</html>

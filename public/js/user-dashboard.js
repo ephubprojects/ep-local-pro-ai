@@ -128,12 +128,13 @@ function showSection(name) {
     el.classList.toggle('hidden', el.dataset.section !== name);
   });
 
-  const titles = { overview: 'Overview', referrals: 'My Referrals', account: 'Account' };
+  const titles = { overview: 'Overview', referrals: 'My Referrals', calendar: 'Calendar', account: 'Account' };
   qs('#pageTitle').textContent = titles[name] || 'Overview';
 
   if (name === 'overview')  loadOverview();
   if (name === 'referrals') loadAllReferrals();
   if (name === 'account')   loadAccount();
+  if (name === 'calendar')  loadUserCalendar();
 }
 
 let _navWired = false;
@@ -442,6 +443,69 @@ async function cancelAccount() {
     showToast('Failed to cancel account. Please contact support.', 'error');
     btn.disabled = false;
     btn.textContent = 'Cancel My Account';
+  }
+}
+
+// ── Calendar ─────────────────────────────────────────────────
+async function loadUserCalendar() {
+  const base   = window.location.origin;
+  const url    = `${base}/calendar.html?biz=0`;
+  const urlEl  = document.getElementById('userCalBookingLink');
+  const openEl = document.getElementById('userCalBookingLinkOpen');
+  const copyBtn = document.getElementById('userCalCopyLinkBtn');
+  const refreshBtn = document.getElementById('userCalRefreshBtn');
+
+  if (urlEl)  urlEl.textContent = url;
+  if (openEl) openEl.href = url;
+
+  copyBtn?.addEventListener('click', () => {
+    navigator.clipboard.writeText(url).then(() => {
+      const t = copyBtn.textContent;
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => copyBtn.textContent = t, 1500);
+    }).catch(() => {});
+  }, { once: true });
+
+  refreshBtn?.addEventListener('click', _loadUserBookings, { once: false });
+
+  await _loadUserBookings();
+}
+
+async function _loadUserBookings() {
+  const tbody = document.getElementById('userBookingsTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:20px">Loading…</td></tr>';
+  try {
+    const q = query(
+      collection(db, 'bookings'),
+      where('bizIndex', '==', 0),
+      orderBy('date', 'desc'),
+      limit(100)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:20px">No appointments yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML = '';
+    snap.forEach(d => {
+      const b = d.data();
+      const status = b.status || 'pending';
+      const badgeCls = status === 'confirmed' ? 'badge-booking-confirmed'
+                     : status === 'cancelled' ? 'badge-booking-cancelled'
+                     : 'badge-booking-pending';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${b.clientName  || '—'}</td>
+        <td>${b.clientPhone || '—'}</td>
+        <td>${b.date || '—'} ${b.time || ''}</td>
+        <td>${b.notes || '—'}</td>
+        <td><span class="badge ${badgeCls}">${status}</span></td>`;
+      tbody.appendChild(tr);
+    });
+  } catch (e) {
+    console.error('_loadUserBookings', e);
+    tbody.innerHTML = `<tr><td colspan="5" style="color:#ef4444;padding:20px">${e.message}</td></tr>`;
   }
 }
 

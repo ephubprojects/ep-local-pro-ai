@@ -41,6 +41,9 @@
     <a data-nav="documents">
       <span class="nav-icon">📄</span> Documents
     </a>
+    <a data-nav="calendar">
+      <span class="nav-icon">📅</span> Calendar
+    </a>
     <a data-nav="profile">
       <span class="nav-icon">👤</span> Profile
     </a>
@@ -444,6 +447,88 @@
       </div>
 
     </div><!-- /documents -->
+
+
+    <!-- ════════════ SECTION: Calendar ════════════ -->
+    <div data-section="calendar" class="hidden">
+
+      <!-- Public booking link -->
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Public Booking Link</h2>
+        </div>
+        <p class="form-hint" style="margin-bottom:12px;">Share this with clients so they can book appointments directly.</p>
+        <div class="ai-url-row">
+          <input type="text" class="ai-url-input" id="calBookingLink" readonly style="flex:1;"/>
+          <button class="btn-copy" id="calCopyLinkBtn">Copy</button>
+        </div>
+        <a id="calBookingLinkOpen" href="#" target="_blank" rel="noopener"
+           style="font-size:12px;color:var(--indigo);margin-top:8px;display:inline-block;">Open Calendar →</a>
+      </div>
+
+      <!-- Calendar 0 config -->
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Calendar 0 — Default Demo Calendar</h2>
+          <button class="btn-action primary" id="saveCalConfigBtn" onclick="window._adminSaveCalConfig()">Save</button>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="calBizName">Calendar Name</label>
+            <input type="text" id="calBizName" placeholder="e.g. Demo Consultation" />
+          </div>
+          <div class="form-group">
+            <label for="calSlotDuration">Slot Duration</label>
+            <select id="calSlotDuration">
+              <option value="15">15 minutes</option>
+              <option value="30" selected>30 minutes</option>
+              <option value="45">45 minutes</option>
+              <option value="60">60 minutes</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label for="calDescription">Description</label>
+          <input type="text" id="calDescription" placeholder="What is this appointment for?" />
+        </div>
+        <div class="form-group" style="margin-top:16px;">
+          <label style="margin-bottom:10px;display:block;font-weight:700;">Weekly Availability</label>
+          <div class="cal-avail-grid" id="calAvailGrid"></div>
+        </div>
+        <div class="form-group" style="margin-top:14px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
+            <input type="checkbox" id="calActive" style="width:auto;cursor:pointer;"/>
+            Calendar is Active (visible to customers)
+          </label>
+        </div>
+      </div>
+
+      <!-- Bookings table -->
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>Bookings</h2>
+          <button class="btn-action" onclick="window._adminLoadBookings()">↻ Refresh</button>
+        </div>
+        <div class="docs-table-wrap">
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Phone</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="bookingsTableBody">
+              <tr><td colspan="6"><div class="empty-state"><p>Loading…</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /calendar -->
 
 
     <!-- ════════════ SECTION: Profile ════════════ -->

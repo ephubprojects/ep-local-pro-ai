@@ -1545,3 +1545,98 @@ input[type="color"]#catColorPicker {
   word-break: break-all;
   min-width: 0;
 }
+
+/* ── Calendar Admin ───────────────────────────────────────── */
+.cal-booking-link-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--light, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 4px;
+}
+.cal-booking-link-url {
+  flex: 1;
+  font-size: 0.8rem;
+  font-family: var(--font-mono, monospace);
+  color: var(--ink, #1e293b);
+  word-break: break-all;
+  min-width: 0;
+}
+
+.cal-avail-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.cal-avail-row {
+  display: grid;
+  grid-template-columns: 36px 100px 1fr 1fr;
+  align-items: center;
+  gap: 10px;
+}
+.cal-avail-row .day-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.cal-avail-row input[type="time"] {
+  font-size: 0.82rem;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 6px;
+  padding: 5px 8px;
+  color: var(--ink, #1e293b);
+  background: #fff;
+  outline: none;
+  width: 100%;
+}
+.cal-avail-row input[type="time"]:disabled {
+  background: var(--light, #f8fafc);
+  color: var(--muted, #64748b);
+  cursor: not-allowed;
+}
+.cal-avail-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--indigo, #4f46e5);
+  cursor: pointer;
+}
+
+.bookings-table-wrap {
+  overflow-x: auto;
+  margin-top: 8px;
+}
+.bookings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.bookings-table th {
+  text-align: left;
+  padding: 8px 10px;
+  background: var(--light, #f8fafc);
+  border-bottom: 2px solid var(--border, #e2e8f0);
+  font-weight: 700;
+  color: var(--muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+.bookings-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  vertical-align: middle;
+  color: var(--ink, #1e293b);
+}
+.bookings-table tr:last-child td { border-bottom: none; }
+.bookings-table tr:hover td { background: var(--light, #f8fafc); }
+
+.badge-booking-pending   { background: #fef3c7; color: #92400e; font-weight: 700; }
+.badge-booking-confirmed { background: #d1fae5; color: #065f46; font-weight: 700; }
+.badge-booking-cancelled { background: #fee2e2; color: #991b1b; font-weight: 700; }
