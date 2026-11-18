@@ -19,43 +19,6 @@
       z-index:0;pointer-events:none;
     }
 
-    /* ── Left panel ──────────────────────────────────────── */
-    #left-panel{
-      position:fixed;left:32px;top:50%;transform:translateY(-50%);
-      z-index:10;width:380px;max-width:calc(100vw - 180px);
-      background:linear-gradient(135deg,rgba(0,20,60,.84),rgba(0,8,24,.9));
-      border:1px solid rgba(0,229,255,.35);border-radius:20px;
-      padding:28px 26px 22px;
-      backdrop-filter:blur(18px);
-      box-shadow:0 12px 56px rgba(0,0,0,.65),0 0 44px rgba(0,229,255,.13);
-    }
-    #lp-badge{
-      font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;
-      color:#00e5ff;text-shadow:0 0 8px rgba(0,229,255,.7);
-      background:rgba(0,8,24,.5);border:1px solid rgba(0,229,255,.25);
-      border-radius:20px;padding:3px 10px;display:inline-block;margin-bottom:11px;
-    }
-    #lp-title{
-      font-size:21px;font-weight:800;color:#fff;
-      text-shadow:0 2px 14px rgba(0,0,0,.5);
-      margin-bottom:16px;line-height:1.2;min-height:26px;
-    }
-    #lp-benefits{
-      list-style:none;display:flex;flex-direction:column;gap:7px;margin-bottom:18px;
-    }
-    #lp-benefits li{
-      display:flex;align-items:center;gap:10px;
-      font-size:12.5px;color:rgba(255,255,255,.88);line-height:1.35;
-    }
-    .lp-ic{
-      flex-shrink:0;width:22px;height:22px;border-radius:50%;
-      background:rgba(0,229,255,.15);border:1.5px solid rgba(0,229,255,.5);
-      display:flex;align-items:center;justify-content:center;font-size:11px;line-height:1;
-    }
-    #lp-cta{
-      font-size:11px;color:#00e5ff;opacity:.82;letter-spacing:.3px;text-align:center;
-    }
-
     /* ── Widget ──────────────────────────────────────────── */
     #ep-widget{
       position:fixed;bottom:24px;right:24px;z-index:2147483647;
@@ -179,16 +142,7 @@
 
     /* Mobile */
     @media(max-width:640px){
-      #left-panel{
-        position:fixed;left:12px;right:12px;top:16px;
-        transform:none;width:auto;max-width:none;
-        padding:16px 16px 12px;
-      }
-      #lp-title{font-size:17px;margin-bottom:10px}
-      #lp-benefits{gap:5px;margin-bottom:12px}
-      #lp-benefits li{font-size:11.5px}
       #ep-widget{bottom:16px;right:16px}
-      #lp-benefits li:nth-child(n+8){display:none}
     }
   </style>
 </head>
@@ -200,14 +154,6 @@
   <div class="nc-icon">🎙️</div>
   <div class="nc-title">AI Not Configured</div>
   <p>This business hasn't set up their AI Assistant yet. Ask the business owner to configure it in their dashboard.</p>
-</div>
-
-<!-- Left panel: business info + benefits -->
-<div id="left-panel">
-  <div id="lp-badge">AI RECEPTIONIST</div>
-  <div id="lp-title"></div>
-  <ul id="lp-benefits"></ul>
-  <div id="lp-cta"></div>
 </div>
 
 <!-- Widget -->
@@ -256,34 +202,6 @@ const VOICES_ES = [
   { id:'pNInz6obpgDQGcFmaJgB', n:'Alejandro' },
   { id:'TxGEqnHWrfWFTfGW9XjX', n:'Diego'     },
 ];
-
-// ── Benefits list (matches EP HUB demo page) ─────────────
-const BENEFITS = {
-  en: [
-    ['✓','Answer More Calls'],
-    ['🤖','Automate Routine Conversations'],
-    ['📅','Book Appointments Automatically'],
-    ['🎯','Capture More Leads'],
-    ['🌐','Serve Customers in Multiple Languages'],
-    ['🕐','Available 24/7'],
-    ['💬','Respond Instantly'],
-    ['👥','Reduce Repetitive Staff Tasks'],
-    ['💰','Turn More Inquiries Into Opportunities'],
-    ['🚀','Give Your Business a More Professional Customer Experience'],
-  ],
-  es: [
-    ['✓','Responder Más Llamadas'],
-    ['🤖','Automatizar Conversaciones Rutinarias'],
-    ['📅','Reservar Citas Automáticamente'],
-    ['🎯','Capturar Más Clientes Potenciales'],
-    ['🌐','Atender en Múltiples Idiomas'],
-    ['🕐','Disponible 24/7'],
-    ['💬','Responder al Instante'],
-    ['👥','Reducir Tareas Repetitivas del Personal'],
-    ['💰','Convertir Consultas en Oportunidades'],
-    ['🚀','Experiencia más Profesional para su Negocio'],
-  ],
-};
 
 // ── Widget themes ─────────────────────────────────────────
 const THEMES = {
@@ -386,7 +304,6 @@ let sdkLoading = false;
   // Widget label (business name)
   const bizName = biz.name || biz.bizName || biz.businessName || '';
   document.getElementById('ai-title').textContent = bizName || 'AI ASSISTANT';
-  document.getElementById('lp-title').textContent = bizName;
 
   // Language + voices
   lang    = biz.lang || 'en';
@@ -405,8 +322,7 @@ let sdkLoading = false;
 })();
 
 function showNotConfigured() {
-  document.getElementById('left-panel').style.display    = 'none';
-  document.getElementById('ep-widget').style.display     = 'none';
+  document.getElementById('ep-widget').style.display      = 'none';
   document.getElementById('not-configured').style.display = 'flex';
 }
 
@@ -436,19 +352,6 @@ window.pickVoice = function(id) {
 
 function applyLangText() {
   const es = lang === 'es';
-
-  // Benefits list
-  const benefitsList = document.getElementById('lp-benefits');
-  if (benefitsList) {
-    benefitsList.innerHTML = (BENEFITS[es ? 'es' : 'en']).map(([ic, txt]) =>
-      `<li><span class="lp-ic">${ic}</span>${txt}</li>`
-    ).join('');
-  }
-
-  // CTA + widget label
-  document.getElementById('lp-cta').textContent =
-    es ? '👉 Toca el botón brillante para hablar con la IA'
-       : '👉 Tap the glowing button to talk to the AI';
   document.getElementById('lbl').textContent = es ? 'Hablar con AI' : 'Talk to AI';
 }
 
