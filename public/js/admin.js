@@ -588,6 +588,7 @@ function renderDemoRow(demo, id) {
   const demoUrl = slug !== '—' ? `https://ep-local-pro-ai.netlify.app/ai/${slug}` : '—';
   const ref    = demo.referrerUsername || '—';
   const created = fmtDate(demo.createdAt);
+  const bizEncoded = encodeURIComponent(demo.bizName || '');
 
   return `
     <tr>
@@ -605,7 +606,7 @@ function renderDemoRow(demo, id) {
         <div class="row-actions">
           <button class="btn-action" onclick="window._adminEditDemo('${id}')">Edit</button>
           <button class="btn-action primary" onclick="window._adminConvertDemo('${id}')">Convert</button>
-          ${slug !== '—' ? `<button class="btn-action" onclick="window._setDemoShareUrl('${escHTML(slug)}');document.getElementById('local-demo-share-url').scrollIntoView({behavior:'smooth',block:'center'})" title="Copy share link to widget above">🔗 Share</button>` : ''}
+          <button class="btn-action" onclick="window._setDemoShareUrl('${bizEncoded}');document.getElementById('local-demo-share-url').scrollIntoView({behavior:'smooth',block:'center'})" title="Copy AI demo link to widget above">🔗 Share</button>
           <button class="btn-action danger" onclick="window._adminDeleteDemo('${id}')">Delete</button>
         </div>
       </td>
@@ -1565,9 +1566,11 @@ window._localDemoEndCall = function () {
 };
 
 // Called from demo table rows to populate the share URL field
-window._setDemoShareUrl = function (slug) {
+window._setDemoShareUrl = function (bizEncoded) {
   const input = document.getElementById('local-demo-share-url');
-  if (input) input.value = location.origin + '/demo/' + slug;
+  if (!input) return;
+  const params = bizEncoded ? '?biz=' + bizEncoded : '';
+  input.value = location.origin + '/demo.html' + params;
 };
 
 // ============================================================

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>EP Local Pro AI Demo</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      min-height:100vh;height:100vh;overflow:hidden;
+      background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);
+      background-size:cover;background-position:center;
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    }
+    .bg-overlay{
+      position:fixed;inset:0;background:rgba(0,0,0,.35);
+      z-index:0;pointer-events:none;
+    }
+
+    #greet-card{
+      position:fixed;top:50%;left:50%;transform:translate(-50%,-60%);
+      z-index:10;
+      background:linear-gradient(135deg,rgba(0,8,24,.92),rgba(0,28,56,.92));
+      border:1px solid rgba(0,229,255,.3);border-radius:20px;
+      padding:28px 28px 22px;max-width:340px;width:calc(100vw - 48px);
+      text-align:center;backdrop-filter:blur(16px);
+      box-shadow:0 12px 48px rgba(0,0,0,.6),0 0 32px rgba(0,229,255,.1);
+      transition:opacity .4s,transform .4s;
+    }
+    #greet-card.hidden{opacity:0;pointer-events:none;transform:translate(-50%,-55%)}
+    .gc-badge{
+      font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;
+      color:#00e5ff;text-shadow:0 0 8px rgba(0,229,255,.7);
+      background:rgba(0,8,24,.5);border:1px solid rgba(0,229,255,.25);
+      border-radius:20px;padding:3px 10px;display:inline-block;margin-bottom:14px;
+    }
+    #gc-name{font-size:20px;font-weight:800;color:#fff;margin-bottom:3px;min-height:26px}
+    #gc-biz{font-size:12px;color:rgba(255,255,255,.6);margin-bottom:12px;min-height:16px}
+    #gc-msg{font-size:13px;color:rgba(255,255,255,.8);line-height:1.65;margin-bottom:14px}
+    #gc-hint{font-size:11px;color:#00e5ff;opacity:.75;letter-spacing:.3px}
+
+    #ep-widget{
+      position:fixed;bottom:24px;right:24px;z-index:2147483647;
+      display:flex;flex-direction:column;align-items:center;
+    }
+    @keyframes epWave{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.55)}}
+    @keyframes epGlow{
+      0%,100%{box-shadow:0 0 10px 4px rgba(0,229,255,.45),0 0 24px 8px rgba(0,140,255,.28),inset 0 0 12px rgba(0,200,255,.08)}
+      50%{box-shadow:0 0 26px 10px rgba(0,229,255,.85),0 0 52px 22px rgba(0,140,255,.5),0 0 80px 32px rgba(0,100,255,.22),inset 0 0 20px rgba(0,220,255,.14)}
+    }
+    #ai-title{
+      font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;
+      color:#00e5ff;text-shadow:0 0 8px rgba(0,229,255,.7);
+      background:rgba(0,8,24,.7);backdrop-filter:blur(8px);
+      border:1px solid rgba(0,229,255,.2);
+      border-radius:20px;padding:3px 10px;white-space:nowrap;margin-bottom:6px;
+    }
+    #lang-row{display:flex;gap:5px;justify-content:center;margin-bottom:8px}
+    .lbtn{
+      font-size:10px;font-weight:700;border-radius:14px;padding:3px 9px;
+      cursor:pointer;border:1.5px solid transparent;transition:all .2s;line-height:1.4;
+    }
+    .lbtn.on{background:rgba(0,229,255,.15);color:#00e5ff;border-color:rgba(0,229,255,.6);text-shadow:0 0 6px rgba(0,229,255,.6)}
+    .lbtn:not(.on){background:rgba(0,8,24,.5);color:rgba(255,255,255,.6);border-color:rgba(255,255,255,.2);backdrop-filter:blur(4px)}
+    #fab-wrap{position:relative;display:flex;align-items:center;justify-content:center;width:84px;height:84px}
+    #fab{
+      position:relative;z-index:2;
+      width:76px;height:76px;border-radius:50%;
+      background:radial-gradient(circle at 38% 32%,#0d2244,#020c1e);
+      border:2px solid rgba(0,229,255,.3);
+      cursor:pointer;padding:0;transition:transform .15s;
+      animation:epGlow 2.6s ease-in-out infinite;
+      display:flex;align-items:center;justify-content:center;
+    }
+    #fab:active{transform:scale(.9);animation:none;box-shadow:0 0 12px 4px rgba(0,229,255,.4)}
+    #fab-wave{display:flex;align-items:center;justify-content:center;gap:3px;height:28px}
+    #fab-wave span{
+      display:block;width:3.5px;border-radius:2px;
+      background:linear-gradient(to top,rgba(0,180,255,.6),#00e5ff);
+      box-shadow:0 0 6px rgba(0,229,255,.8);
+      transform-origin:bottom center;
+    }
+    #fab-wave span:nth-child(1){height:10px;animation:epWave 1.4s ease-in-out infinite}
+    #fab-wave span:nth-child(2){height:18px;animation:epWave 1.1s ease-in-out infinite .12s}
+    #fab-wave span:nth-child(3){height:24px;animation:epWave 1.3s ease-in-out infinite .05s}
+    #fab-wave span:nth-child(4){height:28px;animation:epWave 1.0s ease-in-out infinite .18s}
+    #fab-wave span:nth-child(5){height:22px;animation:epWave 1.2s ease-in-out infinite .08s}
+    #fab-wave span:nth-child(6){height:16px;animation:epWave 1.5s ease-in-out infinite .14s}
+    #fab-wave span:nth-child(7){height:10px;animation:epWave 1.3s ease-in-out infinite .06s}
+    #fab-wrap.listening #fab-wave span{
+      background:linear-gradient(to top,rgba(220,38,38,.7),#ff6060);
+      box-shadow:0 0 6px rgba(255,80,80,.8);
+    }
+    #fab-wrap.speaking #fab-wave span{
+      background:linear-gradient(to top,rgba(0,220,255,.8),#00fff0);
+      box-shadow:0 0 10px rgba(0,255,240,.9);
+    }
+    #fab-wrap.thinking #fab-wave span{opacity:.4;animation-duration:3s}
+    #end-btn{
+      position:absolute;top:2px;right:2px;z-index:3;
+      width:22px;height:22px;border-radius:50%;
+      background:#ef4444;border:2.5px solid #fff;
+      color:#fff;font-size:10px;font-weight:800;
+      cursor:pointer;display:none;align-items:center;justify-content:center;
+      box-shadow:0 2px 6px rgba(0,0,0,.3);line-height:1;
+    }
+    #end-btn.show{display:flex}
+    #lbl{
+      font-size:10px;font-weight:700;
+      color:#00e5ff;text-shadow:0 0 6px rgba(0,229,255,.6);
+      background:rgba(0,8,24,.65);backdrop-filter:blur(8px);
+      border:1px solid rgba(0,229,255,.18);
+      border-radius:20px;padding:3px 10px;
+      white-space:nowrap;text-align:center;margin-top:6px;letter-spacing:.3px;
+    }
+    #powered{
+      position:fixed;bottom:8px;left:50%;transform:translateX(-50%);
+      font-size:9px;color:rgba(255,255,255,.3);letter-spacing:.5px;z-index:1;
+    }
+  </style>
+</head>
+<body>
+<div class="bg-overlay"></div>
+
+<div id="greet-card">
+  <div class="gc-badge">EP LOCAL PRO AI ASSISTANT</div>
+  <div id="gc-name"></div>
+  <div id="gc-biz"></div>
+  <div id="gc-msg"></div>
+  <div id="gc-hint"></div>
+</div>
+
+<div id="ep-widget">
+  <div id="ai-title">EP LOCAL PRO AI</div>
+  <div id="lang-row">
+    <button class="lbtn" id="lb-en" onclick="setLang('en')">EN</button>
+    <button class="lbtn" id="lb-es" onclick="setLang('es')">ES</button>
+  </div>
+  <div id="fab-wrap">
+    <button id="end-btn" title="End call">&#x2715;</button>
+    <button id="fab" onclick="handleTalk()">
+      <div id="fab-wave">
+        <span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span>
+      </div>
+    </button>
+  </div>
+  <div id="lbl">Talk to AI</div>
+</div>
+
+<div id="powered">Powered by EP Local Pro AI</div>
+
+<script>
+(function(){
+  var DEFAULT_AGENT = 'agent_2001m53k7x82fdeb6zygz5e9gwrt';
+
+  var p        = new URLSearchParams(location.search);
+  var prospect = p.get('name')     || '';
+  var biz      = p.get('biz')      || '';
+  var bgParam  = p.get('bg')       || '';
+  var agentId  = p.get('agent')    || DEFAULT_AGENT;
+
+  if (bgParam) {
+    document.body.style.backgroundImage    = 'url('+bgParam+')';
+    document.body.style.backgroundSize     = 'cover';
+    document.body.style.backgroundPosition = 'center';
+  }
+
+  var lang = (p.get('lang') || navigator.language || 'en').toLowerCase().startsWith('es') ? 'es' : 'en';
+
+  var T = {
+    en:{
+      lbl:'Talk to AI', conn:'Connecting...', listening:'Listening...',
+      speaking:'Speaking...', ended:'Call ended', error:'Error — tap to retry',
+      gcGreet: prospect
+        ? 'Your EP Local Pro AI Assistant is ready for the live demo.'
+        : 'EP Local Pro AI Assistant is ready. Tap the button to start.',
+      gcHint:'👇 Tap the glowing button to start'
+    },
+    es:{
+      lbl:'Hablar con AI', conn:'Conectando...', listening:'Escuchando...',
+      speaking:'Hablando...', ended:'Llamada terminada', error:'Error — toca para reintentar',
+      gcGreet: prospect
+        ? 'Tu Asistente IA de EP Local Pro AI está listo para la demo.'
+        : 'El Asistente IA está listo. Toca el botón para iniciar.',
+      gcHint:'👇 Toca el botón brillante para iniciar'
+    }
+  };
+
+  function setLbl(txt){ var el=document.getElementById('lbl'); if(el) el.textContent=txt; }
+
+  function setState(state){
+    var wrap=document.getElementById('fab-wrap');
+    if(!wrap) return;
+    wrap.classList.remove('listening','speaking','thinking');
+    if(state && state!=='idle') wrap.classList.add(state);
+    var t=T[lang];
+    if(state==='listening')     setLbl(t.listening);
+    else if(state==='speaking') setLbl(t.speaking);
+    else if(state==='thinking') setLbl(t.conn);
+    else                        setLbl(t.lbl);
+  }
+
+  var session=null, callActive=false, Conversation=null, sdkReady=false;
+
+  import('https://cdn.jsdelivr.net/npm/@11labs/client@latest/dist/index.esm.js').then(function(m){
+    Conversation = m.Conversation || m.default?.Conversation || null;
+    if(Conversation) sdkReady=true;
+    else console.error('ElevenLabs Conversation not found in SDK');
+  }).catch(function(e){ console.error('ElevenLabs SDK load failed:',e); });
+
+  function normalizeStatus(s){
+    if(typeof s==='string') return s;
+    return s && (s.status || s.connection_status || '');
+  }
+
+  function normalizeMode(m){
+    if(typeof m==='string') return m;
+    return m && (m.mode || '');
+  }
+
+  async function doStart(){
+    setState('thinking');
+    document.getElementById('fab').disabled=true;
+
+    try{
+      // Try to get signed URL; fall back to direct agentId
+      var sessionConfig={agentId:agentId};
+      try{
+        var r=await fetch('/.netlify/functions/ai-session',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({agentId:agentId})
+        });
+        var d=await r.json();
+        if(d.signed_url) sessionConfig={signedUrl:d.signed_url};
+      }catch(e){ /* use agentId fallback */ }
+
+      session=await Conversation.startSession(Object.assign({},sessionConfig,{
+        onStatusChange:function(s){
+          var st=normalizeStatus(s);
+          if(st==='connected'){
+            callActive=true;
+            document.getElementById('greet-card').classList.add('hidden');
+            setState('listening');
+            document.getElementById('end-btn').classList.add('show');
+            document.getElementById('fab').disabled=false;
+          } else if(st==='disconnected'){
+            callActive=false; session=null;
+            setState('idle');
+            setLbl(T[lang].ended);
+            document.getElementById('end-btn').classList.remove('show');
+            document.getElementById('fab').disabled=false;
+            setTimeout(function(){ setLbl(T[lang].lbl); },3000);
+          }
+        },
+        onModeChange:function(m){
+          var mode=normalizeMode(m);
+          if(callActive) setState(mode==='speaking'?'speaking':'listening');
+        },
+        onError:function(e){
+          console.error('ElevenLabs error:',e);
+          callActive=false; session=null;
+          setState('idle');
+          setLbl(T[lang].error);
+          document.getElementById('end-btn').classList.remove('show');
+          document.getElementById('fab').disabled=false;
+          setTimeout(function(){ setLbl(T[lang].lbl); },4000);
+        }
+      }));
+    }catch(e){
+      console.error('doStart err:',e);
+      session=null;
+      document.getElementById('fab').disabled=false;
+      setState('idle');
+      setLbl(T[lang].error);
+      setTimeout(function(){ setLbl(T[lang].lbl); },4000);
+    }
+  }
+
+  window.handleTalk=function(){
+    if(callActive){
+      if(session){ try{ session.endSession(); }catch{} }
+      return;
+    }
+    if(!sdkReady){
+      setState('thinking');
+      var w=0, poll=setInterval(function(){
+        w+=200;
+        if(sdkReady){ clearInterval(poll); doStart(); }
+        else if(w>8000){
+          clearInterval(poll);
+          setState('idle');
+          setLbl(T[lang].error);
+          setTimeout(function(){ setLbl(T[lang].lbl); },4000);
+        }
+      },200);
+      return;
+    }
+    doStart();
+  };
+
+  document.getElementById('end-btn').addEventListener('click',function(e){
+    e.stopPropagation();
+    if(session){ try{ session.endSession(); }catch{} }
+  });
+
+  window.setLang=function(l){
+    lang=l;
+    document.getElementById('lb-en').classList.toggle('on',l==='en');
+    document.getElementById('lb-es').classList.toggle('on',l==='es');
+    applyLang();
+  };
+
+  function applyLang(){
+    if(!callActive) setLbl(T[lang].lbl);
+    var t=T[lang];
+    document.getElementById('gc-name').textContent = prospect?(lang==='en'?'Hey ':'¡Hola ')+prospect+' 👋':'';
+    document.getElementById('gc-biz').textContent  = biz?(lang==='en'?'from ':'de ')+biz:'';
+    document.getElementById('gc-msg').textContent  = t.gcGreet;
+    document.getElementById('gc-hint').textContent = t.gcHint;
+  }
+
+  setLang(lang);
+})();
+</script>
+</body>
+</html>
