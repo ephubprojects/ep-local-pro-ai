@@ -605,6 +605,7 @@ function renderDemoRow(demo, id) {
         <div class="row-actions">
           <button class="btn-action" onclick="window._adminEditDemo('${id}')">Edit</button>
           <button class="btn-action primary" onclick="window._adminConvertDemo('${id}')">Convert</button>
+          ${slug !== '—' ? `<button class="btn-action" onclick="window._setDemoShareUrl('${escHTML(slug)}');document.getElementById('local-demo-share-url').scrollIntoView({behavior:'smooth',block:'center'})" title="Copy share link to widget above">🔗 Share</button>` : ''}
           <button class="btn-action danger" onclick="window._adminDeleteDemo('${id}')">Delete</button>
         </div>
       </td>
@@ -1494,6 +1495,80 @@ async function loadSettings() {
     console.error('loadSettings error:', err);
   }
 }
+
+// ============================================================
+// AI VOICE DEMO WIDGET
+// ============================================================
+let _localDemoSession = null;
+
+window._localDemoStartCall = async function () {
+  const btn    = document.getElementById('local-demo-talk-btn');
+  const status = document.getElementById('local-demo-call-status');
+  if (btn)    { btn.disabled = true; btn.textContent = '⏳ Connecting…'; }
+  if (status)   status.textContent = 'Connecting to Demo AI…';
+
+  try {
+    // Load demoAgentId from Firestore config
+    const EP_HUB_AGENT_ID = 'agent_2001m53k7x82fdeb6zygz5e9gwrt';
+    const configSnap = await getDoc(doc(db, 'config', 'demo'));
+    const agentId = (configSnap.exists() && configSnap.data().demoAgentId)
+      ? configSnap.data().demoAgentId
+      : EP_HUB_AGENT_ID;
+
+    // Get signed URL from ai-session function
+    const res  = await fetch('/.netlify/functions/ai-session', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ agentId }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    // Load ElevenLabs ConvAI SDK
+    const { Conversation } = await import(
+      'https://cdn.jsdelivr.net/npm/@11labs/client@latest/dist/index.esm.js'
+    );
+
+    const sessionConfig = data.signed_url
+      ? { signedUrl: data.signed_url }
+      : { agentId: data.agentId };
+
+    _localDemoSession = await Conversation.startSession({
+      ...sessionConfig,
+      onStatusChange: (s) => {
+        if (!status) return;
+        if (s === 'connected')    status.textContent = '🟢 Connected — speak now';
+        else if (s === 'disconnected') { status.textContent = ''; _localDemoSession = null; }
+        else status.textContent = s;
+        if (s === 'connected' && btn) { btn.disabled = false; btn.textContent = '🎤 Talk to Demo AI'; }
+      },
+      onError: (e) => {
+        if (status) status.textContent = '❌ ' + (e?.message || String(e));
+        if (btn) { btn.disabled = false; btn.textContent = '🎤 Talk to Demo AI'; }
+      },
+    });
+  } catch (e) {
+    if (status) status.textContent = '❌ ' + e.message;
+    if (btn) { btn.disabled = false; btn.textContent = '🎤 Talk to Demo AI'; }
+  }
+};
+
+window._localDemoEndCall = function () {
+  if (_localDemoSession) {
+    try { _localDemoSession.endSession(); } catch {}
+    _localDemoSession = null;
+  }
+  const status = document.getElementById('local-demo-call-status');
+  if (status) status.textContent = '';
+  const btn = document.getElementById('local-demo-talk-btn');
+  if (btn) { btn.disabled = false; btn.textContent = '🎤 Talk to Demo AI'; }
+};
+
+// Called from demo table rows to populate the share URL field
+window._setDemoShareUrl = function (slug) {
+  const input = document.getElementById('local-demo-share-url');
+  if (input) input.value = location.origin + '/demo/' + slug;
+};
 
 // ============================================================
 // ESCAPE HELPERS
