@@ -91,6 +91,7 @@ function badgeHTML(status) {
   const map = {
     active:    'badge-active',
     demo:      'badge-demo',
+    live:      'badge-live',
     inactive:  'badge-inactive',
     trial:     'badge-trial',
     invited:   'badge-invited',
@@ -589,6 +590,7 @@ function renderDemoRow(demo, id) {
   const ref    = demo.referrerUsername || '—';
   const created = fmtDate(demo.createdAt);
   const bizEncoded = encodeURIComponent(demo.bizName || '');
+  const isLive = demo.status === 'live';
 
   return `
     <tr>
@@ -604,6 +606,11 @@ function renderDemoRow(demo, id) {
       <td>${escHTML(created)}</td>
       <td>
         <div class="row-actions">
+          <button class="btn-action ${isLive ? 'live-on' : 'live-off'}"
+            onclick="window._adminToggleDemoLive('${id}','${demo.status || 'demo'}')"
+            title="${isLive ? 'Click to set back to Demo mode' : 'Click to go Live'}">
+            ${isLive ? '🟢 Live' : '⚪ Demo'}
+          </button>
           <button class="btn-action" onclick="window._adminEditDemo('${id}')">Edit</button>
           <button class="btn-action primary" onclick="window._adminConvertDemo('${id}')">Convert</button>
           <button class="btn-action" onclick="window._setDemoShareUrl('${bizEncoded}');document.getElementById('local-demo-share-url').scrollIntoView({behavior:'smooth',block:'center'})" title="Copy AI demo link to widget above">🔗 Share</button>
@@ -1750,6 +1757,28 @@ window._adminDeleteTemplate = async function (id) {
 };
 
 // ============================================================
+// GO LIVE TOGGLE
+// ============================================================
+async function toggleDemoLive(id, currentStatus) {
+  const goingLive = currentStatus !== 'live';
+  const newStatus = goingLive ? 'live' : 'demo';
+  const label     = goingLive ? 'Go Live' : 'Set back to Demo';
+
+  if (!confirm(`${label} for this demo?\n\n${goingLive
+    ? 'The business owner will be able to use this as their personalized AI assistant page.'
+    : 'This will return the page to demo/preview mode.'}`)) return;
+
+  try {
+    await updateDoc(doc(db, 'demos', id), { status: newStatus, updatedAt: serverTimestamp() });
+    showToast(goingLive ? '🟢 Demo is now Live!' : '⚪ Reverted to Demo mode', 'success');
+    loadDemos();
+  } catch (err) {
+    console.error('toggleDemoLive error:', err);
+    showToast('Error updating status', 'error');
+  }
+}
+
+// ============================================================
 // ESCAPE HELPERS
 // ============================================================
 function escHTML(str) {
@@ -1786,6 +1815,7 @@ async function cancelUserAccount(uid, name) {
 window._adminEditDemo        = id => openEditDemoModal(id);
 window._adminDeleteDemo      = id => deleteDemoConfirm(id);
 window._adminConvertDemo     = id => convertDemoToAccount(id);
+window._adminToggleDemoLive  = (id, status) => toggleDemoLive(id, status);
 window._adminToggleBizDetail = id => toggleBizDetail(id);
 window._adminViewBiz         = id => viewBiz(id);
 window._adminSuspendBiz      = (id, name) => suspendBiz(id, name);

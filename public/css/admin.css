@@ -448,6 +448,36 @@
   color: var(--red-700, #b91c1c);
 }
 
+.badge-live {
+  background: #d1fae5;
+  color: #065f46;
+  font-weight: 800;
+}
+
+.btn-action.live-on {
+  background: #10b981;
+  border-color: #10b981;
+  color: #fff;
+  font-weight: 700;
+}
+
+.btn-action.live-on:hover {
+  background: #059669;
+  border-color: #059669;
+}
+
+.btn-action.live-off {
+  background: #fff;
+  border-color: #cbd5e1;
+  color: #94a3b8;
+}
+
+.btn-action.live-off:hover {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #15803d;
+}
+
 /* ── Activity Feed ────────────────────────────────────────── */
 .activity-feed {
   display: flex;
