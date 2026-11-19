@@ -2345,7 +2345,7 @@ function _renderBookingsTable(rows) {
   const tbody = document.getElementById('bookingsTableBody');
   if (!tbody) return;
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:20px">No appointments yet</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:24px">No appointments yet</td></tr>`;
     return;
   }
   tbody.innerHTML = '';
@@ -2354,20 +2354,34 @@ function _renderBookingsTable(rows) {
     const badgeCls = status === 'confirmed' ? 'badge-booking-confirmed'
                    : status === 'cancelled' ? 'badge-booking-cancelled'
                    : 'badge-booking-pending';
+    const phone = b.clientPhone || '';
+    const phoneCell = phone
+      ? `<div class="bk-phone-cell">
+           <a class="bk-phone-icon call" href="tel:${phone}" title="Call">📞</a>
+           <a class="bk-phone-icon wa"   href="https://wa.me/${phone.replace(/\D/g,'')}" target="_blank" title="WhatsApp">💬</a>
+           <span>${phone}</span>
+         </div>`
+      : '—';
+
     const tr = document.createElement('tr');
     tr.dataset.id = b.id;
     tr.innerHTML = `
-      <td title="${b.clientName || ''}">${b.clientName  || '—'}</td>
-      <td title="${b.clientEmail|| ''}">${b.clientEmail || '—'}</td>
-      <td>${b.clientPhone || '—'}</td>
+      <td style="font-weight:600">${b.clientName  || '—'}</td>
+      <td><a href="mailto:${b.clientEmail||''}" style="color:var(--indigo);text-decoration:none">${b.clientEmail || '—'}</a></td>
+      <td>${phoneCell}</td>
       <td>${b.date  || '—'}</td>
       <td>${b.time  || '—'}</td>
       <td title="${b.reason||''}">${b.reason || '—'}</td>
       <td title="${b.notes ||''}">${b.notes  || '—'}</td>
-      <td><span class="badge ${badgeCls}">${status}</span></td>
-      <td style="white-space:nowrap">
-        ${status !== 'confirmed' ? `<button class="btn-action btn-sm" onclick="window._adminConfirmBooking('${b.id}')">✓</button>` : ''}
-        ${status !== 'cancelled' ? `<button class="btn-action btn-sm" style="margin-left:4px" onclick="window._adminCancelBooking('${b.id}')">✕</button>` : ''}
+      <td><span class="${badgeCls}">${status.toUpperCase()}</span></td>
+      <td>
+        <div class="bk-actions">
+          <button class="bk-btn view"    title="View"    onclick="window._adminViewBooking('${b.id}')">👁</button>
+          <button class="bk-btn edit"    title="Edit"    onclick="window._adminEditBooking('${b.id}')">✏️</button>
+          <button class="bk-btn del"     title="Delete"  onclick="window._adminDeleteBooking('${b.id}')">🗑</button>
+          ${status !== 'confirmed' ? `<button class="bk-btn confirm" title="Confirm" onclick="window._adminConfirmBooking('${b.id}')">✓</button>` : ''}
+          ${status !== 'cancelled' ? `<button class="bk-btn cancel"  title="Cancel"  onclick="window._adminCancelBooking('${b.id}')">✕</button>` : ''}
+        </div>
       </td>`;
     tbody.appendChild(tr);
   });
@@ -2407,6 +2421,70 @@ function _calExportCsv() {
   a.download = `bookings-${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
 }
+
+window._adminViewBooking = function(id) {
+  const b = _calAllBookings.find(x => x.id === id);
+  if (!b) return;
+  alert(
+    `📋 Appointment Details\n\n` +
+    `Name:   ${b.clientName  || '—'}\n` +
+    `Email:  ${b.clientEmail || '—'}\n` +
+    `Phone:  ${b.clientPhone || '—'}\n` +
+    `Date:   ${b.date  || '—'}  ${b.time || ''}\n` +
+    `Reason: ${b.reason || '—'}\n` +
+    `Notes:  ${b.notes  || '—'}\n` +
+    `Status: ${b.status || 'pending'}`
+  );
+};
+
+window._adminEditBooking = function(id) {
+  const b = _calAllBookings.find(x => x.id === id);
+  if (!b) return;
+  document.getElementById('editBookingId').value    = id;
+  document.getElementById('editBfName').value       = b.clientName  || '';
+  document.getElementById('editBfPhone').value      = b.clientPhone || '';
+  document.getElementById('editBfEmail').value      = b.clientEmail || '';
+  document.getElementById('editBfDate').value       = b.date   || '';
+  document.getElementById('editBfTime').value       = b.time   || '';
+  document.getElementById('editBfReason').value     = b.reason || '';
+  document.getElementById('editBfNotes').value      = b.notes  || '';
+  document.getElementById('editBfStatus').value     = b.status || 'pending';
+  document.getElementById('editBookingModal')?.classList.remove('hidden');
+};
+
+window._adminSaveEditBooking = async function() {
+  const id  = document.getElementById('editBookingId')?.value;
+  if (!id) return;
+  const btn = document.getElementById('saveEditBookingBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    await updateDoc(doc(db, 'bookings', id), {
+      clientName:  document.getElementById('editBfName').value.trim(),
+      clientPhone: document.getElementById('editBfPhone').value.trim(),
+      clientEmail: document.getElementById('editBfEmail').value.trim(),
+      date:        document.getElementById('editBfDate').value,
+      time:        document.getElementById('editBfTime').value,
+      reason:      document.getElementById('editBfReason').value.trim(),
+      notes:       document.getElementById('editBfNotes').value.trim(),
+      status:      document.getElementById('editBfStatus').value
+    });
+    document.getElementById('editBookingModal')?.classList.add('hidden');
+    window._adminLoadBookings();
+  } catch(e) {
+    alert('Error saving: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Save Changes'; }
+  }
+};
+
+window._adminDeleteBooking = async function(id) {
+  if (!confirm('Permanently delete this appointment?')) return;
+  try {
+    const { deleteDoc: _del } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    await _del(doc(db, 'bookings', id));
+    window._adminLoadBookings();
+  } catch(e) { alert('Error deleting: ' + e.message); }
+};
 
 window._adminConfirmBooking = async function(id) {
   if (!confirm('Mark this booking as confirmed?')) return;

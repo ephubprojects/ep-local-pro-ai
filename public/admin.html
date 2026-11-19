@@ -1081,6 +1081,63 @@
 </div>
 
 
-<script type="module" src="/js/admin.js?v=3"></script>
+<!-- ══════════════ MODAL: Edit Booking ══════════════ -->
+<div class="modal-overlay hidden" id="editBookingModal">
+  <div class="modal-card" style="max-width:520px">
+    <div class="modal-header">
+      <h3>Edit Appointment</h3>
+      <button class="modal-close" data-close="editBookingModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editBookingId" />
+      <div class="form-row">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="editBfName" placeholder="Jane Smith" />
+        </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="tel" id="editBfPhone" placeholder="+1 (555) 000-0000" />
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:10px">
+        <label>Email</label>
+        <input type="email" id="editBfEmail" placeholder="jane@email.com" />
+      </div>
+      <div class="form-row" style="margin-top:10px">
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="editBfDate" />
+        </div>
+        <div class="form-group">
+          <label>Time</label>
+          <input type="time" id="editBfTime" />
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:10px">
+        <label>Reason</label>
+        <input type="text" id="editBfReason" placeholder="Purpose of appointment" />
+      </div>
+      <div class="form-group" style="margin-top:10px">
+        <label>Notes</label>
+        <textarea id="editBfNotes" rows="2" placeholder="Internal notes…" style="resize:vertical"></textarea>
+      </div>
+      <div class="form-group" style="margin-top:10px">
+        <label>Status</label>
+        <select id="editBfStatus">
+          <option value="pending">Pending</option>
+          <option value="confirmed">Confirmed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" data-close="editBookingModal">Cancel</button>
+      <button class="btn-save" id="saveEditBookingBtn" onclick="window._adminSaveEditBooking()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/js/admin.js?v=4"></script>
 </body>
 </html>

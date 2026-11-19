@@ -1945,6 +1945,36 @@ input[type="color"]#catColorPicker {
 .bookings-table tr:last-child td { border-bottom: none; }
 .bookings-table tr:hover td { background: var(--light, #f8fafc); }
 
-.badge-booking-pending   { background: #fef3c7; color: #92400e; font-weight: 700; }
-.badge-booking-confirmed { background: #d1fae5; color: #065f46; font-weight: 700; }
-.badge-booking-cancelled { background: #fee2e2; color: #991b1b; font-weight: 700; }
+.badge-booking-pending   { background: #fef3c7; color: #92400e;  font-weight: 800; letter-spacing:.03em; padding:3px 10px; border-radius:6px; font-size:0.72rem; }
+.badge-booking-confirmed { background: #d1fae5; color: #065f46;  font-weight: 800; letter-spacing:.03em; padding:3px 10px; border-radius:6px; font-size:0.72rem; }
+.badge-booking-cancelled { background: #fee2e2; color: #991b1b;  font-weight: 800; letter-spacing:.03em; padding:3px 10px; border-radius:6px; font-size:0.72rem; }
+
+/* Phone icons in bookings table */
+.bk-phone-cell { display:flex; align-items:center; gap:5px; white-space:nowrap; }
+.bk-phone-icon {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:22px; height:22px; border-radius:50%; font-size:12px;
+  text-decoration:none; flex-shrink:0; transition:opacity .15s;
+}
+.bk-phone-icon:hover { opacity:.75; }
+.bk-phone-icon.call { background:#dcfce7; color:#15803d; }
+.bk-phone-icon.wa   { background:#d1fae5; color:#065f46; }
+
+/* Booking action icon buttons */
+.bk-actions { display:flex; align-items:center; gap:4px; white-space:nowrap; }
+.bk-btn {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:28px; height:28px; border-radius:6px; border:1px solid;
+  font-size:13px; cursor:pointer; transition:all .15s; background:#fff;
+  flex-shrink:0;
+}
+.bk-btn.view     { border-color:#c7d2fe; color:#4338ca; }
+.bk-btn.edit     { border-color:#fde68a; color:#b45309; }
+.bk-btn.del      { border-color:#fecaca; color:#dc2626; }
+.bk-btn.confirm  { border-color:#bbf7d0; color:#15803d; }
+.bk-btn.cancel   { border-color:#fecaca; color:#dc2626; }
+.bk-btn:hover.view     { background:#e0e7ff; }
+.bk-btn:hover.edit     { background:#fef3c7; }
+.bk-btn:hover.del      { background:#fee2e2; }
+.bk-btn:hover.confirm  { background:#dcfce7; }
+.bk-btn:hover.cancel   { background:#fee2e2; }
