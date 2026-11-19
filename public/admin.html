@@ -1197,6 +1197,27 @@
           </div>
         </div>
 
+        <!-- Job Details -->
+        <div class="doc-form-section">
+          <div class="doc-fsec-title">🔧 <span data-en="Job Details" data-es="Detalles del Trabajo">Job Details</span></div>
+          <div style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
+            <div style="flex:1;min-width:0">
+              <label class="doc-field-label" data-en="Ordered By" data-es="Ordenado Por">Ordered By</label>
+              <input type="text" id="docJobOrderedBy" class="doc-input" placeholder="Name of person who ordered"
+                oninput="window._docUpdatePreview()"/>
+            </div>
+            <button class="doc-voice-btn" style="margin-top:16px" onclick="window._docVoiceField('docJobOrderedBy')" title="Voice input">🎤</button>
+          </div>
+          <div style="display:flex;gap:5px;align-items:center">
+            <div style="flex:1;min-width:0">
+              <label class="doc-field-label" data-en="Job Location" data-es="Ubicación del Trabajo">Job Location</label>
+              <input type="text" id="docJobLocation" class="doc-input" placeholder="Job site address"
+                oninput="window._docUpdatePreview()"/>
+            </div>
+            <button class="doc-voice-btn" style="margin-top:16px" onclick="window._docVoiceField('docJobLocation')" title="Voice input">🎤</button>
+          </div>
+        </div>
+
         <!-- Line Items (invoice/estimate/receipt) -->
         <div class="doc-form-section" id="docLineItemsSection">
           <div class="doc-fsec-title" style="display:flex;justify-content:space-between;align-items:center">

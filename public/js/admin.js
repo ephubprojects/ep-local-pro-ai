@@ -2574,8 +2574,10 @@ window._openDocCreator = function(existingDoc) {
     _setDocVal('docNumber',     existingDoc.docNumber || '');
     _setDocVal('docDate',       existingDoc.docDate || '');
     _setDocVal('docDueDate',    existingDoc.docDueDate || '');
-    _setDocVal('docNotes',      existingDoc.notes || '');
-    _setDocVal('docContractText', existingDoc.contractText || '');
+    _setDocVal('docNotes',         existingDoc.notes        || '');
+    _setDocVal('docContractText',  existingDoc.contractText || '');
+    _setDocVal('docJobOrderedBy',  existingDoc.jobOrderedBy || '');
+    _setDocVal('docJobLocation',   existingDoc.jobLocation  || '');
     if (existingDoc.taxRate !== undefined) _setDocVal('docTaxRate', existingDoc.taxRate);
     if (existingDoc.logoDataUrl) {
       _docLogoDataUrl = existingDoc.logoDataUrl;
@@ -2588,7 +2590,8 @@ window._openDocCreator = function(existingDoc) {
     // Clear form
     ['docBizName','docBizAddress','docBizPhone','docBizEmail',
      'docCustName','docCustEmail','docCustPhone','docCustAddress',
-     'docNumber','docDate','docDueDate','docNotes','docContractText'].forEach(id => _setDocVal(id,''));
+     'docNumber','docDate','docDueDate','docNotes','docContractText',
+     'docJobOrderedBy','docJobLocation'].forEach(id => _setDocVal(id,''));
     _setDocVal('docTaxRate', '0');
     // Set today's date
     _setDocVal('docDate', new Date().toISOString().slice(0,10));
@@ -2741,9 +2744,11 @@ function _docGenerateHTML() {
   const docNumber  = document.getElementById('docNumber')?.value     || '';
   const docDate    = document.getElementById('docDate')?.value       || '';
   const docDueDate = document.getElementById('docDueDate')?.value    || '';
-  const notes      = document.getElementById('docNotes')?.value      || '';
-  const contractTxt= document.getElementById('docContractText')?.value|| '';
-  const taxRate    = parseFloat(document.getElementById('docTaxRate')?.value || 0);
+  const notes       = document.getElementById('docNotes')?.value        || '';
+  const contractTxt = document.getElementById('docContractText')?.value || '';
+  const jobOrderedBy= document.getElementById('docJobOrderedBy')?.value || '';
+  const jobLocation = document.getElementById('docJobLocation')?.value  || '';
+  const taxRate     = parseFloat(document.getElementById('docTaxRate')?.value || 0);
 
   const subtotal   = _docItems.reduce((s, it) => s + (it.qty||0)*(it.price||0), 0);
   const taxAmt     = subtotal * taxRate / 100;
@@ -2848,6 +2853,24 @@ function _docGenerateHTML() {
     </div>
   </div>
 
+  ${(jobOrderedBy || jobLocation) ? `
+  <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+    ${jobOrderedBy ? `
+    <div style="flex:1;min-width:160px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;">
+      <div style="font-size:0.68rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">
+        ${_docLang === 'es' ? 'Ordenado Por' : 'Ordered By'}
+      </div>
+      <div style="font-size:0.9rem;font-weight:600;color:#1e293b;">${_esc(jobOrderedBy)}</div>
+    </div>` : ''}
+    ${jobLocation ? `
+    <div style="flex:1;min-width:160px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;">
+      <div style="font-size:0.68rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">
+        ${_docLang === 'es' ? 'Ubicación del Trabajo' : 'Job Location'}
+      </div>
+      <div style="font-size:0.9rem;font-weight:600;color:#1e293b;">${_esc(jobLocation)}</div>
+    </div>` : ''}
+  </div>` : ''}
+
   ${_docType !== 'contract' ? `
   <table>
     <thead>
@@ -2903,8 +2926,10 @@ window._docSave = async function() {
       docNumber:    document.getElementById('docNumber')?.value     || '',
       docDate:      document.getElementById('docDate')?.value       || '',
       docDueDate:   document.getElementById('docDueDate')?.value    || '',
-      notes:        document.getElementById('docNotes')?.value      || '',
-      contractText: document.getElementById('docContractText')?.value|| '',
+      notes:        document.getElementById('docNotes')?.value        || '',
+      contractText: document.getElementById('docContractText')?.value || '',
+      jobOrderedBy: document.getElementById('docJobOrderedBy')?.value || '',
+      jobLocation:  document.getElementById('docJobLocation')?.value  || '',
       taxRate:      parseFloat(document.getElementById('docTaxRate')?.value || 0),
       items:        _docItems,
       logoDataUrl:  _docLogoDataUrl,
@@ -2987,8 +3012,10 @@ window._docSaveTemplate = async function() {
       bizAddress:   document.getElementById('docBizAddress')?.value || '',
       bizPhone:     document.getElementById('docBizPhone')?.value   || '',
       bizEmail:     document.getElementById('docBizEmail')?.value   || '',
-      notes:        document.getElementById('docNotes')?.value      || '',
-      contractText: document.getElementById('docContractText')?.value|| '',
+      notes:        document.getElementById('docNotes')?.value        || '',
+      contractText: document.getElementById('docContractText')?.value || '',
+      jobOrderedBy: document.getElementById('docJobOrderedBy')?.value || '',
+      jobLocation:  document.getElementById('docJobLocation')?.value  || '',
       taxRate:      parseFloat(document.getElementById('docTaxRate')?.value || 0),
       items:        _docItems,
       logoDataUrl:  _docLogoDataUrl,
