@@ -2531,7 +2531,8 @@ const DOC_LABELS = {
     billTo:'Bill To', date:'Date', due:'Due Date', docNum:'Document #',
     desc:'Description', qty:'Qty', price:'Price', total:'Total',
     subtotal:'Subtotal', tax:'Tax', grandTotal:'TOTAL',
-    notes:'Notes', terms:'Terms & Conditions',
+    advance:'Advance Payment', balance:'Remaining Balance',
+    notes:'Notes', terms:'Terms & Conditions', tcTitle:'TERMS AND CONDITIONS',
     thankYou:'Thank you for your business!',
     page:'Page'
   },
@@ -2540,7 +2541,8 @@ const DOC_LABELS = {
     billTo:'Facturar a', date:'Fecha', due:'Vencimiento', docNum:'Número',
     desc:'Descripción', qty:'Cant.', price:'Precio', total:'Total',
     subtotal:'Subtotal', tax:'Impuesto', grandTotal:'TOTAL',
-    notes:'Notas', terms:'Términos y Condiciones',
+    advance:'Anticipo Recibido', balance:'Saldo Pendiente',
+    notes:'Notas', terms:'Términos y Condiciones', tcTitle:'TÉRMINOS Y CONDICIONES',
     thankYou:'¡Gracias por su preferencia!',
     page:'Página'
   }
@@ -2578,7 +2580,14 @@ window._openDocCreator = function(existingDoc) {
     _setDocVal('docContractText',  existingDoc.contractText || '');
     _setDocVal('docJobOrderedBy',  existingDoc.jobOrderedBy || '');
     _setDocVal('docJobLocation',   existingDoc.jobLocation  || '');
+    _setDocVal('docAdvancePayment', existingDoc.advance || 0);
     if (existingDoc.taxRate !== undefined) _setDocVal('docTaxRate', existingDoc.taxRate);
+    // Restore T&C
+    const tcChecked = !!existingDoc.includeTC;
+    const tcEl = document.getElementById('docIncludeTC');
+    if (tcEl) tcEl.checked = tcChecked;
+    document.getElementById('docTCSection')?.classList.toggle('hidden', !tcChecked);
+    _setDocVal('docTermsText', existingDoc.termsText || '');
     if (existingDoc.logoDataUrl) {
       _docLogoDataUrl = existingDoc.logoDataUrl;
       const img = document.getElementById('docLogoImg');
@@ -2593,6 +2602,12 @@ window._openDocCreator = function(existingDoc) {
      'docNumber','docDate','docDueDate','docNotes','docContractText',
      'docJobOrderedBy','docJobLocation'].forEach(id => _setDocVal(id,''));
     _setDocVal('docTaxRate', '0');
+    _setDocVal('docAdvancePayment', '0');
+    // Reset T&C
+    const tcEl2 = document.getElementById('docIncludeTC');
+    if (tcEl2) tcEl2.checked = false;
+    document.getElementById('docTCSection')?.classList.add('hidden');
+    _setDocVal('docTermsText', '');
     // Set today's date
     _setDocVal('docDate', new Date().toISOString().slice(0,10));
     // Auto-increment doc number
@@ -2720,6 +2735,11 @@ window._docUpdateTotals = function() {
   _docItems.forEach((it, i) => {
     if (rows[i]) rows[i].textContent = '$' + ((it.qty||0)*(it.price||0)).toFixed(2);
   });
+  // Advance payment & remaining balance
+  const advance  = parseFloat(document.getElementById('docAdvancePayment')?.value || 0);
+  const balance  = Math.max(0, grand - advance);
+  if (document.getElementById('docBalanceDue')) document.getElementById('docBalanceDue').textContent = '$' + balance.toFixed(2);
+  window._docUpdatePreview();
 };
 
 // ── Preview ───────────────────────────────────────────────────
@@ -2749,10 +2769,14 @@ function _docGenerateHTML() {
   const jobOrderedBy= document.getElementById('docJobOrderedBy')?.value || '';
   const jobLocation = document.getElementById('docJobLocation')?.value  || '';
   const taxRate     = parseFloat(document.getElementById('docTaxRate')?.value || 0);
+  const advance     = parseFloat(document.getElementById('docAdvancePayment')?.value || 0);
+  const includeTC   = document.getElementById('docIncludeTC')?.checked || false;
+  const termsText   = document.getElementById('docTermsText')?.value || '';
 
   const subtotal   = _docItems.reduce((s, it) => s + (it.qty||0)*(it.price||0), 0);
   const taxAmt     = subtotal * taxRate / 100;
   const grand      = subtotal + taxAmt;
+  const balance    = Math.max(0, grand - advance);
 
   const logoHtml = _docLogoDataUrl
     ? `<img src="${_docLogoDataUrl}" alt="Logo" style="max-height:70px;max-width:150px;object-fit:contain;"/>`
@@ -2890,6 +2914,8 @@ function _docGenerateHTML() {
     <tr><td>${L.subtotal}</td><td style="text-align:right">$${subtotal.toFixed(2)}</td></tr>
     ${taxRate > 0 ? `<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right">$${taxAmt.toFixed(2)}</td></tr>` : ''}
     <tr class="grand"><td><strong>${L.grandTotal}</strong></td><td style="text-align:right"><strong>$${grand.toFixed(2)}</strong></td></tr>
+    ${advance > 0 ? `<tr><td style="color:#15803d;">${L.advance}</td><td style="text-align:right;color:#15803d;">- $${advance.toFixed(2)}</td></tr>` : ''}
+    ${advance > 0 ? `<tr class="balance-due"><td><strong style="color:#dc2626;">${L.balance}</strong></td><td style="text-align:right;color:#dc2626;font-weight:800;font-size:1.1rem;">$${balance.toFixed(2)}</td></tr>` : ''}
   </table>` : ''}
 
   ${_docType === 'contract' && contractTxt ? `
@@ -2897,6 +2923,14 @@ function _docGenerateHTML() {
   <div class="doc-contract">${_esc(contractTxt)}</div>` : ''}
 
   ${notes ? `<div class="doc-notes">📌 ${_esc(notes)}</div>` : ''}
+
+  ${includeTC && termsText ? `
+  <div style="margin-top:28px;padding-top:16px;border-top:2px solid #e2e8f0;">
+    <div style="font-size:0.68rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;">
+      ⚖️ ${L.tcTitle}
+    </div>
+    <div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;">${_esc(termsText)}</div>
+  </div>` : ''}
 
   <div class="doc-footer">
     <span>${L.thankYou}</span>
@@ -2930,6 +2964,9 @@ window._docSave = async function() {
       contractText: document.getElementById('docContractText')?.value || '',
       jobOrderedBy: document.getElementById('docJobOrderedBy')?.value || '',
       jobLocation:  document.getElementById('docJobLocation')?.value  || '',
+      advance:      parseFloat(document.getElementById('docAdvancePayment')?.value || 0),
+      includeTC:    document.getElementById('docIncludeTC')?.checked  || false,
+      termsText:    document.getElementById('docTermsText')?.value    || '',
       taxRate:      parseFloat(document.getElementById('docTaxRate')?.value || 0),
       items:        _docItems,
       logoDataUrl:  _docLogoDataUrl,
@@ -3016,6 +3053,8 @@ window._docSaveTemplate = async function() {
       contractText: document.getElementById('docContractText')?.value || '',
       jobOrderedBy: document.getElementById('docJobOrderedBy')?.value || '',
       jobLocation:  document.getElementById('docJobLocation')?.value  || '',
+      includeTC:    document.getElementById('docIncludeTC')?.checked  || false,
+      termsText:    document.getElementById('docTermsText')?.value    || '',
       taxRate:      parseFloat(document.getElementById('docTaxRate')?.value || 0),
       items:        _docItems,
       logoDataUrl:  _docLogoDataUrl,
@@ -3072,9 +3111,17 @@ window._docLoadTemplate = async function(id) {
   _setDocVal('docBizAddress', tpl.bizAddress || '');
   _setDocVal('docBizPhone',   tpl.bizPhone || '');
   _setDocVal('docBizEmail',   tpl.bizEmail || '');
-  _setDocVal('docNotes',      tpl.notes || '');
-  _setDocVal('docContractText', tpl.contractText || '');
-  _setDocVal('docTaxRate',    tpl.taxRate || 0);
+  _setDocVal('docNotes',         tpl.notes        || '');
+  _setDocVal('docContractText',  tpl.contractText || '');
+  _setDocVal('docJobOrderedBy',  tpl.jobOrderedBy || '');
+  _setDocVal('docJobLocation',   tpl.jobLocation  || '');
+  _setDocVal('docTaxRate',       tpl.taxRate      || 0);
+  _setDocVal('docAdvancePayment', 0);
+  const tplTcEl = document.getElementById('docIncludeTC');
+  const tplTcChecked = !!tpl.includeTC;
+  if (tplTcEl) tplTcEl.checked = tplTcChecked;
+  document.getElementById('docTCSection')?.classList.toggle('hidden', !tplTcChecked);
+  _setDocVal('docTermsText', tpl.termsText || '');
   if (_docLogoDataUrl) {
     const img = document.getElementById('docLogoImg');
     const ph  = document.getElementById('docLogoPlaceholder');
@@ -3094,6 +3141,123 @@ window._docDeleteTemplate = async function(id) {
     _docAllTemplates = _docAllTemplates.filter(t => t.id !== id);
     _renderDocTemplates();
   } catch(e) { alert('Error: ' + e.message); }
+};
+
+// ── Terms & Conditions ────────────────────────────────────────
+const DOC_TC_DEFAULT = {
+  en: `TERMS AND CONDITIONS
+
+1. Payment: Full payment is due upon completion of work unless a written payment plan is agreed upon. A finance charge of 1.5% per month (18% per annum) will be applied to all past-due balances.
+
+2. Advance Payment: Any deposit or advance payment applied to this estimate/invoice is non-refundable once materials have been ordered or work has commenced.
+
+3. Scope of Work: Work is limited to items described herein. Additional work or materials discovered during service will be quoted and approved separately before proceeding.
+
+4. Warranty: Workmanship is guaranteed for 90 days from the date of completion. Parts and materials carry only the manufacturer's warranty.
+
+5. Right of Access: Customer shall provide safe and unobstructed access to the work area. Delays caused by lack of access may result in additional charges at our standard hourly rate.
+
+6. Permits & Codes: All work will be performed in accordance with applicable local plumbing codes. Customer is responsible for permit fees unless otherwise specified in writing.
+
+7. Limitation of Liability: Our liability is limited to the value of services rendered. We are not responsible for pre-existing conditions, concealed defects, or consequential damages.
+
+8. Cancellation Policy: Cancellations must be made at least 24 hours in advance. Late cancellations or no-shows may be subject to a service call fee.
+
+9. Lien Rights: We reserve the right to file a mechanic's lien on the property for unpaid services as permitted by applicable law.
+
+10. Governing Law: This agreement is governed by the laws of the state where services are rendered. Customer acknowledges reading, understanding, and accepting these terms.`,
+
+  es: `TÉRMINOS Y CONDICIONES
+
+1. Pago: El pago total vence al completar el trabajo, salvo acuerdo escrito de plan de pagos. Se aplicará un cargo financiero del 1.5% mensual (18% anual) a todos los saldos vencidos.
+
+2. Anticipo: Cualquier depósito o anticipo aplicado a este presupuesto/factura no es reembolsable una vez que los materiales han sido ordenados o el trabajo ha comenzado.
+
+3. Alcance del Trabajo: El trabajo se limita a los elementos descritos en este documento. El trabajo o materiales adicionales descubiertos durante el servicio serán cotizados y aprobados por separado antes de proceder.
+
+4. Garantía: La mano de obra tiene garantía de 90 días a partir de la fecha de terminación. Las piezas y materiales tienen únicamente la garantía del fabricante.
+
+5. Derecho de Acceso: El cliente proporcionará acceso seguro y sin obstrucciones al área de trabajo. Los retrasos por falta de acceso pueden resultar en cargos adicionales a nuestra tarifa horaria estándar.
+
+6. Permisos y Códigos: Todo el trabajo se realizará de acuerdo con los códigos de plomería locales aplicables. El cliente es responsable de los honorarios de permisos, salvo que se especifique por escrito.
+
+7. Limitación de Responsabilidad: Nuestra responsabilidad se limita al costo de los servicios prestados. No somos responsables de condiciones preexistentes, defectos ocultos ni daños consecuentes.
+
+8. Política de Cancelación: Las cancelaciones deben realizarse con al menos 24 horas de anticipación. Las cancelaciones tardías o ausencias pueden estar sujetas a una tarifa por llamada de servicio.
+
+9. Derecho de Retención: Nos reservamos el derecho de presentar un gravamen de mecánico sobre la propiedad por servicios no pagados, según lo permitido por la ley aplicable.
+
+10. Ley Aplicable: Este acuerdo se rige por las leyes del estado donde se prestan los servicios. El cliente reconoce haber leído, comprendido y aceptado estos términos.`
+};
+
+window._docToggleTC = function() {
+  const checked = document.getElementById('docIncludeTC')?.checked;
+  document.getElementById('docTCSection')?.classList.toggle('hidden', !checked);
+  if (checked) {
+    const ta = document.getElementById('docTermsText');
+    if (ta && !ta.value.trim()) ta.value = DOC_TC_DEFAULT[_docLang] || DOC_TC_DEFAULT.en;
+  }
+  window._docUpdatePreview();
+};
+
+window._docResetTC = function() {
+  const ta = document.getElementById('docTermsText');
+  if (ta) ta.value = DOC_TC_DEFAULT[_docLang] || DOC_TC_DEFAULT.en;
+  window._docUpdatePreview();
+};
+
+// ── Share & Copy ──────────────────────────────────────────────
+function _docBuildSummaryText() {
+  const L         = DOC_LABELS[_docLang];
+  const typeLabel = L[_docType] || _docType;
+  const bizName   = document.getElementById('docBizName')?.value  || '';
+  const custName  = document.getElementById('docCustName')?.value || '';
+  const docNum    = document.getElementById('docNumber')?.value   || '';
+  const docDate   = document.getElementById('docDate')?.value     || '';
+  const jobOrderedBy = document.getElementById('docJobOrderedBy')?.value || '';
+  const jobLocation  = document.getElementById('docJobLocation')?.value  || '';
+  const taxRate   = parseFloat(document.getElementById('docTaxRate')?.value || 0);
+  const advance   = parseFloat(document.getElementById('docAdvancePayment')?.value || 0);
+  const subtotal  = _docItems.reduce((s, it) => s + (it.qty||0)*(it.price||0), 0);
+  const grand     = subtotal * (1 + taxRate/100);
+  const balance   = Math.max(0, grand - advance);
+
+  let t = `*${typeLabel.toUpperCase()}${docNum ? ' #' + docNum : ''}*\n`;
+  if (docDate)       t += `${L.date}: ${docDate}\n`;
+  if (bizName)       t += `From: ${bizName}\n`;
+  if (custName)      t += `${L.billTo}: ${custName}\n`;
+  if (jobOrderedBy)  t += `${_docLang === 'es' ? 'Ordenado por' : 'Ordered by'}: ${jobOrderedBy}\n`;
+  if (jobLocation)   t += `${_docLang === 'es' ? 'Ubicación' : 'Job Location'}: ${jobLocation}\n`;
+  t += '\n';
+  _docItems.forEach(it => {
+    if (it.desc) t += `• ${it.desc}  x${it.qty||0}  $${((it.qty||0)*(it.price||0)).toFixed(2)}\n`;
+  });
+  t += `\n${L.grandTotal}: $${grand.toFixed(2)}`;
+  if (advance > 0) {
+    t += `\n${L.advance}: -$${advance.toFixed(2)}`;
+    t += `\n${L.balance}: $${balance.toFixed(2)}`;
+  }
+  return t;
+}
+
+window._docShareWA = function() {
+  window.open(`https://wa.me/?text=${encodeURIComponent(_docBuildSummaryText())}`, '_blank');
+};
+
+window._docShareEmail = function() {
+  const L        = DOC_LABELS[_docLang];
+  const typeLabel= L[_docType] || _docType;
+  const docNum   = document.getElementById('docNumber')?.value || '';
+  const custEmail= document.getElementById('docCustEmail')?.value || '';
+  const subject  = `${typeLabel}${docNum ? ' #' + docNum : ''}`;
+  window.location.href = `mailto:${encodeURIComponent(custEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(_docBuildSummaryText())}`;
+};
+
+window._docCopySummary = function() {
+  const btn = document.getElementById('docCopyBtn');
+  navigator.clipboard.writeText(_docBuildSummaryText()).then(() => {
+    if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = '🔗 Copy'; }, 2000); }
+  }).catch(() => alert('Could not copy to clipboard.'));
 };
 
 // ── Logo upload ───────────────────────────────────────────────

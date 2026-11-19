@@ -2404,6 +2404,47 @@ textarea.doc-input { resize: vertical; }
 .cust-row-actions .btn-use:hover  { background: #e0e7ff; }
 .cust-row-actions .btn-del-c:hover { background: #fee2e2; }
 
+/* Remaining balance row */
+.doc-totals-balance {
+  border-top: 2px dashed #fecaca;
+  margin-top: 4px;
+  padding-top: 6px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #dc2626;
+}
+.doc-totals-balance strong { color: #dc2626; }
+
+/* Share buttons in preview toolbar */
+.doc-share-btn {
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity .15s;
+}
+.doc-share-btn:hover { opacity: .8; }
+.doc-share-btn.wa    { background: #dcfce7; border-color: #86efac; color: #15803d; }
+.doc-share-btn.email { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
+.doc-share-btn.copy  { background: #f1f5f9; border-color: #cbd5e1; color: #475569; }
+
+/* T&C reset button */
+.doc-tc-reset {
+  font-size: 0.72rem;
+  color: var(--indigo, #4f46e5);
+  background: none;
+  border: 1px solid var(--indigo, #4f46e5);
+  border-radius: 5px;
+  padding: 3px 10px;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: background .15s;
+}
+.doc-tc-reset:hover { background: #e0e7ff; }
+
 /* Voice listening indicator */
 .doc-voice-btn.listening {
   background: #fee2e2;

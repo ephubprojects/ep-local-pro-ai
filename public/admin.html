@@ -1250,6 +1250,18 @@
               <span data-en="Total" data-es="Total">Total</span>
               <strong id="docGrandTotal">$0.00</strong>
             </div>
+            <div class="doc-totals-row">
+              <span data-en="Advance Payment" data-es="Anticipo Recibido">Advance Payment</span>
+              <span style="display:flex;align-items:center;gap:3px;font-size:0.82rem;color:#15803d">
+                - $<input type="number" id="docAdvancePayment" value="0" min="0" step="0.01"
+                  style="width:68px;border:1px solid #bbf7d0;border-radius:4px;padding:2px 5px;font-size:0.82rem;text-align:right;color:#15803d;background:#f0fdf4;outline:none"
+                  oninput="window._docUpdateTotals()">
+              </span>
+            </div>
+            <div class="doc-totals-row doc-totals-balance">
+              <span data-en="Remaining Balance" data-es="Saldo Pendiente">Remaining Balance</span>
+              <strong id="docBalanceDue">$0.00</strong>
+            </div>
           </div>
         </div>
 
@@ -1273,6 +1285,25 @@
           <textarea id="docNotes" class="doc-input" rows="2"
             placeholder="Thank you for your business!"
             oninput="window._docUpdatePreview()" style="resize:vertical;width:100%"></textarea>
+        </div>
+
+        <!-- Terms & Conditions -->
+        <div class="doc-form-section">
+          <div class="doc-fsec-title" style="display:flex;justify-content:space-between;align-items:center">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0">
+              <input type="checkbox" id="docIncludeTC" style="width:auto;accent-color:var(--indigo)" onchange="window._docToggleTC()"/>
+              ⚖️ <span data-en="Terms &amp; Conditions" data-es="Términos y Condiciones">Terms &amp; Conditions</span>
+            </label>
+            <div style="display:flex;gap:4px">
+              <button class="doc-voice-btn" onclick="window._docVoiceField('docTermsText')" title="Voice input">🎤</button>
+            </div>
+          </div>
+          <div id="docTCSection" class="hidden">
+            <textarea id="docTermsText" class="doc-input" rows="6"
+              placeholder="Terms and conditions…"
+              oninput="window._docUpdatePreview()" style="resize:vertical;width:100%;margin-top:6px"></textarea>
+            <button class="doc-tc-reset" onclick="window._docResetTC()">↺ Reset to Default T&amp;C</button>
+          </div>
         </div>
 
         <!-- Action Buttons -->
@@ -1299,8 +1330,11 @@
           <span style="font-size:0.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">
             <span data-en="Preview" data-es="Vista Previa">Preview</span>
           </span>
-          <div style="display:flex;gap:6px">
-            <button class="btn-action" onclick="window._docPrint()">🖨️ Print / PDF</button>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <button class="doc-share-btn wa"    onclick="window._docShareWA()">💬 WhatsApp</button>
+            <button class="doc-share-btn email" onclick="window._docShareEmail()">📧 Email</button>
+            <button class="doc-share-btn copy"  id="docCopyBtn" onclick="window._docCopySummary()">🔗 Copy</button>
+            <button class="btn-action"          onclick="window._docPrint()">🖨️ Print / PDF</button>
           </div>
         </div>
         <iframe id="docPreviewFrame" class="doc-preview-frame" title="Document Preview"></iframe>
