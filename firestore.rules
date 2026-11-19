@@ -88,5 +88,21 @@ service cloud.firestore {
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
+
+    // ── Customers (business owner contact list) ───────────────────────────
+    match /customers/{custId} {
+      allow read, write: if isAdmin()
+        || (isAuth() && (
+          resource == null || resource.data.ownerUid == request.auth.uid
+        ));
+    }
+
+    // ── Document templates ────────────────────────────────────────────────
+    match /docTemplates/{tplId} {
+      allow read, write: if isAdmin()
+        || (isAuth() && (
+          resource == null || resource.data.ownerUid == request.auth.uid
+        ));
+    }
   }
 }

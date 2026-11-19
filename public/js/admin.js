@@ -1938,11 +1938,18 @@ function renderAdminDocCards() {
 
   list.innerHTML = '';
   filtered.forEach(docData => {
-    const typeLbl   = typeLabels[docData.type] || docData.type || '—';
+    const typeLbl    = typeLabels[docData.type] || docData.type || '—';
     const badgeClass = badgeCls[docData.type] || '';
-    const amount    = docData.amount
-      ? `$${Number(docData.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    // Support both old schema (amount) and new schema (items array)
+    let amountNum = Number(docData.amount) || 0;
+    if (!amountNum && docData.items?.length) {
+      const sub = docData.items.reduce((s,it)=>s+(it.qty||0)*(it.price||0),0);
+      amountNum = sub * (1 + (docData.taxRate||0)/100);
+    }
+    const amount   = amountNum
+      ? `$${amountNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
       : '—';
+    const custLabel = docData.customerName || docData.custName || '—';
 
     const card = document.createElement('div');
     card.className = 'doc-card';
@@ -1954,7 +1961,7 @@ function renderAdminDocCards() {
           ${docData.docNumber ? `<div class="doc-card-num">${docData.docNumber}</div>` : ''}
         </div>
         <div class="doc-card-info">
-          <div class="doc-card-customer">${docData.customerName || '—'}</div>
+          <div class="doc-card-customer">${custLabel}</div>
           <div class="doc-card-meta">
             <span>${fmtDate(docData.createdAt)}</span>
             ${docData.businessId ? `<span class="doc-card-meta-dot">${docData.businessId}</span>` : ''}
@@ -1964,14 +1971,15 @@ function renderAdminDocCards() {
       </div>
       <div class="doc-card-actions">
         ${docData.htmlContent ? `<button class="btn-action" data-view>👁 View</button>` : ''}
+        <button class="btn-action" data-edit>✏️ Edit</button>
+        <button class="btn-action" data-del style="color:#ef4444">🗑 Delete</button>
       </div>`;
 
     if (docData.htmlContent) {
-      card.querySelector('[data-view]')?.addEventListener('click', () => {
-        const win = window.open('', '_blank');
-        if (win) { win.document.write(docData.htmlContent); win.document.close(); }
-      });
+      card.querySelector('[data-view]')?.addEventListener('click', () => window._docViewDoc(docData.id));
     }
+    card.querySelector('[data-edit]')?.addEventListener('click', () => window._docEditDoc(docData.id));
+    card.querySelector('[data-del]')?.addEventListener('click',  () => window._docDeleteDoc(docData.id));
     list.appendChild(card);
   });
 }
@@ -2499,6 +2507,808 @@ window._adminCancelBooking = async function(id) {
   try {
     await updateDoc(doc(db, 'bookings', id), { status: 'cancelled' });
     window._adminLoadBookings();
+  } catch(e) { alert('Error: ' + e.message); }
+};
+
+// ══════════════════════════════════════════════════════════════
+//  DOCUMENT CREATOR
+// ══════════════════════════════════════════════════════════════
+
+// ── State ────────────────────────────────────────────────────
+let _docLang          = 'en';
+let _docType          = 'invoice';
+let _docItems         = [];
+let _docLogoDataUrl   = '';
+let _docAllCustomers  = [];
+let _docAllTemplates  = [];
+let _docCurrentId     = null; // Firestore id when editing existing doc
+let _docVoiceRecognizer = null;
+
+// Labels per language
+const DOC_LABELS = {
+  en: {
+    invoice:'Invoice', estimate:'Estimate', contract:'Contract', receipt:'Receipt',
+    billTo:'Bill To', date:'Date', due:'Due Date', docNum:'Document #',
+    desc:'Description', qty:'Qty', price:'Price', total:'Total',
+    subtotal:'Subtotal', tax:'Tax', grandTotal:'TOTAL',
+    notes:'Notes', terms:'Terms & Conditions',
+    thankYou:'Thank you for your business!',
+    page:'Page'
+  },
+  es: {
+    invoice:'Factura', estimate:'Presupuesto', contract:'Contrato', receipt:'Recibo',
+    billTo:'Facturar a', date:'Fecha', due:'Vencimiento', docNum:'Número',
+    desc:'Descripción', qty:'Cant.', price:'Precio', total:'Total',
+    subtotal:'Subtotal', tax:'Impuesto', grandTotal:'TOTAL',
+    notes:'Notas', terms:'Términos y Condiciones',
+    thankYou:'¡Gracias por su preferencia!',
+    page:'Página'
+  }
+};
+
+// ── Open / Close ──────────────────────────────────────────────
+window._openDocCreator = function(existingDoc) {
+  _docCurrentId = existingDoc?.id || null;
+  const modal = document.getElementById('docCreatorModal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+
+  // Reset state
+  _docItems = existingDoc?.items || [{ desc:'', qty:1, price:0 }];
+  _docType  = existingDoc?.type || 'invoice';
+  _docLogoDataUrl = existingDoc?.logoDataUrl || '';
+  _docSetType(_docType);
+  _docSetLang(_docLang);
+
+  // Pre-fill from existing doc or from business profile
+  if (existingDoc) {
+    _setDocVal('docBizName',    existingDoc.bizName || '');
+    _setDocVal('docBizAddress', existingDoc.bizAddress || '');
+    _setDocVal('docBizPhone',   existingDoc.bizPhone || '');
+    _setDocVal('docBizEmail',   existingDoc.bizEmail || '');
+    _setDocVal('docCustName',   existingDoc.custName || '');
+    _setDocVal('docCustEmail',  existingDoc.custEmail || '');
+    _setDocVal('docCustPhone',  existingDoc.custPhone || '');
+    _setDocVal('docCustAddress',existingDoc.custAddress || '');
+    _setDocVal('docNumber',     existingDoc.docNumber || '');
+    _setDocVal('docDate',       existingDoc.docDate || '');
+    _setDocVal('docDueDate',    existingDoc.docDueDate || '');
+    _setDocVal('docNotes',      existingDoc.notes || '');
+    _setDocVal('docContractText', existingDoc.contractText || '');
+    if (existingDoc.taxRate !== undefined) _setDocVal('docTaxRate', existingDoc.taxRate);
+    if (existingDoc.logoDataUrl) {
+      _docLogoDataUrl = existingDoc.logoDataUrl;
+      const img = document.getElementById('docLogoImg');
+      const ph  = document.getElementById('docLogoPlaceholder');
+      if (img) { img.src = _docLogoDataUrl; img.style.display = 'block'; }
+      if (ph)  ph.style.display = 'none';
+    }
+  } else {
+    // Clear form
+    ['docBizName','docBizAddress','docBizPhone','docBizEmail',
+     'docCustName','docCustEmail','docCustPhone','docCustAddress',
+     'docNumber','docDate','docDueDate','docNotes','docContractText'].forEach(id => _setDocVal(id,''));
+    _setDocVal('docTaxRate', '0');
+    // Set today's date
+    _setDocVal('docDate', new Date().toISOString().slice(0,10));
+    // Auto-increment doc number
+    _setDocVal('docNumber', _docType.slice(0,3).toUpperCase() + '-' + String(Date.now()).slice(-4));
+    // Pre-fill biz info from calendar config if available
+    const bizName = document.getElementById('calBizName')?.value;
+    const bizAddr = document.getElementById('calAddress')?.value;
+    const bizPhone= document.getElementById('calPhone')?.value;
+    const bizEmail= document.getElementById('calEmail')?.value;
+    if (bizName)  _setDocVal('docBizName', bizName);
+    if (bizAddr)  _setDocVal('docBizAddress', bizAddr);
+    if (bizPhone) _setDocVal('docBizPhone', bizPhone);
+    if (bizEmail) _setDocVal('docBizEmail', bizEmail);
+    // Pre-fill logo from profile photo
+    const profilePhoto = document.getElementById('calProfilePhoto')?.value;
+    if (profilePhoto) {
+      const img = document.getElementById('docLogoImg');
+      const ph  = document.getElementById('docLogoPlaceholder');
+      if (img) { img.src = profilePhoto; img.style.display = 'block'; }
+      if (ph)  ph.style.display = 'none';
+      _docLogoDataUrl = profilePhoto;
+    }
+  }
+
+  _docRenderItems();
+  _docUpdateTotals();
+  _docUpdatePreview();
+  _wireDocLogoUpload();
+};
+
+function _setDocVal(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.value = val;
+}
+
+// ── Close via data-close (already handled by existing modal logic) ──
+
+// ── Language toggle ───────────────────────────────────────────
+window._docSetLang = function(lang) {
+  _docLang = lang;
+  document.getElementById('docLangEn')?.classList.toggle('active', lang === 'en');
+  document.getElementById('docLangEs')?.classList.toggle('active', lang === 'es');
+  // Update all data-en / data-es labels inside doc creator
+  const modal = document.getElementById('docCreatorModal');
+  if (!modal) return;
+  modal.querySelectorAll('[data-en]').forEach(el => {
+    el.textContent = el.getAttribute(`data-${lang}`) || el.getAttribute('data-en');
+  });
+  _docUpdatePreview();
+};
+
+// ── Document type ─────────────────────────────────────────────
+window._docSetType = function(type) {
+  _docType = type;
+  // Update active tab
+  document.querySelectorAll('.doc-type-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.doctype === type);
+  });
+  // Show/hide sections
+  const lineItems  = document.getElementById('docLineItemsSection');
+  const contract   = document.getElementById('docContractSection');
+  const dueDateWrap= document.getElementById('docDueDateWrap');
+  const isContract = type === 'contract';
+  if (lineItems)  lineItems.classList.toggle('hidden', isContract);
+  if (contract)   contract.classList.toggle('hidden', !isContract);
+  if (dueDateWrap) dueDateWrap.style.display = (type === 'receipt' || type === 'contract') ? 'none' : '';
+  _docUpdatePreview();
+};
+
+// ── Line items ────────────────────────────────────────────────
+window._docAddItem = function() {
+  _docItems.push({ desc:'', qty:1, price:0 });
+  _docRenderItems();
+  _docUpdateTotals();
+  _docUpdatePreview();
+};
+
+window._docRemoveItem = function(idx) {
+  _docItems.splice(idx, 1);
+  if (_docItems.length === 0) _docItems.push({ desc:'', qty:1, price:0 });
+  _docRenderItems();
+  _docUpdateTotals();
+  _docUpdatePreview();
+};
+
+function _docRenderItems() {
+  const container = document.getElementById('docItemsList');
+  if (!container) return;
+  container.innerHTML = _docItems.map((item, i) => `
+    <div class="doc-item-row">
+      <input type="text"   value="${_esc(item.desc)}"  placeholder="Description"
+        oninput="_docItems[${i}].desc=this.value;_docUpdatePreview()" />
+      <input type="number" value="${item.qty}"  min="0" step="1"
+        oninput="_docItems[${i}].qty=parseFloat(this.value)||0;_docUpdateTotals();_docUpdatePreview()" />
+      <input type="number" value="${item.price}" min="0" step="0.01" placeholder="0.00"
+        oninput="_docItems[${i}].price=parseFloat(this.value)||0;_docUpdateTotals();_docUpdatePreview()" />
+      <div class="doc-item-total">$${((item.qty||0)*(item.price||0)).toFixed(2)}</div>
+      <button class="doc-item-del" onclick="window._docRemoveItem(${i})">✕</button>
+    </div>`).join('');
+}
+
+function _esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Totals ────────────────────────────────────────────────────
+window._docUpdateTotals = function() {
+  const subtotal = _docItems.reduce((s, it) => s + (it.qty||0)*(it.price||0), 0);
+  const taxRate  = parseFloat(document.getElementById('docTaxRate')?.value || 0);
+  const taxAmt   = subtotal * taxRate / 100;
+  const grand    = subtotal + taxAmt;
+  if (document.getElementById('docSubtotal'))  document.getElementById('docSubtotal').textContent  = '$' + subtotal.toFixed(2);
+  if (document.getElementById('docTaxAmt'))    document.getElementById('docTaxAmt').textContent    = '$' + taxAmt.toFixed(2);
+  if (document.getElementById('docGrandTotal'))document.getElementById('docGrandTotal').textContent= '$' + grand.toFixed(2);
+  // Update row totals in item list
+  const rows = document.querySelectorAll('#docItemsList .doc-item-total');
+  _docItems.forEach((it, i) => {
+    if (rows[i]) rows[i].textContent = '$' + ((it.qty||0)*(it.price||0)).toFixed(2);
+  });
+};
+
+// ── Preview ───────────────────────────────────────────────────
+window._docUpdatePreview = function() {
+  const frame = document.getElementById('docPreviewFrame');
+  if (!frame) return;
+  const html = _docGenerateHTML();
+  frame.srcdoc = html;
+};
+
+// ── HTML Generator ────────────────────────────────────────────
+function _docGenerateHTML() {
+  const L = DOC_LABELS[_docLang];
+  const bizName    = document.getElementById('docBizName')?.value    || '';
+  const bizAddress = document.getElementById('docBizAddress')?.value || '';
+  const bizPhone   = document.getElementById('docBizPhone')?.value   || '';
+  const bizEmail   = document.getElementById('docBizEmail')?.value   || '';
+  const custName   = document.getElementById('docCustName')?.value   || '';
+  const custEmail  = document.getElementById('docCustEmail')?.value  || '';
+  const custPhone  = document.getElementById('docCustPhone')?.value  || '';
+  const custAddr   = document.getElementById('docCustAddress')?.value|| '';
+  const docNumber  = document.getElementById('docNumber')?.value     || '';
+  const docDate    = document.getElementById('docDate')?.value       || '';
+  const docDueDate = document.getElementById('docDueDate')?.value    || '';
+  const notes      = document.getElementById('docNotes')?.value      || '';
+  const contractTxt= document.getElementById('docContractText')?.value|| '';
+  const taxRate    = parseFloat(document.getElementById('docTaxRate')?.value || 0);
+
+  const subtotal   = _docItems.reduce((s, it) => s + (it.qty||0)*(it.price||0), 0);
+  const taxAmt     = subtotal * taxRate / 100;
+  const grand      = subtotal + taxAmt;
+
+  const logoHtml = _docLogoDataUrl
+    ? `<img src="${_docLogoDataUrl}" alt="Logo" style="max-height:70px;max-width:150px;object-fit:contain;"/>`
+    : '';
+
+  const typeLabel = L[_docType] || _docType;
+
+  // Format dates nicely
+  const fmtDate = d => {
+    if (!d) return '';
+    const [y,m,day] = d.split('-');
+    return `${m}/${day}/${y}`;
+  };
+
+  const itemsRowsHtml = _docType !== 'contract' ? _docItems.map(it => `
+    <tr>
+      <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;">${_esc(it.desc)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:center;">${it.qty||0}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:right;">$${(it.price||0).toFixed(2)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;">$${((it.qty||0)*(it.price||0)).toFixed(2)}</td>
+    </tr>`).join('') : '';
+
+  return `<!DOCTYPE html>
+<html lang="${_docLang === 'es' ? 'es' : 'en'}">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>${typeLabel} ${docNumber}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1e293b; background: #fff; padding: 32px; font-size: 13px; line-height: 1.5; }
+  .doc-wrap { max-width: 760px; margin: 0 auto; }
+  .doc-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; gap: 16px; flex-wrap: wrap; }
+  .doc-top-left { flex: 1; min-width: 200px; }
+  .doc-top-right { text-align: right; min-width: 160px; }
+  .doc-type-title { font-size: 2rem; font-weight: 800; color: #4f46e5; letter-spacing: -0.02em; text-transform: uppercase; }
+  .biz-name { font-size: 1rem; font-weight: 700; color: #1e293b; margin-top: 6px; }
+  .biz-detail { font-size: 0.78rem; color: #64748b; margin-top: 2px; }
+  .doc-meta { font-size: 0.82rem; color: #475569; margin-top: 4px; }
+  .doc-meta strong { color: #1e293b; }
+  .doc-parties { display: flex; gap: 24px; margin-bottom: 24px; flex-wrap: wrap; }
+  .doc-party { flex: 1; min-width: 180px; background: #f8fafc; border-radius: 8px; padding: 12px 16px; border: 1px solid #e2e8f0; }
+  .party-label { font-size: 0.68rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+  .party-name  { font-size: 0.95rem; font-weight: 700; color: #1e293b; margin-bottom: 2px; }
+  .party-detail{ font-size: 0.78rem; color: #64748b; line-height: 1.4; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+  thead tr { background: #4f46e5; color: #fff; }
+  thead th { padding: 10px 10px; text-align: left; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+  thead th:not(:first-child) { text-align: right; }
+  tbody tr:nth-child(even) { background: #f8fafc; }
+  .totals-table { margin-left: auto; width: auto; min-width: 220px; }
+  .totals-table td { padding: 5px 10px; font-size: 0.85rem; color: #475569; }
+  .totals-table .grand td { font-size: 1rem; font-weight: 800; color: #1e293b; border-top: 2px solid #4f46e5; padding-top: 8px; }
+  .doc-contract { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px; white-space: pre-wrap; font-size: 0.82rem; color: #475569; line-height: 1.6; }
+  .doc-notes { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 16px; font-size: 0.82rem; color: #78350f; }
+  .doc-footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; color: #94a3b8; }
+  .accent-bar { height: 4px; background: linear-gradient(90deg,#4f46e5,#7c3aed); border-radius: 2px; margin-bottom: 24px; }
+  @media print {
+    body { padding: 16px; }
+    .doc-wrap { max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="doc-wrap">
+  <div class="accent-bar"></div>
+  <div class="doc-top">
+    <div class="doc-top-left">
+      ${logoHtml}
+      ${bizName ? `<div class="biz-name">${_esc(bizName)}</div>` : ''}
+      ${bizAddress ? `<div class="biz-detail">${_esc(bizAddress)}</div>` : ''}
+      ${bizPhone  ? `<div class="biz-detail">📞 ${_esc(bizPhone)}</div>` : ''}
+      ${bizEmail  ? `<div class="biz-detail">✉ ${_esc(bizEmail)}</div>` : ''}
+    </div>
+    <div class="doc-top-right">
+      <div class="doc-type-title">${typeLabel}</div>
+      ${docNumber ? `<div class="doc-meta">#&nbsp;<strong>${_esc(docNumber)}</strong></div>` : ''}
+      ${docDate   ? `<div class="doc-meta">${L.date}:&nbsp;<strong>${fmtDate(docDate)}</strong></div>` : ''}
+      ${docDueDate && _docType !== 'receipt' && _docType !== 'contract'
+          ? `<div class="doc-meta">${L.due}:&nbsp;<strong>${fmtDate(docDueDate)}</strong></div>` : ''}
+    </div>
+  </div>
+
+  <div class="doc-parties">
+    <div class="doc-party">
+      <div class="party-label">${_esc(bizName) || 'From'}</div>
+      <div class="party-name">${_esc(bizName)}</div>
+      ${bizAddress ? `<div class="party-detail">${_esc(bizAddress)}</div>` : ''}
+      ${bizPhone   ? `<div class="party-detail">${_esc(bizPhone)}</div>` : ''}
+      ${bizEmail   ? `<div class="party-detail">${_esc(bizEmail)}</div>` : ''}
+    </div>
+    <div class="doc-party">
+      <div class="party-label">${L.billTo}</div>
+      <div class="party-name">${_esc(custName) || '—'}</div>
+      ${custAddr  ? `<div class="party-detail">${_esc(custAddr)}</div>` : ''}
+      ${custPhone ? `<div class="party-detail">${_esc(custPhone)}</div>` : ''}
+      ${custEmail ? `<div class="party-detail">${_esc(custEmail)}</div>` : ''}
+    </div>
+  </div>
+
+  ${_docType !== 'contract' ? `
+  <table>
+    <thead>
+      <tr>
+        <th>${L.desc}</th>
+        <th style="text-align:right">${L.qty}</th>
+        <th style="text-align:right">${L.price}</th>
+        <th style="text-align:right">${L.total}</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${itemsRowsHtml}
+    </tbody>
+  </table>
+
+  <table class="totals-table">
+    <tr><td>${L.subtotal}</td><td style="text-align:right">$${subtotal.toFixed(2)}</td></tr>
+    ${taxRate > 0 ? `<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right">$${taxAmt.toFixed(2)}</td></tr>` : ''}
+    <tr class="grand"><td><strong>${L.grandTotal}</strong></td><td style="text-align:right"><strong>$${grand.toFixed(2)}</strong></td></tr>
+  </table>` : ''}
+
+  ${_docType === 'contract' && contractTxt ? `
+  <div style="font-size:0.75rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${L.terms}</div>
+  <div class="doc-contract">${_esc(contractTxt)}</div>` : ''}
+
+  ${notes ? `<div class="doc-notes">📌 ${_esc(notes)}</div>` : ''}
+
+  <div class="doc-footer">
+    <span>${L.thankYou}</span>
+    <span>${typeLabel} ${_esc(docNumber)}</span>
+  </div>
+</div>
+</body>
+</html>`;
+}
+
+// ── Save to Firestore ─────────────────────────────────────────
+window._docSave = async function() {
+  const btn = document.getElementById('docSaveBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving…'; }
+  try {
+    const data = {
+      type:         _docType,
+      lang:         _docLang,
+      bizName:      document.getElementById('docBizName')?.value    || '',
+      bizAddress:   document.getElementById('docBizAddress')?.value || '',
+      bizPhone:     document.getElementById('docBizPhone')?.value   || '',
+      bizEmail:     document.getElementById('docBizEmail')?.value   || '',
+      custName:     document.getElementById('docCustName')?.value   || '',
+      custEmail:    document.getElementById('docCustEmail')?.value  || '',
+      custPhone:    document.getElementById('docCustPhone')?.value  || '',
+      custAddress:  document.getElementById('docCustAddress')?.value|| '',
+      docNumber:    document.getElementById('docNumber')?.value     || '',
+      docDate:      document.getElementById('docDate')?.value       || '',
+      docDueDate:   document.getElementById('docDueDate')?.value    || '',
+      notes:        document.getElementById('docNotes')?.value      || '',
+      contractText: document.getElementById('docContractText')?.value|| '',
+      taxRate:      parseFloat(document.getElementById('docTaxRate')?.value || 0),
+      items:        _docItems,
+      logoDataUrl:  _docLogoDataUrl,
+      htmlContent:  _docGenerateHTML(),
+      ownerUid:     auth.currentUser?.uid || '',
+      createdAt:    serverTimestamp()
+    };
+
+    // Save customer if checkbox checked
+    if (document.getElementById('docSaveCust')?.checked && data.custName) {
+      await _docAutoSaveCustomer(data);
+    }
+
+    // Compute amount for card renderer compatibility
+    const grand = data.items.reduce((s,it)=>s+(it.qty||0)*(it.price||0),0) * (1 + data.taxRate/100);
+    data.customerName = data.custName;
+    data.amount       = grand.toFixed(2);
+
+    if (_docCurrentId) {
+      await updateDoc(doc(db, 'documents', _docCurrentId), { ...data, updatedAt: serverTimestamp() });
+    } else {
+      await addDoc(collection(db, 'documents'), data);
+    }
+
+    // Close modal
+    document.getElementById('docCreatorModal')?.classList.add('hidden');
+    document.body.style.overflow = '';
+    // Refresh docs list
+    loadAdminDocuments();
+    alert('Document saved successfully!');
+  } catch(e) {
+    alert('Error saving document: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Save Document'; }
+  }
+};
+
+async function _docAutoSaveCustomer(docData) {
+  try {
+    // Check if customer with same name already exists
+    const existing = _docAllCustomers.find(c =>
+      c.name.toLowerCase() === docData.custName.toLowerCase());
+    if (!existing) {
+      await addDoc(collection(db, 'customers'), {
+        name:     docData.custName,
+        email:    docData.custEmail,
+        phone:    docData.custPhone,
+        address:  docData.custAddress,
+        ownerUid: auth.currentUser?.uid || '',
+        createdAt: serverTimestamp()
+      });
+      await loadCustomers();
+    }
+  } catch(e) { /* silent */ }
+}
+
+// ── Print ─────────────────────────────────────────────────────
+window._docPrint = function() {
+  const frame = document.getElementById('docPreviewFrame');
+  if (!frame || !frame.contentWindow) return;
+  frame.contentWindow.focus();
+  frame.contentWindow.print();
+};
+
+// ── Templates ─────────────────────────────────────────────────
+window._docToggleTplMenu = function() {
+  document.getElementById('docTplMenu')?.classList.toggle('hidden');
+};
+
+window._docSaveTemplate = async function() {
+  document.getElementById('docTplMenu')?.classList.add('hidden');
+  const name = prompt('Template name:');
+  if (!name) return;
+  try {
+    await addDoc(collection(db, 'docTemplates'), {
+      name,
+      type:         _docType,
+      lang:         _docLang,
+      bizName:      document.getElementById('docBizName')?.value    || '',
+      bizAddress:   document.getElementById('docBizAddress')?.value || '',
+      bizPhone:     document.getElementById('docBizPhone')?.value   || '',
+      bizEmail:     document.getElementById('docBizEmail')?.value   || '',
+      notes:        document.getElementById('docNotes')?.value      || '',
+      contractText: document.getElementById('docContractText')?.value|| '',
+      taxRate:      parseFloat(document.getElementById('docTaxRate')?.value || 0),
+      items:        _docItems,
+      logoDataUrl:  _docLogoDataUrl,
+      ownerUid:     auth.currentUser?.uid || '',
+      createdAt:    serverTimestamp()
+    });
+    await _loadDocTemplates();
+    alert('Template saved!');
+  } catch(e) { alert('Error: ' + e.message); }
+};
+
+window._docOpenTemplates = async function() {
+  document.getElementById('docTplMenu')?.classList.add('hidden');
+  await _loadDocTemplates();
+  _renderDocTemplates();
+  document.getElementById('docTemplatePickerModal')?.classList.remove('hidden');
+};
+
+async function _loadDocTemplates() {
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'docTemplates'),
+      where('ownerUid', '==', auth.currentUser?.uid || ''),
+      orderBy('createdAt', 'desc')
+    ));
+    _docAllTemplates = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) { _docAllTemplates = []; }
+}
+
+function _renderDocTemplates() {
+  const list = document.getElementById('docTemplatePickerList');
+  if (!list) return;
+  if (!_docAllTemplates.length) {
+    list.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:20px">No templates saved yet.</p>';
+    return;
+  }
+  list.innerHTML = _docAllTemplates.map(t => `
+    <div class="doc-tpl-item">
+      <span class="tpl-name">${_esc(t.name)}</span>
+      <span class="tpl-type">${t.type || ''}</span>
+      <button class="tpl-load" onclick="window._docLoadTemplate('${t.id}')">Load</button>
+      <button class="tpl-del"  onclick="window._docDeleteTemplate('${t.id}')">✕</button>
+    </div>`).join('');
+}
+
+window._docLoadTemplate = async function(id) {
+  const tpl = _docAllTemplates.find(t => t.id === id);
+  if (!tpl) return;
+  document.getElementById('docTemplatePickerModal')?.classList.add('hidden');
+  _docItems       = tpl.items?.length ? [...tpl.items] : [{ desc:'', qty:1, price:0 }];
+  _docLogoDataUrl = tpl.logoDataUrl || '';
+  _docSetType(tpl.type || 'invoice');
+  _setDocVal('docBizName',    tpl.bizName || '');
+  _setDocVal('docBizAddress', tpl.bizAddress || '');
+  _setDocVal('docBizPhone',   tpl.bizPhone || '');
+  _setDocVal('docBizEmail',   tpl.bizEmail || '');
+  _setDocVal('docNotes',      tpl.notes || '');
+  _setDocVal('docContractText', tpl.contractText || '');
+  _setDocVal('docTaxRate',    tpl.taxRate || 0);
+  if (_docLogoDataUrl) {
+    const img = document.getElementById('docLogoImg');
+    const ph  = document.getElementById('docLogoPlaceholder');
+    if (img) { img.src = _docLogoDataUrl; img.style.display = 'block'; }
+    if (ph)  ph.style.display = 'none';
+  }
+  _docRenderItems();
+  _docUpdateTotals();
+  _docUpdatePreview();
+};
+
+window._docDeleteTemplate = async function(id) {
+  if (!confirm('Delete this template?')) return;
+  try {
+    const { deleteDoc: _del } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    await _del(doc(db, 'docTemplates', id));
+    _docAllTemplates = _docAllTemplates.filter(t => t.id !== id);
+    _renderDocTemplates();
+  } catch(e) { alert('Error: ' + e.message); }
+};
+
+// ── Logo upload ───────────────────────────────────────────────
+function _wireDocLogoUpload() {
+  const input = document.getElementById('docLogoInput');
+  if (!input || input._wired) return;
+  input._wired = true;
+  input.addEventListener('change', () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      _docLogoDataUrl = e.target.result;
+      const img = document.getElementById('docLogoImg');
+      const ph  = document.getElementById('docLogoPlaceholder');
+      if (img) { img.src = _docLogoDataUrl; img.style.display = 'block'; }
+      if (ph)  ph.style.display = 'none';
+      _docUpdatePreview();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ── Voice Input ───────────────────────────────────────────────
+function _startVoice(onResult, lang) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert('Voice input is not supported in this browser.'); return null; }
+  if (_docVoiceRecognizer) {
+    _docVoiceRecognizer.stop();
+    _docVoiceRecognizer = null;
+  }
+  const rec = new SR();
+  rec.lang        = lang === 'es' ? 'es-MX' : 'en-US';
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+  rec.onresult = e => {
+    const text = e.results[0][0].transcript;
+    onResult(text);
+  };
+  rec.onerror = e => { if (e.error !== 'aborted') console.warn('Voice error:', e.error); };
+  rec.onend   = () => { _docVoiceRecognizer = null; };
+  rec.start();
+  _docVoiceRecognizer = rec;
+  return rec;
+}
+
+window._docVoiceField = function(fieldId) {
+  const btn = document.querySelector(`[onclick="window._docVoiceField('${fieldId}')"]`);
+  if (!btn) return;
+  btn.classList.add('listening');
+  const rec = _startVoice(text => {
+    const el = document.getElementById(fieldId);
+    if (el) {
+      el.value += (el.value ? ' ' : '') + text;
+      el.dispatchEvent(new Event('input'));
+    }
+    btn.classList.remove('listening');
+  }, _docLang);
+  if (!rec) btn.classList.remove('listening');
+};
+
+window._docVoiceSearch = function() {
+  const btn = document.getElementById('docCustVoiceBtn');
+  if (!btn) return;
+  btn.classList.add('listening');
+  const rec = _startVoice(text => {
+    const inp = document.getElementById('docCustSearch');
+    if (inp) {
+      inp.value = text;
+      window._docSearchCustomers(text);
+    }
+    btn.classList.remove('listening');
+  }, _docLang);
+  if (!rec) btn.classList.remove('listening');
+};
+
+// ── Customer search ───────────────────────────────────────────
+window._docSearchCustomers = function(query) {
+  const dropdown = document.getElementById('docCustDropdown');
+  if (!dropdown) return;
+  if (!query.trim()) { dropdown.classList.add('hidden'); dropdown.innerHTML = ''; return; }
+  const q = query.toLowerCase();
+  const matches = _docAllCustomers.filter(c =>
+    (c.name||'').toLowerCase().includes(q) ||
+    (c.email||'').toLowerCase().includes(q) ||
+    (c.phone||'').includes(q)
+  ).slice(0, 8);
+  if (!matches.length) { dropdown.classList.add('hidden'); dropdown.innerHTML = ''; return; }
+  dropdown.innerHTML = matches.map(c => `
+    <div class="doc-cust-item" onclick="window._docSelectCustomer(${JSON.stringify(c).replace(/"/g,'&quot;')})">
+      <div class="cust-name">${_esc(c.name)}</div>
+      <div class="cust-sub">${[c.email, c.phone].filter(Boolean).join(' · ')}</div>
+    </div>`).join('');
+  dropdown.classList.remove('hidden');
+};
+
+window._docSelectCustomer = function(customer) {
+  _setDocVal('docCustName',    customer.name    || '');
+  _setDocVal('docCustEmail',   customer.email   || '');
+  _setDocVal('docCustPhone',   customer.phone   || '');
+  _setDocVal('docCustAddress', customer.address || '');
+  document.getElementById('docCustSearch')?.value && (_setDocVal('docCustSearch', ''));
+  document.getElementById('docCustDropdown')?.classList.add('hidden');
+  _docUpdatePreview();
+};
+
+// ── Customer Management ───────────────────────────────────────
+window._docToggleCustomers = function() {
+  const panel  = document.getElementById('docCustomersPanel');
+  const btn    = document.getElementById('docCustomersToggle');
+  if (!panel) return;
+  const hidden = panel.classList.toggle('hidden');
+  if (btn) btn.textContent = hidden ? '👥 Customers' : '👥 Hide Customers';
+  if (!hidden) loadCustomers();
+};
+
+window._custFilter = function(q) {
+  const list = q.trim()
+    ? _docAllCustomers.filter(c =>
+        (c.name||'').toLowerCase().includes(q.toLowerCase()) ||
+        (c.email||'').toLowerCase().includes(q.toLowerCase()) ||
+        (c.phone||'').includes(q))
+    : _docAllCustomers;
+  renderCustomersTable(list);
+};
+
+window._custVoiceSearch = function() {
+  const btn = document.getElementById('custVoiceBtn');
+  if (!btn) return;
+  btn.classList.add('listening');
+  const rec = _startVoice(text => {
+    const inp = document.getElementById('custListSearch');
+    if (inp) { inp.value = text; window._custFilter(text); }
+    btn.classList.remove('listening');
+  }, _docLang);
+  if (!rec) btn.classList.remove('listening');
+};
+
+window._openAddCustomer = function() {
+  ['newCustName','newCustEmail','newCustPhone','newCustAddress','newCustCompany']
+    .forEach(id => _setDocVal(id, ''));
+  document.getElementById('addCustomerModal')?.classList.remove('hidden');
+};
+
+window._custSave = async function() {
+  const name = document.getElementById('newCustName')?.value.trim();
+  if (!name) { alert('Name is required'); return; }
+  const btn = document.querySelector('#addCustomerModal .btn-save');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    await addDoc(collection(db, 'customers'), {
+      name,
+      email:    document.getElementById('newCustEmail')?.value.trim()   || '',
+      phone:    document.getElementById('newCustPhone')?.value.trim()   || '',
+      address:  document.getElementById('newCustAddress')?.value.trim() || '',
+      company:  document.getElementById('newCustCompany')?.value.trim() || '',
+      ownerUid: auth.currentUser?.uid || '',
+      createdAt: serverTimestamp()
+    });
+    document.getElementById('addCustomerModal')?.classList.add('hidden');
+    await loadCustomers();
+  } catch(e) { alert('Error saving customer: ' + e.message); }
+  finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Save Customer'; }
+  }
+};
+
+window._custDelete = async function(id) {
+  if (!confirm('Delete this customer?')) return;
+  try {
+    const { deleteDoc: _del } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    await _del(doc(db, 'customers', id));
+    await loadCustomers();
+  } catch(e) { alert('Error: ' + e.message); }
+};
+
+async function loadCustomers() {
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'customers'),
+      orderBy('createdAt', 'desc')
+    ));
+    _docAllCustomers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) {
+    _docAllCustomers = [];
+  }
+  renderCustomersTable(_docAllCustomers);
+}
+
+function renderCustomersTable(list) {
+  const container = document.getElementById('custListTable');
+  if (!container) return;
+  if (!list.length) {
+    container.innerHTML = '<p style="color:#94a3b8;font-size:0.85rem;padding:12px 0">No customers yet. Click + Add Customer to add one.</p>';
+    return;
+  }
+  container.innerHTML = list.map(c => `
+    <div class="cust-row">
+      <div>
+        <div class="cust-name-col">${_esc(c.name)}</div>
+        ${c.company ? `<div class="cust-sub-col">${_esc(c.company)}</div>` : ''}
+      </div>
+      <div>
+        ${c.email ? `<div class="cust-sub-col">${_esc(c.email)}</div>` : ''}
+        ${c.phone ? `<div class="cust-sub-col">${_esc(c.phone)}</div>` : ''}
+      </div>
+      <div class="cust-sub-col">${_esc(c.address || '')}</div>
+      <div class="cust-row-actions">
+        <button class="btn-use"   onclick="window._docSelectFromList(${JSON.stringify(c).replace(/"/g,'&quot;')})">Use</button>
+        <button class="btn-del-c" onclick="window._custDelete('${c.id}')">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+window._docSelectFromList = function(c) {
+  // If doc creator is open, fill customer fields
+  _setDocVal('docCustName',    c.name    || '');
+  _setDocVal('docCustEmail',   c.email   || '');
+  _setDocVal('docCustPhone',   c.phone   || '');
+  _setDocVal('docCustAddress', c.address || '');
+  _docUpdatePreview();
+  // If doc creator not open, open it
+  const modal = document.getElementById('docCreatorModal');
+  if (modal?.classList.contains('hidden')) window._openDocCreator();
+};
+
+
+window._docViewDoc = async function(id) {
+  try {
+    const snap = await getDoc(doc(db, 'documents', id));
+    const data = snap.data();
+    if (data?.htmlContent) {
+      const w = window.open('', '_blank', 'width=900,height=700');
+      if (w) { w.document.write(data.htmlContent); w.document.close(); }
+    } else { alert('No preview available for this document.'); }
+  } catch(e) { alert('Could not load document: ' + e.message); }
+};
+
+window._docEditDoc = async function(id) {
+  try {
+    const snap = await getDoc(doc(db, 'documents', id));
+    if (snap.exists()) window._openDocCreator({ id, ...snap.data() });
+  } catch(e) { alert('Error: ' + e.message); }
+};
+
+window._docDeleteDoc = async function(id) {
+  if (!confirm('Permanently delete this document?')) return;
+  try {
+    await deleteDoc(doc(db, 'documents', id));
+    loadAdminDocuments();
   } catch(e) { alert('Error: ' + e.message); }
 };
 

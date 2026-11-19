@@ -427,6 +427,29 @@
           <h2>Documents</h2>
           <p class="docs-page-sub">All invoices, estimates, contracts &amp; receipts across every business</p>
         </div>
+        <div style="display:flex;gap:8px;flex-shrink:0">
+          <button class="btn-action" id="docCustomersToggle" onclick="window._docToggleCustomers()">👥 Customers</button>
+          <button class="btn-save" onclick="window._openDocCreator()">+ Create Document</button>
+        </div>
+      </div>
+
+      <!-- Customers panel (collapsible) -->
+      <div id="docCustomersPanel" class="hidden">
+        <div class="section-card" style="margin-bottom:16px">
+          <div class="section-card-header" style="flex-wrap:wrap;gap:8px">
+            <h2>Customers</h2>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <input type="text" id="custListSearch" placeholder="🔍 Search customers…"
+                oninput="window._custFilter(this.value)"
+                style="font-size:0.82rem;padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;outline:none;width:220px;color:var(--ink)"/>
+              <button class="doc-voice-btn" id="custVoiceBtn" onclick="window._custVoiceSearch()" title="Search by voice">🎤</button>
+              <button class="btn-action" onclick="window._openAddCustomer()">+ Add Customer</button>
+            </div>
+          </div>
+          <div id="custListTable" style="margin-top:4px">
+            <p style="color:#94a3b8;font-size:0.85rem;padding:12px 0">Loading customers…</p>
+          </div>
+        </div>
       </div>
 
       <!-- Filter tabs -->
@@ -1080,6 +1103,242 @@
   </div>
 </div>
 
+
+<!-- ══════════════ MODAL: Document Creator (full-screen) ══════════════ -->
+<div class="modal-overlay hidden doc-creator-overlay" id="docCreatorModal">
+  <div class="doc-creator-wrap">
+
+    <!-- Header -->
+    <div class="doc-creator-header">
+      <div class="doc-type-tabs">
+        <button class="doc-type-tab active" data-doctype="invoice"  onclick="window._docSetType('invoice')">🧾 Invoice</button>
+        <button class="doc-type-tab"         data-doctype="estimate" onclick="window._docSetType('estimate')">📋 Estimate</button>
+        <button class="doc-type-tab"         data-doctype="contract" onclick="window._docSetType('contract')">📝 Contract</button>
+        <button class="doc-type-tab"         data-doctype="receipt"  onclick="window._docSetType('receipt')">🧾 Receipt</button>
+      </div>
+      <div class="doc-creator-controls">
+        <div class="doc-lang-toggle">
+          <button class="doc-lang-btn active" id="docLangEn" onclick="window._docSetLang('en')">EN</button>
+          <button class="doc-lang-btn"         id="docLangEs" onclick="window._docSetLang('es')">ES</button>
+        </div>
+        <button class="modal-close" data-close="docCreatorModal">✕</button>
+      </div>
+    </div>
+
+    <!-- Body: Form + Preview -->
+    <div class="doc-creator-body">
+
+      <!-- LEFT: Form -->
+      <div class="doc-form-col">
+
+        <!-- Business Info -->
+        <div class="doc-form-section">
+          <div class="doc-fsec-title">🏢 <span data-en="Business Info" data-es="Info del Negocio">Business Info</span></div>
+          <div class="doc-biz-row">
+            <div class="doc-logo-box" id="docLogoBox" onclick="document.getElementById('docLogoInput').click()" title="Click to upload logo">
+              <img id="docLogoImg" src="" alt="" style="display:none;width:100%;height:100%;object-fit:contain;border-radius:4px"/>
+              <span id="docLogoPlaceholder">+ Logo</span>
+              <input type="file" id="docLogoInput" accept="image/*" style="display:none"/>
+            </div>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">
+              <input type="text"  id="docBizName"    class="doc-input" placeholder="Business Name" oninput="window._docUpdatePreview()"/>
+              <input type="text"  id="docBizAddress" class="doc-input" placeholder="Address"       oninput="window._docUpdatePreview()"/>
+              <div style="display:flex;gap:5px">
+                <input type="text"  id="docBizPhone" class="doc-input" placeholder="Phone"  oninput="window._docUpdatePreview()" style="flex:1"/>
+                <input type="email" id="docBizEmail" class="doc-input" placeholder="Email"  oninput="window._docUpdatePreview()" style="flex:1"/>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Customer -->
+        <div class="doc-form-section">
+          <div class="doc-fsec-title">👤 <span data-en="Bill To" data-es="Facturar a">Bill To</span></div>
+          <div class="doc-search-row">
+            <input type="text" id="docCustSearch" class="doc-input" placeholder="🔍 Search saved customers…"
+              oninput="window._docSearchCustomers(this.value)" style="flex:1"/>
+            <button class="doc-voice-btn" id="docCustVoiceBtn" onclick="window._docVoiceSearch()" title="Voice search">🎤</button>
+          </div>
+          <div id="docCustDropdown" class="doc-cust-dropdown hidden"></div>
+          <div style="display:flex;gap:5px;margin-top:5px">
+            <input type="text" id="docCustName"    class="doc-input" placeholder="Full Name *" oninput="window._docUpdatePreview()" style="flex:1"/>
+            <button class="doc-voice-btn" onclick="window._docVoiceField('docCustName')" title="Voice input">🎤</button>
+          </div>
+          <div style="display:flex;gap:5px;margin-top:5px">
+            <input type="email" id="docCustEmail"   class="doc-input" placeholder="Email"    oninput="window._docUpdatePreview()" style="flex:1"/>
+            <input type="tel"   id="docCustPhone"   class="doc-input" placeholder="Phone"    oninput="window._docUpdatePreview()" style="flex:1"/>
+          </div>
+          <div style="display:flex;gap:5px;margin-top:5px">
+            <input type="text"  id="docCustAddress" class="doc-input" placeholder="Address"  oninput="window._docUpdatePreview()" style="flex:1"/>
+            <button class="doc-voice-btn" onclick="window._docVoiceField('docCustAddress')" title="Voice input">🎤</button>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:0.78rem;cursor:pointer;color:var(--muted)">
+            <input type="checkbox" id="docSaveCust" style="width:auto;accent-color:var(--indigo)"/>
+            <span data-en="Save to customer list" data-es="Guardar en lista de clientes">Save to customer list</span>
+          </label>
+        </div>
+
+        <!-- Document Details -->
+        <div class="doc-form-section">
+          <div class="doc-fsec-title">📋 <span data-en="Document Details" data-es="Detalles">Document Details</span></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <div style="flex:1;min-width:90px">
+              <label class="doc-field-label" data-en="Doc #" data-es="Núm.">Doc #</label>
+              <input type="text" id="docNumber" class="doc-input" placeholder="INV-001" oninput="window._docUpdatePreview()"/>
+            </div>
+            <div style="flex:1;min-width:110px">
+              <label class="doc-field-label" data-en="Date" data-es="Fecha">Date</label>
+              <input type="date" id="docDate" class="doc-input" oninput="window._docUpdatePreview()"/>
+            </div>
+            <div style="flex:1;min-width:110px" id="docDueDateWrap">
+              <label class="doc-field-label" data-en="Due Date" data-es="Vencimiento">Due Date</label>
+              <input type="date" id="docDueDate" class="doc-input" oninput="window._docUpdatePreview()"/>
+            </div>
+          </div>
+        </div>
+
+        <!-- Line Items (invoice/estimate/receipt) -->
+        <div class="doc-form-section" id="docLineItemsSection">
+          <div class="doc-fsec-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span>📦 <span data-en="Items" data-es="Artículos">Items</span></span>
+            <button class="btn-action" onclick="window._docAddItem()" style="font-size:0.72rem;padding:3px 10px">+ Add Item</button>
+          </div>
+          <div class="doc-items-header">
+            <span data-en="Description" data-es="Descripción">Description</span>
+            <span data-en="Qty" data-es="Cant.">Qty</span>
+            <span data-en="Price" data-es="Precio">Price</span>
+            <span data-en="Total" data-es="Total">Total</span>
+            <span></span>
+          </div>
+          <div id="docItemsList"></div>
+          <div class="doc-totals">
+            <div class="doc-totals-row">
+              <span data-en="Subtotal" data-es="Subtotal">Subtotal</span>
+              <strong id="docSubtotal">$0.00</strong>
+            </div>
+            <div class="doc-totals-row">
+              <span data-en="Tax" data-es="Impuesto">Tax</span>
+              <span style="display:flex;align-items:center;gap:4px">
+                <input type="number" id="docTaxRate" value="0" min="0" max="100" step="0.5"
+                  style="width:44px;border:1px solid #e2e8f0;border-radius:4px;padding:2px 4px;font-size:0.78rem;text-align:center"
+                  oninput="window._docUpdateTotals()"> %
+                <strong id="docTaxAmt">$0.00</strong>
+              </span>
+            </div>
+            <div class="doc-totals-row doc-totals-grand">
+              <span data-en="Total" data-es="Total">Total</span>
+              <strong id="docGrandTotal">$0.00</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Contract Text -->
+        <div class="doc-form-section hidden" id="docContractSection">
+          <div class="doc-fsec-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span>📝 <span data-en="Contract Terms" data-es="Términos">Contract Terms</span></span>
+            <button class="doc-voice-btn" onclick="window._docVoiceField('docContractText')" title="Voice input">🎤</button>
+          </div>
+          <textarea id="docContractText" class="doc-input" rows="7"
+            placeholder="Enter contract terms and conditions…"
+            oninput="window._docUpdatePreview()" style="resize:vertical;width:100%"></textarea>
+        </div>
+
+        <!-- Notes -->
+        <div class="doc-form-section">
+          <div class="doc-fsec-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span>📌 <span data-en="Notes" data-es="Notas">Notes</span></span>
+            <button class="doc-voice-btn" onclick="window._docVoiceField('docNotes')" title="Voice input">🎤</button>
+          </div>
+          <textarea id="docNotes" class="doc-input" rows="2"
+            placeholder="Thank you for your business!"
+            oninput="window._docUpdatePreview()" style="resize:vertical;width:100%"></textarea>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="doc-form-actions">
+          <button class="btn-save" id="docSaveBtn" onclick="window._docSave()" style="flex:1">
+            💾 <span data-en="Save Document" data-es="Guardar">Save Document</span>
+          </button>
+          <div class="doc-tpl-wrap">
+            <button class="btn-secondary" onclick="window._docToggleTplMenu()">
+              📂 <span data-en="Templates" data-es="Plantillas">Templates</span> ▾
+            </button>
+            <div class="doc-tpl-menu hidden" id="docTplMenu">
+              <button onclick="window._docSaveTemplate()">💾 Save as Template</button>
+              <button onclick="window._docOpenTemplates()">📂 Load Template</button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /doc-form-col -->
+
+      <!-- RIGHT: Preview -->
+      <div class="doc-preview-col">
+        <div class="doc-preview-toolbar">
+          <span style="font-size:0.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">
+            <span data-en="Preview" data-es="Vista Previa">Preview</span>
+          </span>
+          <div style="display:flex;gap:6px">
+            <button class="btn-action" onclick="window._docPrint()">🖨️ Print / PDF</button>
+          </div>
+        </div>
+        <iframe id="docPreviewFrame" class="doc-preview-frame" title="Document Preview"></iframe>
+      </div>
+
+    </div><!-- /doc-creator-body -->
+  </div><!-- /doc-creator-wrap -->
+</div>
+
+<!-- ══════════════ MODAL: Template Picker ══════════════ -->
+<div class="modal-overlay hidden" id="docTemplatePickerModal">
+  <div class="modal-card" style="max-width:480px">
+    <div class="modal-header">
+      <h3>📂 Load Template</h3>
+      <button class="modal-close" data-close="docTemplatePickerModal">✕</button>
+    </div>
+    <div class="modal-body" id="docTemplatePickerList">
+      <p style="color:#94a3b8;text-align:center;padding:20px">No templates saved yet.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: Add Customer ══════════════ -->
+<div class="modal-overlay hidden" id="addCustomerModal">
+  <div class="modal-card" style="max-width:400px">
+    <div class="modal-header">
+      <h3>👤 Add Customer</h3>
+      <button class="modal-close" data-close="addCustomerModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Full Name *</label>
+        <input type="text" id="newCustName" placeholder="Jane Smith" />
+      </div>
+      <div class="form-row" style="margin-top:10px">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="newCustEmail" placeholder="jane@example.com" />
+        </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="tel" id="newCustPhone" placeholder="+1 (555) 000-0000" />
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:10px">
+        <label>Address</label>
+        <input type="text" id="newCustAddress" placeholder="123 Main St" />
+      </div>
+      <div class="form-group" style="margin-top:10px">
+        <label>Company</label>
+        <input type="text" id="newCustCompany" placeholder="Company name (optional)" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" data-close="addCustomerModal">Cancel</button>
+      <button class="btn-save" onclick="window._custSave()">Save Customer</button>
+    </div>
+  </div>
+</div>
 
 <!-- ══════════════ MODAL: Edit Booking ══════════════ -->
 <div class="modal-overlay hidden" id="editBookingModal">
