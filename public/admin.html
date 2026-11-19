@@ -581,14 +581,25 @@
                   <input type="text" id="calProfileTitle" placeholder="e.g. Consultant" />
                 </div>
               </div>
-              <div class="form-row" style="margin-top:8px">
+              <div class="form-row" style="margin-top:8px;align-items:flex-start">
                 <div class="form-group">
                   <label>Phone</label>
                   <input type="tel" id="calProfilePhone" placeholder="+1 (555) 000-0000" />
                 </div>
                 <div class="form-group">
-                  <label>Profile Photo URL</label>
-                  <input type="url" id="calProfilePhoto" placeholder="https://…" />
+                  <label>Profile Photo</label>
+                  <div class="cal-photo-row">
+                    <img id="calProfilePhotoPreview" src="" alt=""
+                      style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--border);flex-shrink:0;display:none"/>
+                    <div style="flex:1;min-width:0">
+                      <input type="url" id="calProfilePhoto" placeholder="https://…" style="font-size:0.75rem;width:100%"
+                        oninput="window._adminCalPhotoPreview(this.value)"/>
+                      <button class="btn-save" id="calPhotoUploadBtn" style="margin-top:6px;width:100%;font-size:0.78rem;padding:7px">
+                        📷 Upload from Device
+                      </button>
+                      <input type="file" id="calPhotoFileInput" accept="image/*" style="display:none"/>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

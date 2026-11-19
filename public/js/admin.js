@@ -2059,6 +2059,8 @@ async function loadCalendarConfig() {
     _updateCalBookingLink();
     _wireCalShareBtns();
     _wireCalQr();
+    _wireCalPhotoUpload();
+    window._adminCalPhotoPreview(biz.profile?.photoUrl || '');
     _renderCalMini();
 
     // Show demo AI link (read-only)
@@ -2124,6 +2126,42 @@ function _wireCalQr() {
       box.style.display = 'block';
     } else {
       box.style.display = 'none';
+    }
+  });
+}
+
+// ── Profile photo preview & upload ──────────────────────────
+window._adminCalPhotoPreview = function(url) {
+  const img = document.getElementById('calProfilePhotoPreview');
+  if (!img) return;
+  if (url) { img.src = url; img.style.display = 'block'; }
+  else      { img.src = ''; img.style.display = 'none';  }
+};
+
+function _wireCalPhotoUpload() {
+  const btn   = document.getElementById('calPhotoUploadBtn');
+  const input = document.getElementById('calPhotoFileInput');
+  if (!btn || !input) return;
+  btn.addEventListener('click', () => input.click());
+  input.addEventListener('change', async () => {
+    const file = input.files[0];
+    if (!file) return;
+    btn.disabled = true;
+    btn.textContent = 'Uploading…';
+    try {
+      const path = `calendar/profile/${Date.now()}_${file.name}`;
+      const ref  = storageRef(storage, path);
+      await uploadBytes(ref, file);
+      const url  = await getDownloadURL(ref);
+      const urlEl = document.getElementById('calProfilePhoto');
+      if (urlEl) urlEl.value = url;
+      window._adminCalPhotoPreview(url);
+    } catch(e) {
+      alert('Upload failed: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '📷 Upload from Device';
+      input.value = '';
     }
   });
 }

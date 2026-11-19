@@ -1728,6 +1728,13 @@ input[type="color"]#catColorPicker {
   cursor: pointer;
 }
 
+/* Profile photo row */
+.cal-photo-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
 /* Right column */
 .cal-right-col { display: flex; flex-direction: column; gap: 0; }
 
