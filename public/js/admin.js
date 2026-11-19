@@ -3068,6 +3068,12 @@ window._docSave = async function() {
       if (btn) btn.textContent = '⏳ Saving…';
     }
 
+    // Generate HTML with the Storage URL (not base64) so htmlContent stays under 1MB
+    const _origLogo = _docLogoDataUrl;
+    _docLogoDataUrl = logoUrl;
+    const htmlContent = _docGenerateHTML();
+    _docLogoDataUrl = _origLogo;
+
     const data = {
       type:         _docType,
       lang:         _docLang,
@@ -3096,7 +3102,7 @@ window._docSave = async function() {
       taxRate:      parseFloat(document.getElementById('docTaxRate')?.value || 0),
       items:        _docItems,
       logoUrl:      logoUrl,
-      htmlContent:  _docGenerateHTML(),
+      htmlContent:  htmlContent,
       ownerUid:     auth.currentUser?.uid || '',
       createdAt:    serverTimestamp()
     };
