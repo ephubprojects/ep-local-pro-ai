@@ -2759,7 +2759,15 @@ window._docUpdateTotals = function() {
   const advance  = parseFloat(document.getElementById('docAdvancePayment')?.value || 0);
   const balance  = Math.max(0, grand - advance);
   const balEl = document.getElementById('docBalanceDue');
-  if (balEl) balEl.textContent = '$' + balance.toFixed(2);
+  if (balEl) {
+    if (advance > 0 && advance >= grand) {
+      balEl.textContent = '✓ Paid in Full';
+      balEl.style.color = '#15803d';
+    } else {
+      balEl.textContent = '$' + balance.toFixed(2);
+      balEl.style.color = '';
+    }
+  }
 };
 
 // ── Preview ───────────────────────────────────────────────────
