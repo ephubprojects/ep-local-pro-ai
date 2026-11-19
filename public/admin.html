@@ -452,77 +452,239 @@
     <!-- ════════════ SECTION: Calendar ════════════ -->
     <div data-section="calendar" class="hidden">
 
-      <!-- Public booking link -->
-      <div class="section-card">
-        <div class="section-card-header">
-          <h2>Public Booking Link</h2>
-        </div>
-        <p class="form-hint" style="margin-bottom:12px;">Share this with clients so they can book appointments directly.</p>
-        <div class="ai-url-row">
-          <input type="text" class="ai-url-input" id="calBookingLink" readonly style="flex:1;"/>
-          <button class="btn-copy" id="calCopyLinkBtn">Copy</button>
-        </div>
-        <a id="calBookingLinkOpen" href="#" target="_blank" rel="noopener"
-           style="font-size:12px;color:var(--indigo);margin-top:8px;display:inline-block;">Open Calendar →</a>
+      <!-- Stats bar -->
+      <div class="cal-stats-bar">
+        <div class="cal-stat-pill total">📅 <strong id="calStatTotal">0</strong> Total</div>
+        <div class="cal-stat-pill confirmed">✓ <strong id="calStatConfirmed">0</strong> Confirmed</div>
+        <div class="cal-stat-pill pending">⏳ <strong id="calStatPending">0</strong> Pending</div>
+        <div class="cal-stat-pill cancelled">✕ <strong id="calStatCancelled">0</strong> Cancelled</div>
       </div>
 
-      <!-- Calendar 0 config -->
-      <div class="section-card">
-        <div class="section-card-header">
-          <h2>Calendar 0 — Default Demo Calendar</h2>
-          <button class="btn-action primary" id="saveCalConfigBtn" onclick="window._adminSaveCalConfig()">Save</button>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="calBizName">Calendar Name</label>
-            <input type="text" id="calBizName" placeholder="e.g. Demo Consultation" />
-          </div>
-          <div class="form-group">
-            <label for="calSlotDuration">Slot Duration</label>
-            <select id="calSlotDuration">
-              <option value="15">15 minutes</option>
-              <option value="30" selected>30 minutes</option>
-              <option value="45">45 minutes</option>
-              <option value="60">60 minutes</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-group" style="margin-top:12px;">
-          <label for="calDescription">Description</label>
-          <input type="text" id="calDescription" placeholder="What is this appointment for?" />
-        </div>
-        <div class="form-group" style="margin-top:16px;">
-          <label style="margin-bottom:10px;display:block;font-weight:700;">Weekly Availability</label>
-          <div class="cal-avail-grid" id="calAvailGrid"></div>
-        </div>
-        <div class="form-group" style="margin-top:14px;">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
-            <input type="checkbox" id="calActive" style="width:auto;cursor:pointer;"/>
-            Calendar is Active (visible to customers)
-          </label>
-        </div>
-      </div>
+      <!-- Two-column layout -->
+      <div class="cal-admin-layout">
 
-      <!-- Bookings table -->
-      <div class="section-card">
-        <div class="section-card-header">
-          <h2>Bookings</h2>
-          <button class="btn-action" onclick="window._adminLoadBookings()">↻ Refresh</button>
+        <!-- LEFT: Business Setup Form -->
+        <div class="cal-config-col">
+          <div class="section-card">
+
+            <div class="cal-setup-header">📋 Business Setup</div>
+
+            <div class="form-group">
+              <label>BUSINESS NAME</label>
+              <input type="text" id="calBizName" placeholder="e.g. Demo Consultation" />
+            </div>
+            <div class="form-group" style="margin-top:10px">
+              <label>DESCRIPTION</label>
+              <textarea id="calDescription" rows="2" placeholder="Let's connect and make it happen…" style="resize:vertical"></textarea>
+            </div>
+
+            <div style="display:flex;gap:12px;margin-top:10px;align-items:flex-end">
+              <div class="form-group" style="flex:0 0 auto">
+                <label>COLOR</label>
+                <input type="color" id="calColor" value="#4f46e5"
+                  style="width:44px;height:36px;padding:2px 3px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;display:block">
+              </div>
+              <div class="form-group" style="flex:1">
+                <label>SLOT DURATION</label>
+                <select id="calSlotDuration">
+                  <option value="15">15 min</option>
+                  <option value="30" selected>30 min</option>
+                  <option value="45">45 min</option>
+                  <option value="60">60 min</option>
+                  <option value="90">90 min</option>
+                  <option value="120">120 min</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Availability -->
+            <div class="cal-section-block">
+              <div class="cal-section-label">📅 AVAILABILITY</div>
+              <div class="cal-avail-grid" id="calAvailGrid"></div>
+            </div>
+
+            <!-- Calendar Integrations -->
+            <div class="cal-section-block">
+              <div class="cal-section-label">🔗 CALENDAR INTEGRATIONS</div>
+              <div class="cal-integrations-grid">
+                <div class="cal-int-box">
+                  <div class="cal-int-name">📅 Google Calendar</div>
+                  <input type="url" id="calIntGoogle" placeholder="Paste URL or iCal link…" />
+                </div>
+                <div class="cal-int-box">
+                  <div class="cal-int-name">📆 Outlook</div>
+                  <input type="url" id="calIntOutlook" placeholder="Paste URL or iCal link…" />
+                </div>
+                <div class="cal-int-box">
+                  <div class="cal-int-name">📌 Calendly</div>
+                  <input type="url" id="calIntCalendly" placeholder="Paste URL or iCal link…" />
+                </div>
+                <div class="cal-int-box">
+                  <div class="cal-int-name">📋 Acuity</div>
+                  <input type="url" id="calIntAcuity" placeholder="Paste URL or iCal link…" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Meeting Link -->
+            <div class="cal-section-block">
+              <div class="cal-section-label">🎥 MEETING LINK (ZOOM / MEET / TEAMS)</div>
+              <p class="cal-section-hint">Paste your meeting URL — clients will see a Join button after booking</p>
+              <input type="url" id="calMeetingLink" placeholder="https://zoom.us/j/…" />
+            </div>
+
+            <!-- Demo AI Link -->
+            <div class="cal-section-block cal-ai-link-block">
+              <div class="cal-section-label" style="color:#ef4444">🤖 DEMO AI LINK</div>
+              <p class="cal-section-hint">Clients will see a Live button after booking</p>
+              <div class="ai-url-row">
+                <div class="ai-url-display" id="calAiLinkDisplay">—</div>
+              </div>
+            </div>
+
+            <!-- Calendar Label -->
+            <div class="cal-section-block">
+              <div class="cal-section-label">🏷️ CALENDAR LABEL (SHOWN ABOVE BOOKING CALENDAR)</div>
+              <input type="text" id="calLabel" placeholder="Let's book your one-on-one consultation today! 📅" />
+            </div>
+
+            <!-- Booking Page Colors -->
+            <div class="cal-section-block">
+              <div class="cal-section-label">🎨 BOOKING PAGE COLORS</div>
+              <div class="cal-colors-row">
+                <div class="cal-color-item">
+                  <div class="cal-color-name">Page Background</div>
+                  <input type="color" id="calColorBg" value="#0f172a">
+                </div>
+                <div class="cal-color-item">
+                  <div class="cal-color-name">Card Background</div>
+                  <input type="color" id="calColorCard" value="#1e293b">
+                </div>
+                <div class="cal-color-item">
+                  <div class="cal-color-name">Accent Color</div>
+                  <input type="color" id="calColorAccent" value="#4f46e5">
+                </div>
+              </div>
+            </div>
+
+            <!-- Booking Page Profile -->
+            <div class="cal-section-block">
+              <div class="cal-section-label">👤 YOUR BOOKING PAGE PROFILE</div>
+              <p class="cal-section-hint">This info appears on your public booking page so clients know who they're booking with.</p>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Display Name</label>
+                  <input type="text" id="calProfileName" placeholder="Jane Smith" />
+                </div>
+                <div class="form-group">
+                  <label>Title / Role</label>
+                  <input type="text" id="calProfileTitle" placeholder="e.g. Consultant" />
+                </div>
+              </div>
+              <div class="form-row" style="margin-top:8px">
+                <div class="form-group">
+                  <label>Phone</label>
+                  <input type="tel" id="calProfilePhone" placeholder="+1 (555) 000-0000" />
+                </div>
+                <div class="form-group">
+                  <label>Profile Photo URL</label>
+                  <input type="url" id="calProfilePhoto" placeholder="https://…" />
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:14px">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;font-weight:600;color:var(--ink)">
+                <input type="checkbox" id="calActive" style="width:auto;cursor:pointer;accent-color:var(--indigo)"/>
+                Calendar is Active (visible to customers)
+              </label>
+            </div>
+
+            <button class="btn-save" id="saveCalConfigBtn" onclick="window._adminSaveCalConfig()"
+              style="margin-top:20px;width:100%;font-size:0.95rem">
+              💾 Save Calendar Settings
+            </button>
+
+          </div><!-- /section-card -->
+        </div><!-- /cal-config-col -->
+
+        <!-- RIGHT: Booking Link + Mini Calendar -->
+        <div class="cal-right-col">
+
+          <!-- Booking link card -->
+          <div class="section-card cal-link-card">
+            <div class="cal-setup-header" style="font-size:0.8rem;margin-bottom:12px">🔗 YOUR BOOKING LINK</div>
+            <div class="cal-booking-url-box">
+              <div class="cal-booking-url-text" id="calBookingLink">—</div>
+            </div>
+            <div class="cal-share-btns">
+              <button class="cal-share-btn share-copy"     id="calCopyLinkBtn">📋 Copy</button>
+              <button class="cal-share-btn share-wa"       id="calShareWA">💬 WhatsApp</button>
+              <button class="cal-share-btn share-tg"       id="calShareTG">✈️ Telegram</button>
+              <button class="cal-share-btn share-sms"      id="calShareSMS">📱 SMS</button>
+              <button class="cal-share-btn share-fb"       id="calShareFB">👍 Facebook</button>
+              <button class="cal-share-btn share-email"    id="calShareEM">✉️ Email</button>
+            </div>
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;cursor:pointer;margin-top:12px">
+              <input type="checkbox" id="calShowQR" style="width:auto;accent-color:var(--indigo)"> Show QR Code
+            </label>
+            <div id="calQrBox" style="display:none;text-align:center;margin-top:10px">
+              <img id="calQrImg" src="" alt="QR Code"
+                style="width:160px;height:160px;border-radius:8px;border:1px solid #e2e8f0"/>
+            </div>
+          </div>
+
+          <!-- Mini calendar -->
+          <div class="section-card" style="margin-top:16px">
+            <div class="cal-mini-nav">
+              <button class="cal-mini-btn" id="calMiniPrev">‹</button>
+              <span id="calMiniLabel" style="font-weight:700;font-size:0.9rem;color:var(--ink)"></span>
+              <button class="cal-mini-btn" id="calMiniNext">›</button>
+            </div>
+            <div class="cal-mini-head" id="calMiniHead"></div>
+            <div class="cal-mini-grid" id="calMiniGrid"></div>
+            <div class="cal-mini-legend">
+              <span class="cal-ml-dot today-dot"></span> Today
+              &nbsp;&nbsp;
+              <span class="cal-ml-dot booked-dot"></span> Has bookings
+            </div>
+          </div>
+
+        </div><!-- /cal-right-col -->
+      </div><!-- /cal-admin-layout -->
+
+      <!-- Appointments table -->
+      <div class="section-card" style="margin-top:20px">
+        <div class="section-card-header" style="flex-wrap:wrap;gap:10px">
+          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;flex-wrap:wrap">
+            <h2 style="white-space:nowrap">Appointments — <span id="calApptCalName">Calendar 0</span></h2>
+            <input type="text" id="bookingSearch" placeholder="🔍 Search by name, email or phone…"
+              oninput="window._adminFilterBookings()"
+              style="flex:1;min-width:160px;max-width:300px;font-size:0.82rem;padding:6px 10px;
+                     border:1px solid #e2e8f0;border-radius:6px;outline:none;color:var(--ink)" />
+          </div>
+          <div style="display:flex;gap:8px;flex-shrink:0">
+            <button class="btn-action" onclick="window._adminLoadBookings()">↻ Refresh</button>
+            <button class="btn-action" id="calExportCsvBtn">📥 Export CSV</button>
+          </div>
         </div>
-        <div class="docs-table-wrap">
-          <table class="docs-table">
+        <div class="bookings-table-wrap">
+          <table class="bookings-table">
             <thead>
               <tr>
-                <th>Client</th>
+                <th>Name</th>
+                <th>Email</th>
                 <th>Phone</th>
                 <th>Date</th>
                 <th>Time</th>
+                <th>Reason</th>
+                <th>Notes</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody id="bookingsTableBody">
-              <tr><td colspan="6"><div class="empty-state"><p>Loading…</p></div></td></tr>
+              <tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:20px">Loading…</td></tr>
             </tbody>
           </table>
         </div>

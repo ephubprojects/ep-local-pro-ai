@@ -1990,6 +1990,14 @@ const CAL_DAYS = [
   { key: 'sun', label: 'Sun' }
 ];
 
+const CAL_MONTHS = ['January','February','March','April','May','June',
+                    'July','August','September','October','November','December'];
+
+let _calAllBookings = []; // cached for search + CSV
+let _calMiniYear = new Date().getFullYear();
+let _calMiniMonth = new Date().getMonth();
+
+// ── Availability grid ────────────────────────────────────────
 function renderCalAvailGrid(availability = {}) {
   const grid = document.getElementById('calAvailGrid');
   if (!grid) return;
@@ -2018,6 +2026,7 @@ window._adminCalDayToggle = function(key) {
   e.disabled = !cb.checked;
 };
 
+// ── Load config ──────────────────────────────────────────────
 async function loadCalendarConfig() {
   renderCalAvailGrid();
   try {
@@ -2025,103 +2034,281 @@ async function loadCalendarConfig() {
     const data = snap.exists() ? snap.data() : {};
     const biz  = (data.businesses || [])[0] || {};
 
-    const nameEl = document.getElementById('calBizName');
-    const slotEl = document.getElementById('calSlotDuration');
-    const descEl = document.getElementById('calDescription');
-    const actEl  = document.getElementById('calActive');
-    if (nameEl) nameEl.value = biz.name        || '';
-    if (slotEl) slotEl.value = biz.slotDuration || 30;
-    if (descEl) descEl.value = biz.description  || '';
-    if (actEl)  actEl.checked = biz.active !== false;
+    _setVal('calBizName',       biz.name         || '');
+    _setVal('calSlotDuration',  biz.slotDuration  || 30);
+    _setVal('calDescription',   biz.description   || '');
+    _setVal('calColor',         biz.color         || '#4f46e5');
+    _setVal('calMeetingLink',   biz.meetingLink    || '');
+    _setVal('calLabel',         biz.calLabel       || '');
+    _setVal('calColorBg',       biz.colorBg        || '#0f172a');
+    _setVal('calColorCard',     biz.colorCard      || '#1e293b');
+    _setVal('calColorAccent',   biz.colorAccent    || '#4f46e5');
+    _setVal('calProfileName',   biz.profile?.displayName || '');
+    _setVal('calProfileTitle',  biz.profile?.title       || '');
+    _setVal('calProfilePhone',  biz.profile?.phone       || '');
+    _setVal('calProfilePhoto',  biz.profile?.photoUrl    || '');
+    _setVal('calIntGoogle',    (biz.integrations || {}).google   || '');
+    _setVal('calIntOutlook',   (biz.integrations || {}).outlook  || '');
+    _setVal('calIntCalendly',  (biz.integrations || {}).calendly || '');
+    _setVal('calIntAcuity',    (biz.integrations || {}).acuity   || '');
+
+    const actEl = document.getElementById('calActive');
+    if (actEl) actEl.checked = biz.active !== false;
 
     renderCalAvailGrid(biz.availability || {});
     _updateCalBookingLink();
+    _wireCalShareBtns();
+    _wireCalQr();
+    _renderCalMini();
+
+    // Show demo AI link (read-only)
+    const aiLinkEl = document.getElementById('calAiLinkDisplay');
+    if (aiLinkEl) aiLinkEl.textContent = `${window.location.origin}/ai/ep-hub`;
+
+    // Export CSV button
+    document.getElementById('calExportCsvBtn')?.addEventListener('click', _calExportCsv, { once: true });
+
   } catch(e) {
     console.error('loadCalendarConfig', e);
   }
 }
 
-function _updateCalBookingLink() {
-  const urlEl = document.getElementById('calBookingLink');
-  if (!urlEl) return;
-  const base = window.location.origin;
-  urlEl.textContent = `${base}/calendar.html?biz=0`;
+function _setVal(id, val) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (el.tagName === 'SELECT' || el.type === 'checkbox') return;
+  el.value = val;
 }
 
+function _updateCalBookingLink() {
+  const url = `${window.location.origin}/calendar.html?biz=0`;
+  const el  = document.getElementById('calBookingLink');
+  if (el) el.textContent = url;
+  const openEl = document.getElementById('calBookingLinkOpen');
+  if (openEl) openEl.href = url;
+}
+
+// ── Share buttons ────────────────────────────────────────────
+function _wireCalShareBtns() {
+  const getUrl = () => document.getElementById('calBookingLink')?.textContent?.trim() || '';
+
+  document.getElementById('calCopyLinkBtn')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(getUrl()).then(() => {
+      const b = document.getElementById('calCopyLinkBtn');
+      if (b) { const t = b.textContent; b.textContent = 'Copied!'; setTimeout(() => b.textContent = t, 1500); }
+    }).catch(() => {});
+  });
+
+  document.getElementById('calShareWA')?.addEventListener('click', () =>
+    window.open(`https://wa.me/?text=${encodeURIComponent('Book an appointment: ' + getUrl())}`, '_blank'));
+  document.getElementById('calShareTG')?.addEventListener('click', () =>
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(getUrl())}`, '_blank'));
+  document.getElementById('calShareSMS')?.addEventListener('click', () =>
+    window.open(`sms:?body=${encodeURIComponent('Book an appointment: ' + getUrl())}`, '_blank'));
+  document.getElementById('calShareFB')?.addEventListener('click', () =>
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(getUrl())}`, '_blank'));
+  document.getElementById('calShareEM')?.addEventListener('click', () =>
+    window.open(`mailto:?subject=Book an Appointment&body=${encodeURIComponent('Click to book: ' + getUrl())}`, '_blank'));
+}
+
+// ── QR Code ──────────────────────────────────────────────────
+function _wireCalQr() {
+  const cb    = document.getElementById('calShowQR');
+  const box   = document.getElementById('calQrBox');
+  const img   = document.getElementById('calQrImg');
+  if (!cb || !box || !img) return;
+  cb.addEventListener('change', () => {
+    if (cb.checked) {
+      const url = document.getElementById('calBookingLink')?.textContent?.trim() || '';
+      img.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+      box.style.display = 'block';
+    } else {
+      box.style.display = 'none';
+    }
+  });
+}
+
+// ── Mini calendar ────────────────────────────────────────────
+function _renderCalMini() {
+  const labelEl = document.getElementById('calMiniLabel');
+  const headEl  = document.getElementById('calMiniHead');
+  const gridEl  = document.getElementById('calMiniGrid');
+  if (!labelEl || !headEl || !gridEl) return;
+
+  const today = new Date();
+  const y = _calMiniYear, m = _calMiniMonth;
+  labelEl.textContent = `${CAL_MONTHS[m]} ${y}`;
+
+  headEl.innerHTML = ['S','M','T','W','T','F','S'].map(d => `<span>${d}</span>`).join('');
+
+  const firstDay = new Date(y, m, 1).getDay();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+
+  // Gather dates that have bookings
+  const bookedDates = new Set(_calAllBookings.map(b => b.date));
+
+  let cells = '';
+  for (let i = 0; i < firstDay; i++) cells += `<div class="cal-mini-cell empty"></div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${y}-${String(m + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = today.getFullYear() === y && today.getMonth() === m && today.getDate() === d;
+    const hasB    = bookedDates.has(dateStr);
+    cells += `<div class="cal-mini-cell ${isToday ? 'today' : ''} ${hasB ? 'has-bookings' : ''}">${d}</div>`;
+  }
+  gridEl.innerHTML = cells;
+
+  document.getElementById('calMiniPrev')?.addEventListener('click', () => {
+    _calMiniMonth--;
+    if (_calMiniMonth < 0) { _calMiniMonth = 11; _calMiniYear--; }
+    _renderCalMini();
+  }, { once: true });
+  document.getElementById('calMiniNext')?.addEventListener('click', () => {
+    _calMiniMonth++;
+    if (_calMiniMonth > 11) { _calMiniMonth = 0; _calMiniYear++; }
+    _renderCalMini();
+  }, { once: true });
+}
+
+// ── Save config ──────────────────────────────────────────────
 window._adminSaveCalConfig = async function() {
-  const btn = document.querySelector('[onclick="window._adminSaveCalConfig()"]');
+  const btn = document.getElementById('saveCalConfigBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   try {
-    const name     = document.getElementById('calBizName')?.value.trim()     || 'Book an Appointment';
-    const slotDur  = parseInt(document.getElementById('calSlotDuration')?.value) || 30;
-    const desc     = document.getElementById('calDescription')?.value.trim() || '';
-    const active   = document.getElementById('calActive')?.checked !== false;
-
     const availability = {};
     CAL_DAYS.forEach(({ key }) => {
       const cb = document.getElementById(`calDay_${key}`);
       const s  = document.getElementById(`calStart_${key}`);
       const e  = document.getElementById(`calEnd_${key}`);
-      if (cb?.checked && s?.value && e?.value) {
-        availability[key] = [s.value, e.value];
-      }
+      if (cb?.checked && s?.value && e?.value) availability[key] = [s.value, e.value];
     });
 
     const snap = await getDoc(doc(db, 'config', 'calendar'));
     const existing = snap.exists() ? snap.data() : {};
     const businesses = [...(existing.businesses || [])];
-    businesses[0] = { ...(businesses[0] || {}), name, slotDuration: slotDur, description: desc, active, availability };
+    businesses[0] = {
+      ...(businesses[0] || {}),
+      name:         document.getElementById('calBizName')?.value.trim()     || 'Book an Appointment',
+      slotDuration: parseInt(document.getElementById('calSlotDuration')?.value) || 30,
+      description:  document.getElementById('calDescription')?.value.trim() || '',
+      color:        document.getElementById('calColor')?.value               || '#4f46e5',
+      meetingLink:  document.getElementById('calMeetingLink')?.value.trim() || '',
+      calLabel:     document.getElementById('calLabel')?.value.trim()        || '',
+      colorBg:      document.getElementById('calColorBg')?.value             || '#0f172a',
+      colorCard:    document.getElementById('calColorCard')?.value           || '#1e293b',
+      colorAccent:  document.getElementById('calColorAccent')?.value         || '#4f46e5',
+      active:       document.getElementById('calActive')?.checked !== false,
+      availability,
+      integrations: {
+        google:   document.getElementById('calIntGoogle')?.value.trim()   || '',
+        outlook:  document.getElementById('calIntOutlook')?.value.trim()  || '',
+        calendly: document.getElementById('calIntCalendly')?.value.trim() || '',
+        acuity:   document.getElementById('calIntAcuity')?.value.trim()   || ''
+      },
+      profile: {
+        displayName: document.getElementById('calProfileName')?.value.trim()  || '',
+        title:       document.getElementById('calProfileTitle')?.value.trim() || '',
+        phone:       document.getElementById('calProfilePhone')?.value.trim() || '',
+        photoUrl:    document.getElementById('calProfilePhoto')?.value.trim() || ''
+      }
+    };
 
     await setDoc(doc(db, 'config', 'calendar'), { businesses }, { merge: true });
-    if (btn) { btn.disabled = false; btn.textContent = '💾 Save Calendar Config'; }
-    alert('Calendar configuration saved!');
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Save Calendar Settings'; }
+    alert('Calendar settings saved!');
   } catch(e) {
     console.error('saveCalConfig', e);
-    if (btn) { btn.disabled = false; btn.textContent = '💾 Save Calendar Config'; }
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Save Calendar Settings'; }
     alert('Error saving: ' + e.message);
   }
 };
 
+// ── Load bookings ────────────────────────────────────────────
 window._adminLoadBookings = async function() {
   const tbody = document.getElementById('bookingsTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:20px">Loading…</td></tr>';
+  tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:20px">Loading…</td></tr>`;
   try {
-    const q = query(collection(db, 'bookings'), orderBy('createdAt', 'desc'), limit(100));
+    const q = query(collection(db, 'bookings'), orderBy('date', 'desc'), limit(200));
     const snap = await getDocs(q);
-    if (snap.empty) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:20px">No bookings yet</td></tr>';
-      return;
-    }
-    tbody.innerHTML = '';
-    snap.forEach(d => {
-      const b = d.data();
-      const dateStr = b.date || '—';
-      const timeStr = b.time || '—';
-      const status  = b.status || 'pending';
-      const badgeCls = status === 'confirmed' ? 'badge-booking-confirmed'
-                     : status === 'cancelled' ? 'badge-booking-cancelled'
-                     : 'badge-booking-pending';
-      const created = b.createdAt?.toDate?.()?.toLocaleDateString() || '—';
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${b.clientName || '—'}</td>
-        <td>${b.clientPhone || '—'}</td>
-        <td>${b.clientEmail || '—'}</td>
-        <td>${dateStr} ${timeStr}</td>
-        <td>${b.notes || '—'}</td>
-        <td><span class="badge ${badgeCls}">${status}</span></td>
-        <td style="white-space:nowrap">
-          ${status !== 'confirmed' ? `<button class="btn-action btn-sm" onclick="window._adminConfirmBooking('${d.id}')">✓ Confirm</button>` : ''}
-          ${status !== 'cancelled' ? `<button class="btn-action btn-sm" style="margin-left:4px" onclick="window._adminCancelBooking('${d.id}')">✕ Cancel</button>` : ''}
-        </td>`;
-      tbody.appendChild(tr);
-    });
+
+    _calAllBookings = [];
+    snap.forEach(d => _calAllBookings.push({ id: d.id, ...d.data() }));
+
+    _renderBookingsTable(_calAllBookings);
+    _updateCalStats(_calAllBookings);
+    _renderCalMini();
   } catch(e) {
     console.error('loadBookings', e);
-    tbody.innerHTML = `<tr><td colspan="7" style="color:#ef4444;padding:20px">${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="color:#ef4444;padding:20px">${e.message}</td></tr>`;
   }
 };
+
+function _renderBookingsTable(rows) {
+  const tbody = document.getElementById('bookingsTableBody');
+  if (!tbody) return;
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:20px">No appointments yet</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = '';
+  rows.forEach(b => {
+    const status   = b.status || 'pending';
+    const badgeCls = status === 'confirmed' ? 'badge-booking-confirmed'
+                   : status === 'cancelled' ? 'badge-booking-cancelled'
+                   : 'badge-booking-pending';
+    const tr = document.createElement('tr');
+    tr.dataset.id = b.id;
+    tr.innerHTML = `
+      <td title="${b.clientName || ''}">${b.clientName  || '—'}</td>
+      <td title="${b.clientEmail|| ''}">${b.clientEmail || '—'}</td>
+      <td>${b.clientPhone || '—'}</td>
+      <td>${b.date  || '—'}</td>
+      <td>${b.time  || '—'}</td>
+      <td title="${b.reason||''}">${b.reason || '—'}</td>
+      <td title="${b.notes ||''}">${b.notes  || '—'}</td>
+      <td><span class="badge ${badgeCls}">${status}</span></td>
+      <td style="white-space:nowrap">
+        ${status !== 'confirmed' ? `<button class="btn-action btn-sm" onclick="window._adminConfirmBooking('${b.id}')">✓</button>` : ''}
+        ${status !== 'cancelled' ? `<button class="btn-action btn-sm" style="margin-left:4px" onclick="window._adminCancelBooking('${b.id}')">✕</button>` : ''}
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function _updateCalStats(rows) {
+  document.getElementById('calStatTotal')?.    textContent !== undefined &&
+    (document.getElementById('calStatTotal').textContent     = rows.length);
+  document.getElementById('calStatConfirmed')?.textContent !== undefined &&
+    (document.getElementById('calStatConfirmed').textContent = rows.filter(b => b.status === 'confirmed').length);
+  document.getElementById('calStatPending')?.  textContent !== undefined &&
+    (document.getElementById('calStatPending').textContent   = rows.filter(b => !b.status || b.status === 'pending').length);
+  document.getElementById('calStatCancelled')?.textContent !== undefined &&
+    (document.getElementById('calStatCancelled').textContent = rows.filter(b => b.status === 'cancelled').length);
+}
+
+window._adminFilterBookings = function() {
+  const q = (document.getElementById('bookingSearch')?.value || '').toLowerCase();
+  const filtered = q
+    ? _calAllBookings.filter(b =>
+        (b.clientName  || '').toLowerCase().includes(q) ||
+        (b.clientEmail || '').toLowerCase().includes(q) ||
+        (b.clientPhone || '').toLowerCase().includes(q))
+    : _calAllBookings;
+  _renderBookingsTable(filtered);
+};
+
+function _calExportCsv() {
+  if (!_calAllBookings.length) { alert('No bookings to export.'); return; }
+  const cols = ['Name','Email','Phone','Date','Time','Reason','Notes','Status'];
+  const rows = _calAllBookings.map(b => [
+    b.clientName, b.clientEmail, b.clientPhone, b.date, b.time, b.reason, b.notes, b.status
+  ].map(v => `"${(v||'').replace(/"/g,'""')}"`).join(','));
+  const csv  = [cols.join(','), ...rows].join('\n');
+  const a    = document.createElement('a');
+  a.href     = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = `bookings-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
 
 window._adminConfirmBooking = async function(id) {
   if (!confirm('Mark this booking as confirmed?')) return;
