@@ -2321,16 +2321,16 @@ window._adminLoadBookings = async function() {
   if (!tbody) return;
   tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:20px">Loading…</td></tr>`;
   try {
-    const q = query(
-      collection(db, 'bookings'),
-      where('bizIndex', '==', _calActiveIdx),
-      orderBy('date', 'desc'),
-      limit(200)
-    );
+    const q = query(collection(db, 'bookings'), orderBy('date', 'desc'), limit(500));
     const snap = await getDocs(q);
 
     _calAllBookings = [];
-    snap.forEach(d => _calAllBookings.push({ id: d.id, ...d.data() }));
+    snap.forEach(d => {
+      const b = d.data();
+      // filter by active calendar index (or include legacy bookings with no bizIndex on Calendar 0)
+      const bIdx = b.bizIndex !== undefined ? b.bizIndex : 0;
+      if (bIdx === _calActiveIdx) _calAllBookings.push({ id: d.id, ...b });
+    });
 
     _renderBookingsTable(_calAllBookings);
     _updateCalStats(_calAllBookings);
