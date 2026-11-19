@@ -74,5 +74,19 @@ service cloud.firestore {
       allow read, create, update: if true;  // employee page is unauthenticated
       allow delete: if isAdmin();
     }
+
+    // ── Global config (calendar setup, etc.) ─────────────────────────────
+    match /config/{configId} {
+      allow read: if true;   // public booking page reads calendar config
+      allow write: if isAdmin();
+    }
+
+    // ── Bookings (calendar appointments) ─────────────────────────────────
+    match /bookings/{bookingId} {
+      allow create: if true;  // customers + AI assistant create bookings unauthenticated
+      allow read: if isAdmin() || isAuth();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
   }
 }
