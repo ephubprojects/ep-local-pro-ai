@@ -2216,7 +2216,7 @@ textarea.doc-input { resize: vertical; }
 /* Line items */
 .doc-items-header {
   display: grid;
-  grid-template-columns: 86px 1fr 46px 68px 68px 26px;
+  grid-template-columns: 86px 1fr 80px 26px;
   gap: 4px;
   font-size: 0.7rem;
   font-weight: 700;
@@ -2230,7 +2230,7 @@ textarea.doc-input { resize: vertical; }
 
 .doc-item-row {
   display: grid;
-  grid-template-columns: 86px 1fr 46px 68px 68px 26px;
+  grid-template-columns: 86px 1fr 80px 26px;
   gap: 4px;
   align-items: center;
   margin-bottom: 4px;

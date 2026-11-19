@@ -2734,13 +2734,10 @@ function _docRenderItems() {
       <select class="doc-item-type" onchange="window._docItemSet(${i},'type',this.value)">
         ${DOC_ITEM_TYPES.map(t => `<option value="${t.value}"${item.type===t.value?' selected':''}>${_docLang==='es'?t.labelEs:t.label}</option>`).join('')}
       </select>
-      <input type="text"   value="${_esc(item.desc)}"  placeholder="Description / Notes"
+      <input type="text" value="${_esc(item.desc)}" placeholder="Description / Notes"
         oninput="window._docItemSet(${i},'desc',this.value)" />
-      <input type="number" value="${item.qty}"  min="0" step="1"
-        oninput="window._docItemSet(${i},'qty',this.value)" />
       <input type="number" value="${item.price}" min="0" step="0.01" placeholder="0.00"
         oninput="window._docItemSet(${i},'price',this.value)" />
-      <div class="doc-item-total" id="docItemTotal_${i}">$${((item.qty||0)*(item.price||0)).toFixed(2)}</div>
       <button class="doc-item-del" onclick="window._docRemoveItem(${i})">✕</button>
     </div>`).join('');
 }
@@ -2751,18 +2748,13 @@ function _esc(s) {
 
 // ── Totals ────────────────────────────────────────────────────
 window._docUpdateTotals = function() {
-  const subtotal = _docItems.reduce((s, it) => s + (it.qty||0)*(it.price||0), 0);
+  const subtotal = _docItems.reduce((s, it) => s + (it.price||0), 0);
   const taxRate  = parseFloat(document.getElementById('docTaxRate')?.value || 0);
   const taxAmt   = subtotal * taxRate / 100;
   const grand    = subtotal + taxAmt;
   if (document.getElementById('docSubtotal'))  document.getElementById('docSubtotal').textContent  = '$' + subtotal.toFixed(2);
   if (document.getElementById('docTaxAmt'))    document.getElementById('docTaxAmt').textContent    = '$' + taxAmt.toFixed(2);
   if (document.getElementById('docGrandTotal'))document.getElementById('docGrandTotal').textContent= '$' + grand.toFixed(2);
-  // Update row totals in item list
-  const rows = document.querySelectorAll('#docItemsList .doc-item-total');
-  _docItems.forEach((it, i) => {
-    if (rows[i]) rows[i].textContent = '$' + ((it.qty||0)*(it.price||0)).toFixed(2);
-  });
   // Advance payment & remaining balance — always recalculate
   const advance  = parseFloat(document.getElementById('docAdvancePayment')?.value || 0);
   const balance  = Math.max(0, grand - advance);
@@ -2802,7 +2794,7 @@ function _docGenerateHTML() {
   const includeTC   = document.getElementById('docIncludeTC')?.checked || false;
   const termsText   = document.getElementById('docTermsText')?.value || '';
 
-  const subtotal   = _docItems.reduce((s, it) => s + (it.qty||0)*(it.price||0), 0);
+  const subtotal   = _docItems.reduce((s, it) => s + (it.price||0), 0);
   const taxAmt     = subtotal * taxRate / 100;
   const grand      = subtotal + taxAmt;
   const balance    = Math.max(0, grand - advance);
@@ -2831,9 +2823,7 @@ function _docGenerateHTML() {
     return `
     <tr>
       <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;">${typeBadge}<br><span style="font-size:0.82rem">${_esc(it.desc)}</span></td>
-      <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:center;">${it.qty||0}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:right;">$${(it.price||0).toFixed(2)}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;">$${((it.qty||0)*(it.price||0)).toFixed(2)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;">$${(it.price||0).toFixed(2)}</td>
     </tr>`;
   }).join('') : '';
 
@@ -2946,8 +2936,6 @@ function _docGenerateHTML() {
     <thead>
       <tr>
         <th>${L.desc}</th>
-        <th style="text-align:right">${L.qty}</th>
-        <th style="text-align:right">${L.price}</th>
         <th style="text-align:right">${L.total}</th>
       </tr>
     </thead>
