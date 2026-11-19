@@ -2560,7 +2560,7 @@ window._openDocCreator = function(existingDoc) {
   // Reset state
   _docItems = existingDoc?.items || [{ desc:'', qty:1, price:0 }];
   _docType  = existingDoc?.type || 'invoice';
-  _docLogoDataUrl = existingDoc?.logoDataUrl || '';
+  _docLogoDataUrl = existingDoc?.logoUrl || existingDoc?.logoDataUrl || '';
   _docSetType(_docType);
   _docSetLang(_docLang);
 
@@ -2597,8 +2597,9 @@ window._openDocCreator = function(existingDoc) {
     if (tcEl) tcEl.checked = tcChecked;
     document.getElementById('docTCSection')?.classList.toggle('hidden', !tcChecked);
     _setDocVal('docTermsText', existingDoc.termsText || '');
-    if (existingDoc.logoDataUrl) {
-      _docLogoDataUrl = existingDoc.logoDataUrl;
+    const _storedLogo = existingDoc.logoUrl || existingDoc.logoDataUrl || '';
+    if (_storedLogo) {
+      _docLogoDataUrl = _storedLogo;
       const img = document.getElementById('docLogoImg');
       const ph  = document.getElementById('docLogoPlaceholder');
       if (img) { img.src = _docLogoDataUrl; img.style.display = 'block'; }
@@ -3047,6 +3048,26 @@ window._docSave = async function() {
   const btn = document.getElementById('docSaveBtn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving…'; }
   try {
+    // Upload logo to Firebase Storage if it's a base64 data URL (too large for Firestore)
+    let logoUrl = _docLogoDataUrl;
+    if (logoUrl && logoUrl.startsWith('data:')) {
+      if (btn) btn.textContent = '⏳ Uploading logo…';
+      const uid = auth.currentUser?.uid || 'shared';
+      const matches = logoUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (matches) {
+        const mimeType = matches[1];
+        const byteChars = atob(matches[2]);
+        const byteArr = new Uint8Array(byteChars.length);
+        for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
+        const blob = new Blob([byteArr], { type: mimeType });
+        const ext = mimeType.split('/')[1]?.split('+')[0] || 'png';
+        const logoRef = storageRef(storage, `logos/${uid}/logo.${ext}`);
+        await uploadBytes(logoRef, blob);
+        logoUrl = await getDownloadURL(logoRef);
+      }
+      if (btn) btn.textContent = '⏳ Saving…';
+    }
+
     const data = {
       type:         _docType,
       lang:         _docLang,
@@ -3074,7 +3095,7 @@ window._docSave = async function() {
       termsText:    document.getElementById('docTermsText')?.value    || '',
       taxRate:      parseFloat(document.getElementById('docTaxRate')?.value || 0),
       items:        _docItems,
-      logoDataUrl:  _docLogoDataUrl,
+      logoUrl:      logoUrl,
       htmlContent:  _docGenerateHTML(),
       ownerUid:     auth.currentUser?.uid || '',
       createdAt:    serverTimestamp()
@@ -3086,7 +3107,7 @@ window._docSave = async function() {
     }
 
     // Compute amount for card renderer compatibility
-    const grand = data.items.reduce((s,it)=>s+(it.qty||0)*(it.price||0),0) * (1 + data.taxRate/100);
+    const grand = data.items.reduce((s,it)=>s+(it.price||0),0) * (1 + data.taxRate/100);
     data.customerName = data.custName;
     data.amount       = grand.toFixed(2);
 
@@ -3166,7 +3187,7 @@ window._docSaveTemplate = async function() {
       termsText:    document.getElementById('docTermsText')?.value    || '',
       taxRate:      parseFloat(document.getElementById('docTaxRate')?.value || 0),
       items:        _docItems,
-      logoDataUrl:  _docLogoDataUrl,
+      logoUrl:      _docLogoDataUrl,
       ownerUid:     auth.currentUser?.uid || '',
       createdAt:    serverTimestamp()
     });
@@ -3214,7 +3235,7 @@ window._docLoadTemplate = async function(id) {
   if (!tpl) return;
   document.getElementById('docTemplatePickerModal')?.classList.add('hidden');
   _docItems       = tpl.items?.length ? [...tpl.items] : [{ desc:'', qty:1, price:0 }];
-  _docLogoDataUrl = tpl.logoDataUrl || '';
+  _docLogoDataUrl = tpl.logoUrl || tpl.logoDataUrl || '';
   _docSetType(tpl.type || 'invoice');
   _setDocVal('docBizName',    tpl.bizName || '');
   _setDocVal('docBizAddress', tpl.bizAddress || '');
