@@ -1994,8 +1994,10 @@ const CAL_MONTHS = ['January','February','March','April','May','June',
                     'July','August','September','October','November','December'];
 
 let _calAllBookings = []; // cached for search + CSV
-let _calMiniYear = new Date().getFullYear();
-let _calMiniMonth = new Date().getMonth();
+let _calMiniYear    = new Date().getFullYear();
+let _calMiniMonth   = new Date().getMonth();
+let _calActiveIdx   = 0;   // which calendar tab is selected
+let _calAllBizData  = [];  // full businesses array from Firestore
 
 // ── Availability grid ────────────────────────────────────────
 function renderCalAvailGrid(availability = {}) {
@@ -2026,53 +2028,105 @@ window._adminCalDayToggle = function(key) {
   e.disabled = !cb.checked;
 };
 
+// ── Tabs ─────────────────────────────────────────────────────
+function _renderCalTabs(businesses) {
+  const row = document.getElementById('calTabsRow');
+  if (!row) return;
+  row.innerHTML = '';
+  businesses.forEach((biz, i) => {
+    const btn = document.createElement('button');
+    btn.className = `cal-tab${i === _calActiveIdx ? ' active' : ''}`;
+    const name = biz.name || `Calendar ${i}`;
+    btn.innerHTML = name + (i === 0 ? `<span class="cal-tab-default-badge">DEFAULT</span>` : '');
+    btn.addEventListener('click', () => window._adminSwitchCalTab(i));
+    row.appendChild(btn);
+  });
+}
+
+window._adminSwitchCalTab = function(idx) {
+  _calActiveIdx = idx;
+  _populateCalForm(_calAllBizData[idx] || {});
+  _renderCalTabs(_calAllBizData);
+  _updateCalBookingLink();
+  window._adminLoadBookings();
+};
+
+window._adminAddCalendar = async function() {
+  const name = prompt('New calendar name:');
+  if (!name || !name.trim()) return;
+  try {
+    const snap = await getDoc(doc(db, 'config', 'calendar'));
+    const data = snap.exists() ? snap.data() : {};
+    const businesses = [...(data.businesses || [])];
+    businesses.push({ name: name.trim(), slotDuration: 30, active: true, availability: {} });
+    await setDoc(doc(db, 'config', 'calendar'), { businesses }, { merge: true });
+    _calAllBizData = businesses;
+    _calActiveIdx  = businesses.length - 1;
+    _renderCalTabs(businesses);
+    _populateCalForm(businesses[_calActiveIdx]);
+    _updateCalBookingLink();
+    window._adminLoadBookings();
+  } catch(e) { alert('Error creating calendar: ' + e.message); }
+};
+
 // ── Load config ──────────────────────────────────────────────
 async function loadCalendarConfig() {
   renderCalAvailGrid();
   try {
     const snap = await getDoc(doc(db, 'config', 'calendar'));
     const data = snap.exists() ? snap.data() : {};
-    const biz  = (data.businesses || [])[0] || {};
 
-    _setVal('calBizName',       biz.name         || '');
-    _setVal('calSlotDuration',  biz.slotDuration  || 30);
-    _setVal('calDescription',   biz.description   || '');
-    _setVal('calColor',         biz.color         || '#4f46e5');
-    _setVal('calMeetingLink',   biz.meetingLink    || '');
-    _setVal('calLabel',         biz.calLabel       || '');
-    _setVal('calColorBg',       biz.colorBg        || '#0f172a');
-    _setVal('calColorCard',     biz.colorCard      || '#1e293b');
-    _setVal('calColorAccent',   biz.colorAccent    || '#4f46e5');
-    _setVal('calProfileName',   biz.profile?.displayName || '');
-    _setVal('calProfileTitle',  biz.profile?.title       || '');
-    _setVal('calProfilePhone',  biz.profile?.phone       || '');
-    _setVal('calProfilePhoto',  biz.profile?.photoUrl    || '');
-    _setVal('calIntGoogle',    (biz.integrations || {}).google   || '');
-    _setVal('calIntOutlook',   (biz.integrations || {}).outlook  || '');
-    _setVal('calIntCalendly',  (biz.integrations || {}).calendly || '');
-    _setVal('calIntAcuity',    (biz.integrations || {}).acuity   || '');
+    // Ensure at least one calendar exists
+    _calAllBizData = data.businesses?.length ? data.businesses : [{ name: 'Calendar 0', slotDuration: 30, active: true, availability: {} }];
+    if (_calActiveIdx >= _calAllBizData.length) _calActiveIdx = 0;
 
-    const actEl = document.getElementById('calActive');
-    if (actEl) actEl.checked = biz.active !== false;
-
-    renderCalAvailGrid(biz.availability || {});
+    _renderCalTabs(_calAllBizData);
+    _populateCalForm(_calAllBizData[_calActiveIdx]);
     _updateCalBookingLink();
     _wireCalShareBtns();
     _wireCalQr();
     _wireCalPhotoUpload();
-    window._adminCalPhotoPreview(biz.profile?.photoUrl || '');
     _renderCalMini();
 
-    // Show demo AI link (read-only)
     const aiLinkEl = document.getElementById('calAiLinkDisplay');
     if (aiLinkEl) aiLinkEl.textContent = `${window.location.origin}/ai/ep-hub`;
 
-    // Export CSV button
     document.getElementById('calExportCsvBtn')?.addEventListener('click', _calExportCsv, { once: true });
 
   } catch(e) {
     console.error('loadCalendarConfig', e);
   }
+}
+
+function _populateCalForm(biz) {
+  _setVal('calBizName',       biz.name         || '');
+  _setVal('calSlotDuration',  biz.slotDuration  || 30);
+  _setVal('calDescription',   biz.description   || '');
+  _setVal('calColor',         biz.color         || '#4f46e5');
+  _setVal('calMeetingLink',   biz.meetingLink    || '');
+  _setVal('calLabel',         biz.calLabel       || '');
+  _setVal('calColorBg',       biz.colorBg        || '#0f172a');
+  _setVal('calColorCard',     biz.colorCard      || '#1e293b');
+  _setVal('calColorAccent',   biz.colorAccent    || '#4f46e5');
+  _setVal('calProfileName',   biz.profile?.displayName || '');
+  _setVal('calProfileTitle',  biz.profile?.title       || '');
+  _setVal('calProfilePhone',  biz.profile?.phone       || '');
+  _setVal('calProfilePhoto',  biz.profile?.photoUrl    || '');
+  _setVal('calIntGoogle',    (biz.integrations || {}).google   || '');
+  _setVal('calIntOutlook',   (biz.integrations || {}).outlook  || '');
+  _setVal('calIntCalendly',  (biz.integrations || {}).calendly || '');
+  _setVal('calIntAcuity',    (biz.integrations || {}).acuity   || '');
+
+  const slotEl = document.getElementById('calSlotDuration');
+  if (slotEl) slotEl.value = biz.slotDuration || 30;
+  const actEl = document.getElementById('calActive');
+  if (actEl) actEl.checked = biz.active !== false;
+
+  renderCalAvailGrid(biz.availability || {});
+  window._adminCalPhotoPreview(biz.profile?.photoUrl || '');
+
+  const nameEl = document.getElementById('calApptCalName');
+  if (nameEl) nameEl.textContent = biz.name || `Calendar ${_calActiveIdx}`;
 }
 
 function _setVal(id, val) {
@@ -2083,11 +2137,9 @@ function _setVal(id, val) {
 }
 
 function _updateCalBookingLink() {
-  const url = `${window.location.origin}/calendar.html?biz=0`;
+  const url = `${window.location.origin}/calendar.html?biz=${_calActiveIdx}`;
   const el  = document.getElementById('calBookingLink');
   if (el) el.textContent = url;
-  const openEl = document.getElementById('calBookingLinkOpen');
-  if (openEl) openEl.href = url;
 }
 
 // ── Share buttons ────────────────────────────────────────────
@@ -2223,8 +2275,9 @@ window._adminSaveCalConfig = async function() {
     const snap = await getDoc(doc(db, 'config', 'calendar'));
     const existing = snap.exists() ? snap.data() : {};
     const businesses = [...(existing.businesses || [])];
-    businesses[0] = {
-      ...(businesses[0] || {}),
+    const idx = _calActiveIdx;
+    businesses[idx] = {
+      ...(businesses[idx] || {}),
       name:         document.getElementById('calBizName')?.value.trim()     || 'Book an Appointment',
       slotDuration: parseInt(document.getElementById('calSlotDuration')?.value) || 30,
       description:  document.getElementById('calDescription')?.value.trim() || '',
@@ -2251,6 +2304,8 @@ window._adminSaveCalConfig = async function() {
     };
 
     await setDoc(doc(db, 'config', 'calendar'), { businesses }, { merge: true });
+    _calAllBizData = businesses;
+    _renderCalTabs(businesses);
     if (btn) { btn.disabled = false; btn.textContent = '💾 Save Calendar Settings'; }
     alert('Calendar settings saved!');
   } catch(e) {
@@ -2266,7 +2321,12 @@ window._adminLoadBookings = async function() {
   if (!tbody) return;
   tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:20px">Loading…</td></tr>`;
   try {
-    const q = query(collection(db, 'bookings'), orderBy('date', 'desc'), limit(200));
+    const q = query(
+      collection(db, 'bookings'),
+      where('bizIndex', '==', _calActiveIdx),
+      orderBy('date', 'desc'),
+      limit(200)
+    );
     const snap = await getDocs(q);
 
     _calAllBookings = [];
