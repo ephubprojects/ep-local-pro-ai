@@ -2579,8 +2579,10 @@ window._openDocCreator = function(existingDoc) {
     _setDocVal('docDueDate',    existingDoc.docDueDate || '');
     _setDocVal('docNotes',         existingDoc.notes        || '');
     _setDocVal('docContractText',  existingDoc.contractText || '');
+    _setDocVal('docProjectTitle',  existingDoc.projectTitle || '');
     _setDocVal('docJobOrderedBy',  existingDoc.jobOrderedBy || '');
     _setDocVal('docJobLocation',   existingDoc.jobLocation  || '');
+    _setDocVal('docDuration',      existingDoc.duration     || '');
     _setDocVal('docJobScope',      existingDoc.jobScope     || '');
     _setDocVal('docAdvancePayment', existingDoc.advance || 0);
     // Restore pricing toggle
@@ -2607,7 +2609,7 @@ window._openDocCreator = function(existingDoc) {
     ['docBizName','docBizAddress','docBizPhone','docBizEmail',
      'docCustName','docCustEmail','docCustPhone','docCustAddress',
      'docNumber','docDate','docDueDate','docNotes','docContractText',
-     'docJobOrderedBy','docJobLocation','docJobScope'].forEach(id => _setDocVal(id,''));
+     'docProjectTitle','docJobOrderedBy','docJobLocation','docDuration','docJobScope'].forEach(id => _setDocVal(id,''));
     _setDocVal('docTaxRate', '0');
     _setDocVal('docAdvancePayment', '0');
     // Reset pricing toggle
@@ -2794,8 +2796,10 @@ function _docGenerateHTML() {
   const docDueDate = document.getElementById('docDueDate')?.value    || '';
   const notes       = document.getElementById('docNotes')?.value        || '';
   const contractTxt = document.getElementById('docContractText')?.value || '';
+  const projectTitle = document.getElementById('docProjectTitle')?.value || '';
   const jobOrderedBy= document.getElementById('docJobOrderedBy')?.value || '';
   const jobLocation = document.getElementById('docJobLocation')?.value  || '';
+  const duration    = document.getElementById('docDuration')?.value     || '';
   const jobScope    = document.getElementById('docJobScope')?.value     || '';
   const taxRate     = parseFloat(document.getElementById('docTaxRate')?.value || 0);
   const advance     = parseFloat(document.getElementById('docAdvancePayment')?.value || 0);
@@ -2806,6 +2810,31 @@ function _docGenerateHTML() {
   const taxAmt     = subtotal * taxRate / 100;
   const grand      = subtotal + taxAmt;
   const balance    = Math.max(0, grand - advance);
+
+  // "Estimated Project Cost" for estimates, "TOTAL" for other types
+  const grandTotalLabel = _docType === 'estimate'
+    ? (_docLang === 'es' ? 'COSTO ESTIMADO DEL PROYECTO' : 'ESTIMATED PROJECT COST')
+    : L.grandTotal;
+
+  // Scope formatter — converts lines starting with "- " or "• " to bullet list
+  const scopeHtml = (() => {
+    if (!jobScope) return '';
+    const lines = jobScope.split('\n');
+    let html = '';
+    let inList = false;
+    for (const line of lines) {
+      const t = line.trim();
+      if (t.startsWith('- ') || t.startsWith('• ') || t.startsWith('* ')) {
+        if (!inList) { html += '<ul style="margin:6px 0 8px 18px;padding:0">'; inList = true; }
+        html += `<li style="margin:3px 0;font-size:0.82rem;color:#475569">${_esc(t.slice(2))}</li>`;
+      } else {
+        if (inList) { html += '</ul>'; inList = false; }
+        if (t) html += `<p style="margin:0 0 6px;font-size:0.82rem;color:#475569">${_esc(t)}</p>`;
+      }
+    }
+    if (inList) html += '</ul>';
+    return html;
+  })();
 
   const logoHtml = _docLogoDataUrl
     ? `<img src="${_docLogoDataUrl}" alt="Logo" style="max-height:70px;max-width:150px;object-fit:contain;"/>`
@@ -2931,12 +2960,17 @@ function _docGenerateHTML() {
     </div>` : ''}
   </div>` : ''}
 
+  ${projectTitle ? `
+  <div style="margin-bottom:20px;border-left:4px solid #4f46e5;padding-left:14px;">
+    <div style="font-size:1.05rem;font-weight:800;color:#1e293b;line-height:1.3;">${_esc(projectTitle)}</div>
+  </div>` : ''}
+
   ${jobScope ? `
   <div style="margin-bottom:20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;">
-    <div style="font-size:0.68rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">
+    <div style="font-size:0.68rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">
       📋 ${_docLang === 'es' ? 'Alcance del Trabajo' : 'Scope of Work'}
     </div>
-    <div style="font-size:0.85rem;color:#1e293b;line-height:1.65;white-space:pre-wrap;">${_esc(jobScope)}</div>
+    ${scopeHtml}
   </div>` : ''}
 
   ${(_docShowPricing && _docType !== 'contract') ? `
@@ -2955,10 +2989,31 @@ function _docGenerateHTML() {
   <table class="totals-table">
     <tr><td>${L.subtotal}</td><td style="text-align:right">$${subtotal.toFixed(2)}</td></tr>
     ${taxRate > 0 ? `<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right">$${taxAmt.toFixed(2)}</td></tr>` : ''}
-    <tr class="grand"><td><strong>${L.grandTotal}</strong></td><td style="text-align:right"><strong>$${grand.toFixed(2)}</strong></td></tr>
+    <tr class="grand"><td><strong>${grandTotalLabel}</strong></td><td style="text-align:right"><strong>$${grand.toFixed(2)}</strong></td></tr>
     ${advance > 0 ? `<tr><td style="color:#15803d;">${L.advance}</td><td style="text-align:right;color:#15803d;">- $${advance.toFixed(2)}</td></tr>` : ''}
     ${advance > 0 ? `<tr class="balance-due"><td><strong style="color:#dc2626;">${L.balance}</strong></td><td style="text-align:right;color:#dc2626;font-weight:800;font-size:1.1rem;">$${balance.toFixed(2)}</td></tr>` : ''}
   </table>` : ''}
+
+  ${_docType === 'estimate' && advance > 0 ? `
+  <div style="margin-bottom:20px;padding:14px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;">
+    <div style="font-size:0.68rem;font-weight:800;color:#1d4ed8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">💳 ${_docLang === 'es' ? 'Términos de Pago' : 'Payment Terms'}</div>
+    <p style="font-size:0.82rem;color:#1e3a5f;margin:0 0 6px;">
+      ${_docLang === 'es'
+        ? `Un anticipo de <strong>$${advance.toFixed(2)}</strong> se aplica al costo total estimado del proyecto de <strong>$${grand.toFixed(2)}</strong>.`
+        : `A <strong>$${advance.toFixed(2)}</strong> advance payment is applied toward the total estimated project cost of <strong>$${grand.toFixed(2)}</strong>.`}
+    </p>
+    <p style="font-size:0.82rem;color:#1e3a5f;margin:0;">
+      ${_docLang === 'es'
+        ? `El saldo restante de <strong>$${balance.toFixed(2)}</strong> vence al completar el trabajo.`
+        : `The remaining <strong>$${balance.toFixed(2)}</strong> balance is due upon completion of the work.`}
+    </p>
+  </div>` : ''}
+
+  ${duration ? `
+  <div style="margin-bottom:20px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+    <div style="font-size:0.68rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">⏱ ${_docLang === 'es' ? 'Duración Estimada' : 'Estimated Duration'}</div>
+    <p style="font-size:0.85rem;color:#1e293b;margin:0;">${_docLang === 'es' ? 'Aproximadamente' : 'Approximately'} <strong>${_esc(duration)}</strong>${_docLang === 'es' ? ', sujeto a las condiciones del sitio.' : ', subject to actual site conditions.'}</p>
+  </div>` : ''}
 
   ${_docType === 'contract' && contractTxt ? `
   <div style="font-size:0.75rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${L.terms}</div>
@@ -3004,8 +3059,10 @@ window._docSave = async function() {
       docDueDate:   document.getElementById('docDueDate')?.value    || '',
       notes:        document.getElementById('docNotes')?.value        || '',
       contractText: document.getElementById('docContractText')?.value || '',
+      projectTitle: document.getElementById('docProjectTitle')?.value || '',
       jobOrderedBy: document.getElementById('docJobOrderedBy')?.value || '',
       jobLocation:  document.getElementById('docJobLocation')?.value  || '',
+      duration:     document.getElementById('docDuration')?.value     || '',
       jobScope:     document.getElementById('docJobScope')?.value     || '',
       showPricing:  _docShowPricing,
       advance:      parseFloat(document.getElementById('docAdvancePayment')?.value || 0),
@@ -3095,8 +3152,10 @@ window._docSaveTemplate = async function() {
       bizEmail:     document.getElementById('docBizEmail')?.value   || '',
       notes:        document.getElementById('docNotes')?.value        || '',
       contractText: document.getElementById('docContractText')?.value || '',
+      projectTitle: document.getElementById('docProjectTitle')?.value || '',
       jobOrderedBy: document.getElementById('docJobOrderedBy')?.value || '',
       jobLocation:  document.getElementById('docJobLocation')?.value  || '',
+      duration:     document.getElementById('docDuration')?.value     || '',
       jobScope:     document.getElementById('docJobScope')?.value     || '',
       showPricing:  _docShowPricing,
       includeTC:    document.getElementById('docIncludeTC')?.checked  || false,
@@ -3159,8 +3218,10 @@ window._docLoadTemplate = async function(id) {
   _setDocVal('docBizEmail',   tpl.bizEmail || '');
   _setDocVal('docNotes',         tpl.notes        || '');
   _setDocVal('docContractText',  tpl.contractText || '');
+  _setDocVal('docProjectTitle',  tpl.projectTitle || '');
   _setDocVal('docJobOrderedBy',  tpl.jobOrderedBy || '');
   _setDocVal('docJobLocation',   tpl.jobLocation  || '');
+  _setDocVal('docDuration',      tpl.duration     || '');
   _setDocVal('docJobScope',      tpl.jobScope     || '');
   _setDocVal('docTaxRate',       tpl.taxRate      || 0);
   _docShowPricing = tpl.showPricing !== false;

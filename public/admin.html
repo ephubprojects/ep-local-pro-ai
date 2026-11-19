@@ -1181,6 +1181,15 @@
         <!-- Document Details -->
         <div class="doc-form-section">
           <div class="doc-fsec-title">📋 <span data-en="Document Details" data-es="Detalles">Document Details</span></div>
+          <div style="display:flex;gap:5px;align-items:center;margin-bottom:8px">
+            <div style="flex:1;min-width:0">
+              <label class="doc-field-label" data-en="Project Title" data-es="Título del Proyecto">Project Title</label>
+              <input type="text" id="docProjectTitle" class="doc-input"
+                placeholder="e.g. Kitchen Sink Drain Reroute & ABS Installation"
+                oninput="window._docUpdatePreview()"/>
+            </div>
+            <button class="doc-voice-btn" style="margin-top:16px" onclick="window._docVoiceField('docProjectTitle')" title="Voice input">🎤</button>
+          </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <div style="flex:1;min-width:90px">
               <label class="doc-field-label" data-en="Doc #" data-es="Núm.">Doc #</label>
@@ -1208,13 +1217,21 @@
             </div>
             <button class="doc-voice-btn" style="margin-top:16px" onclick="window._docVoiceField('docJobOrderedBy')" title="Voice input">🎤</button>
           </div>
-          <div style="display:flex;gap:5px;align-items:center">
+          <div style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
             <div style="flex:1;min-width:0">
               <label class="doc-field-label" data-en="Job Location" data-es="Ubicación del Trabajo">Job Location</label>
               <input type="text" id="docJobLocation" class="doc-input" placeholder="Job site address"
                 oninput="window._docUpdatePreview()"/>
             </div>
             <button class="doc-voice-btn" style="margin-top:16px" onclick="window._docVoiceField('docJobLocation')" title="Voice input">🎤</button>
+          </div>
+          <div style="display:flex;gap:5px;align-items:center">
+            <div style="flex:1;min-width:0">
+              <label class="doc-field-label" data-en="Estimated Duration" data-es="Duración Estimada">Estimated Duration</label>
+              <input type="text" id="docDuration" class="doc-input" placeholder="e.g. 2–3 days"
+                oninput="window._docUpdatePreview()"/>
+            </div>
+            <button class="doc-voice-btn" style="margin-top:16px" onclick="window._docVoiceField('docDuration')" title="Voice input">🎤</button>
           </div>
         </div>
 
