@@ -2521,7 +2521,8 @@ let _docItems         = [];
 let _docLogoDataUrl   = '';
 let _docAllCustomers  = [];
 let _docAllTemplates  = [];
-let _docCurrentId     = null; // Firestore id when editing existing doc
+let _docCurrentId     = null;
+let _docShowPricing   = true;
 let _docVoiceRecognizer = null;
 
 // Labels per language
@@ -2580,7 +2581,13 @@ window._openDocCreator = function(existingDoc) {
     _setDocVal('docContractText',  existingDoc.contractText || '');
     _setDocVal('docJobOrderedBy',  existingDoc.jobOrderedBy || '');
     _setDocVal('docJobLocation',   existingDoc.jobLocation  || '');
+    _setDocVal('docJobScope',      existingDoc.jobScope     || '');
     _setDocVal('docAdvancePayment', existingDoc.advance || 0);
+    // Restore pricing toggle
+    _docShowPricing = existingDoc.showPricing !== false;
+    const _pChk = document.getElementById('docShowPricing');
+    if (_pChk) _pChk.checked = _docShowPricing;
+    document.getElementById('docPricingContent')?.classList.toggle('hidden', !_docShowPricing);
     if (existingDoc.taxRate !== undefined) _setDocVal('docTaxRate', existingDoc.taxRate);
     // Restore T&C
     const tcChecked = !!existingDoc.includeTC;
@@ -2600,9 +2607,14 @@ window._openDocCreator = function(existingDoc) {
     ['docBizName','docBizAddress','docBizPhone','docBizEmail',
      'docCustName','docCustEmail','docCustPhone','docCustAddress',
      'docNumber','docDate','docDueDate','docNotes','docContractText',
-     'docJobOrderedBy','docJobLocation'].forEach(id => _setDocVal(id,''));
+     'docJobOrderedBy','docJobLocation','docJobScope'].forEach(id => _setDocVal(id,''));
     _setDocVal('docTaxRate', '0');
     _setDocVal('docAdvancePayment', '0');
+    // Reset pricing toggle
+    _docShowPricing = true;
+    const _pChk2 = document.getElementById('docShowPricing');
+    if (_pChk2) _pChk2.checked = true;
+    document.getElementById('docPricingContent')?.classList.remove('hidden');
     // Reset T&C
     const tcEl2 = document.getElementById('docIncludeTC');
     if (tcEl2) tcEl2.checked = false;
@@ -2679,7 +2691,7 @@ window._docSetType = function(type) {
 
 // ── Line items ────────────────────────────────────────────────
 window._docAddItem = function() {
-  _docItems.push({ desc:'', qty:1, price:0 });
+  _docItems.push({ desc:'', qty:1, price:0, type:'labor' });
   _docRenderItems();
   _docUpdateTotals();
   _docUpdatePreview();
@@ -2687,16 +2699,26 @@ window._docAddItem = function() {
 
 window._docRemoveItem = function(idx) {
   _docItems.splice(idx, 1);
-  if (_docItems.length === 0) _docItems.push({ desc:'', qty:1, price:0 });
+  if (_docItems.length === 0) _docItems.push({ desc:'', qty:1, price:0, type:'labor' });
   _docRenderItems();
   _docUpdateTotals();
   _docUpdatePreview();
 };
 
-// Inline oninput handlers run in global scope; this bridge gives them access to module-scoped _docItems
+const DOC_ITEM_TYPES = [
+  { value:'labor',     label:'🔧 Labor',     labelEs:'🔧 Mano de Obra' },
+  { value:'parts',     label:'🔩 Parts',     labelEs:'🔩 Partes'       },
+  { value:'material',  label:'🪵 Material',  labelEs:'🪵 Material'     },
+  { value:'equipment', label:'⚙️ Equipment', labelEs:'⚙️ Equipo'       },
+  { value:'permit',    label:'📋 Permit',    labelEs:'📋 Permiso'      },
+  { value:'service',   label:'🛠️ Service',   labelEs:'🛠️ Servicio'     },
+  { value:'other',     label:'📌 Other',     labelEs:'📌 Otro'         },
+];
+
+// Inline oninput/onchange handlers run in global scope; this bridge accesses module-scoped _docItems
 window._docItemSet = function(i, field, val) {
   if (!_docItems[i]) return;
-  _docItems[i][field] = (field === 'desc') ? val : (parseFloat(val) || 0);
+  _docItems[i][field] = (field === 'desc' || field === 'type') ? val : (parseFloat(val) || 0);
   window._docUpdateTotals();
   window._docUpdatePreview();
 };
@@ -2704,9 +2726,15 @@ window._docItemSet = function(i, field, val) {
 function _docRenderItems() {
   const container = document.getElementById('docItemsList');
   if (!container) return;
+  const typeOpts = DOC_ITEM_TYPES.map(t =>
+    `<option value="${t.value}">${_docLang==='es'?t.labelEs:t.label}</option>`
+  ).join('');
   container.innerHTML = _docItems.map((item, i) => `
     <div class="doc-item-row">
-      <input type="text"   value="${_esc(item.desc)}"  placeholder="Description"
+      <select class="doc-item-type" onchange="window._docItemSet(${i},'type',this.value)">
+        ${DOC_ITEM_TYPES.map(t => `<option value="${t.value}"${item.type===t.value?' selected':''}>${_docLang==='es'?t.labelEs:t.label}</option>`).join('')}
+      </select>
+      <input type="text"   value="${_esc(item.desc)}"  placeholder="Description / Notes"
         oninput="window._docItemSet(${i},'desc',this.value)" />
       <input type="number" value="${item.qty}"  min="0" step="1"
         oninput="window._docItemSet(${i},'qty',this.value)" />
@@ -2735,11 +2763,11 @@ window._docUpdateTotals = function() {
   _docItems.forEach((it, i) => {
     if (rows[i]) rows[i].textContent = '$' + ((it.qty||0)*(it.price||0)).toFixed(2);
   });
-  // Advance payment & remaining balance
+  // Advance payment & remaining balance — always recalculate
   const advance  = parseFloat(document.getElementById('docAdvancePayment')?.value || 0);
   const balance  = Math.max(0, grand - advance);
-  if (document.getElementById('docBalanceDue')) document.getElementById('docBalanceDue').textContent = '$' + balance.toFixed(2);
-  window._docUpdatePreview();
+  const balEl = document.getElementById('docBalanceDue');
+  if (balEl) balEl.textContent = '$' + balance.toFixed(2);
 };
 
 // ── Preview ───────────────────────────────────────────────────
@@ -2768,6 +2796,7 @@ function _docGenerateHTML() {
   const contractTxt = document.getElementById('docContractText')?.value || '';
   const jobOrderedBy= document.getElementById('docJobOrderedBy')?.value || '';
   const jobLocation = document.getElementById('docJobLocation')?.value  || '';
+  const jobScope    = document.getElementById('docJobScope')?.value     || '';
   const taxRate     = parseFloat(document.getElementById('docTaxRate')?.value || 0);
   const advance     = parseFloat(document.getElementById('docAdvancePayment')?.value || 0);
   const includeTC   = document.getElementById('docIncludeTC')?.checked || false;
@@ -2791,13 +2820,22 @@ function _docGenerateHTML() {
     return `${m}/${day}/${y}`;
   };
 
-  const itemsRowsHtml = _docType !== 'contract' ? _docItems.map(it => `
+  const TYPE_COLORS = { labor:'#4f46e5', parts:'#0891b2', material:'#059669', equipment:'#d97706', permit:'#7c3aed', service:'#db2777', other:'#64748b' };
+  const TYPE_LABELS_ES = { labor:'Mano de Obra', parts:'Partes', material:'Material', equipment:'Equipo', permit:'Permiso', service:'Servicio', other:'Otro' };
+
+  const itemsRowsHtml = _docType !== 'contract' ? _docItems.map(it => {
+    const typeKey = it.type || 'other';
+    const typeColor = TYPE_COLORS[typeKey] || '#64748b';
+    const typeLabel = _docLang === 'es' ? (TYPE_LABELS_ES[typeKey] || typeKey) : typeKey.charAt(0).toUpperCase() + typeKey.slice(1);
+    const typeBadge = `<span style="display:inline-block;padding:2px 7px;border-radius:12px;font-size:0.65rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:${typeColor}18;color:${typeColor};border:1px solid ${typeColor}44;">${_esc(typeLabel)}</span>`;
+    return `
     <tr>
-      <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;">${_esc(it.desc)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;">${typeBadge}<br><span style="font-size:0.82rem">${_esc(it.desc)}</span></td>
       <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:center;">${it.qty||0}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:right;">$${(it.price||0).toFixed(2)}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;">$${((it.qty||0)*(it.price||0)).toFixed(2)}</td>
-    </tr>`).join('') : '';
+    </tr>`;
+  }).join('') : '';
 
   return `<!DOCTYPE html>
 <html lang="${_docLang === 'es' ? 'es' : 'en'}">
@@ -2895,7 +2933,15 @@ function _docGenerateHTML() {
     </div>` : ''}
   </div>` : ''}
 
-  ${_docType !== 'contract' ? `
+  ${jobScope ? `
+  <div style="margin-bottom:20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;">
+    <div style="font-size:0.68rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">
+      📋 ${_docLang === 'es' ? 'Alcance del Trabajo' : 'Scope of Work'}
+    </div>
+    <div style="font-size:0.85rem;color:#1e293b;line-height:1.65;white-space:pre-wrap;">${_esc(jobScope)}</div>
+  </div>` : ''}
+
+  ${(_docShowPricing && _docType !== 'contract') ? `
   <table>
     <thead>
       <tr>
@@ -2964,6 +3010,8 @@ window._docSave = async function() {
       contractText: document.getElementById('docContractText')?.value || '',
       jobOrderedBy: document.getElementById('docJobOrderedBy')?.value || '',
       jobLocation:  document.getElementById('docJobLocation')?.value  || '',
+      jobScope:     document.getElementById('docJobScope')?.value     || '',
+      showPricing:  _docShowPricing,
       advance:      parseFloat(document.getElementById('docAdvancePayment')?.value || 0),
       includeTC:    document.getElementById('docIncludeTC')?.checked  || false,
       termsText:    document.getElementById('docTermsText')?.value    || '',
@@ -3053,6 +3101,8 @@ window._docSaveTemplate = async function() {
       contractText: document.getElementById('docContractText')?.value || '',
       jobOrderedBy: document.getElementById('docJobOrderedBy')?.value || '',
       jobLocation:  document.getElementById('docJobLocation')?.value  || '',
+      jobScope:     document.getElementById('docJobScope')?.value     || '',
+      showPricing:  _docShowPricing,
       includeTC:    document.getElementById('docIncludeTC')?.checked  || false,
       termsText:    document.getElementById('docTermsText')?.value    || '',
       taxRate:      parseFloat(document.getElementById('docTaxRate')?.value || 0),
@@ -3115,7 +3165,12 @@ window._docLoadTemplate = async function(id) {
   _setDocVal('docContractText',  tpl.contractText || '');
   _setDocVal('docJobOrderedBy',  tpl.jobOrderedBy || '');
   _setDocVal('docJobLocation',   tpl.jobLocation  || '');
+  _setDocVal('docJobScope',      tpl.jobScope     || '');
   _setDocVal('docTaxRate',       tpl.taxRate      || 0);
+  _docShowPricing = tpl.showPricing !== false;
+  const _tplPChk = document.getElementById('docShowPricing');
+  if (_tplPChk) _tplPChk.checked = _docShowPricing;
+  document.getElementById('docPricingContent')?.classList.toggle('hidden', !_docShowPricing);
   _setDocVal('docAdvancePayment', 0);
   const tplTcEl = document.getElementById('docIncludeTC');
   const tplTcChecked = !!tpl.includeTC;
@@ -3165,7 +3220,9 @@ const DOC_TC_DEFAULT = {
 
 9. Lien Rights: We reserve the right to file a mechanic's lien on the property for unpaid services as permitted by applicable law.
 
-10. Governing Law: This agreement is governed by the laws of the state where services are rendered. Customer acknowledges reading, understanding, and accepting these terms.`,
+10. Governing Law: This agreement is governed by the laws of the state where services are rendered. Customer acknowledges reading, understanding, and accepting these terms.
+
+11. Financing & Payment Plans: Financing options may be available for qualified customers on projects exceeding $1,000. Financed balances are subject to a simple interest rate between 6% and 18% per annum depending on the approved term length. All payment plan agreements must be executed in writing and signed by both parties prior to commencement of work, and are subject to credit approval. Missed or late installment payments will cause the full remaining balance to become immediately due and payable. We reserve the right to charge a processing fee for financed transactions.`,
 
   es: `TÉRMINOS Y CONDICIONES
 
@@ -3187,7 +3244,16 @@ const DOC_TC_DEFAULT = {
 
 9. Derecho de Retención: Nos reservamos el derecho de presentar un gravamen de mecánico sobre la propiedad por servicios no pagados, según lo permitido por la ley aplicable.
 
-10. Ley Aplicable: Este acuerdo se rige por las leyes del estado donde se prestan los servicios. El cliente reconoce haber leído, comprendido y aceptado estos términos.`
+10. Ley Aplicable: Este acuerdo se rige por las leyes del estado donde se prestan los servicios. El cliente reconoce haber leído, comprendido y aceptado estos términos.
+
+11. Financiamiento y Planes de Pago: El financiamiento puede estar disponible para clientes calificados en proyectos que superen $1,000. Los saldos financiados están sujetos a una tasa de interés simple de entre el 6% y el 18% anual según el plazo aprobado. Todo acuerdo de plan de pago debe ser firmado por escrito por ambas partes antes del inicio del trabajo, y está sujeto a aprobación de crédito. Los pagos de cuotas tardíos o no realizados harán que el saldo total restante sea inmediatamente exigible. Nos reservamos el derecho de cobrar una tarifa de procesamiento por transacciones financiadas.`
+};
+
+// ── Pricing toggle ────────────────────────────────────────────
+window._docTogglePricing = function() {
+  _docShowPricing = document.getElementById('docShowPricing')?.checked ?? true;
+  document.getElementById('docPricingContent')?.classList.toggle('hidden', !_docShowPricing);
+  window._docUpdatePreview();
 };
 
 window._docToggleTC = function() {

@@ -1218,49 +1218,70 @@
           </div>
         </div>
 
+        <!-- Scope of Work -->
+        <div class="doc-form-section" id="docScopeSection">
+          <div class="doc-fsec-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span>📋 <span data-en="Scope of Work" data-es="Alcance del Trabajo">Scope of Work</span></span>
+            <button class="doc-voice-btn" onclick="window._docVoiceField('docJobScope')" title="Voice input">🎤</button>
+          </div>
+          <textarea id="docJobScope" class="doc-input" rows="3"
+            placeholder="Describe the work to be performed, materials included, and any special conditions…"
+            oninput="window._docUpdatePreview()" style="resize:vertical;width:100%"></textarea>
+        </div>
+
         <!-- Line Items (invoice/estimate/receipt) -->
         <div class="doc-form-section" id="docLineItemsSection">
           <div class="doc-fsec-title" style="display:flex;justify-content:space-between;align-items:center">
-            <span>📦 <span data-en="Items" data-es="Artículos">Items</span></span>
-            <button class="btn-action" onclick="window._docAddItem()" style="font-size:0.72rem;padding:3px 10px">+ Add Item</button>
+            <span>🧾 <span data-en="Line Items &amp; Pricing" data-es="Partidas y Precios">Line Items &amp; Pricing</span></span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <label class="doc-pricing-toggle" title="Enable / Disable pricing details">
+                <input type="checkbox" id="docShowPricing" checked onchange="window._docTogglePricing()">
+                <span class="doc-toggle-track"></span>
+                <span class="doc-toggle-label-txt" data-en="Pricing" data-es="Precios">Pricing</span>
+              </label>
+              <button class="btn-action" onclick="window._docAddItem()" style="font-size:0.72rem;padding:3px 10px">+ Add Line</button>
+            </div>
           </div>
-          <div class="doc-items-header">
-            <span data-en="Description" data-es="Descripción">Description</span>
-            <span data-en="Qty" data-es="Cant.">Qty</span>
-            <span data-en="Price" data-es="Precio">Price</span>
-            <span data-en="Total" data-es="Total">Total</span>
-            <span></span>
-          </div>
-          <div id="docItemsList"></div>
-          <div class="doc-totals">
-            <div class="doc-totals-row">
-              <span data-en="Subtotal" data-es="Subtotal">Subtotal</span>
-              <strong id="docSubtotal">$0.00</strong>
+          <div id="docPricingContent">
+            <div class="doc-items-header">
+              <span data-en="Type" data-es="Tipo">Type</span>
+              <span data-en="Description" data-es="Descripción">Description</span>
+              <span data-en="Qty" data-es="Cant.">Qty</span>
+              <span data-en="Rate" data-es="Precio">Rate</span>
+              <span data-en="Amount" data-es="Monto">Amount</span>
+              <span></span>
             </div>
-            <div class="doc-totals-row">
-              <span data-en="Tax" data-es="Impuesto">Tax</span>
-              <span style="display:flex;align-items:center;gap:4px">
-                <input type="number" id="docTaxRate" value="0" min="0" max="100" step="0.5"
-                  style="width:44px;border:1px solid #e2e8f0;border-radius:4px;padding:2px 4px;font-size:0.78rem;text-align:center"
-                  oninput="window._docUpdateTotals()"> %
-                <strong id="docTaxAmt">$0.00</strong>
-              </span>
-            </div>
-            <div class="doc-totals-row doc-totals-grand">
-              <span data-en="Total" data-es="Total">Total</span>
-              <strong id="docGrandTotal">$0.00</strong>
-            </div>
-            <div class="doc-totals-row">
-              <span data-en="Advance Payment" data-es="Anticipo Recibido">Advance Payment</span>
-              <span style="display:flex;align-items:center;gap:3px;font-size:0.82rem;color:#15803d">
-                - $<input type="number" id="docAdvancePayment" value="0" min="0" step="0.01"
-                  style="width:68px;border:1px solid #bbf7d0;border-radius:4px;padding:2px 5px;font-size:0.82rem;text-align:right;color:#15803d;background:#f0fdf4;outline:none"
-                  oninput="window._docUpdateTotals()">
-              </span>
-            </div>
-            <div class="doc-totals-row doc-totals-balance">
-              <span data-en="Remaining Balance" data-es="Saldo Pendiente">Remaining Balance</span>
-              <strong id="docBalanceDue">$0.00</strong>
+            <div id="docItemsList"></div>
+            <div class="doc-totals">
+              <div class="doc-totals-row">
+                <span data-en="Subtotal" data-es="Subtotal">Subtotal</span>
+                <strong id="docSubtotal">$0.00</strong>
+              </div>
+              <div class="doc-totals-row">
+                <span data-en="Tax" data-es="Impuesto">Tax</span>
+                <span style="display:flex;align-items:center;gap:4px">
+                  <input type="number" id="docTaxRate" value="0" min="0" max="100" step="0.5"
+                    style="width:44px;border:1px solid #e2e8f0;border-radius:4px;padding:2px 4px;font-size:0.78rem;text-align:center"
+                    oninput="window._docUpdateTotals();window._docUpdatePreview();"> %
+                  <strong id="docTaxAmt">$0.00</strong>
+                </span>
+              </div>
+              <div class="doc-totals-row doc-totals-grand">
+                <span data-en="Total" data-es="Total">Total</span>
+                <strong id="docGrandTotal">$0.00</strong>
+              </div>
+              <div class="doc-totals-row">
+                <span data-en="Advance Payment" data-es="Anticipo Recibido">Advance Payment</span>
+                <span style="display:flex;align-items:center;gap:3px;font-size:0.82rem;color:#15803d">
+                  - $<input type="number" id="docAdvancePayment" value="0" min="0" step="0.01"
+                    style="width:68px;border:1px solid #bbf7d0;border-radius:4px;padding:2px 5px;font-size:0.82rem;text-align:right;color:#15803d;background:#f0fdf4;outline:none"
+                    oninput="window._docUpdateTotals();window._docUpdatePreview();">
+                </span>
+              </div>
+              <div class="doc-totals-row doc-totals-balance">
+                <span data-en="Remaining Balance" data-es="Saldo Pendiente">Remaining Balance</span>
+                <strong id="docBalanceDue">$0.00</strong>
+              </div>
             </div>
           </div>
         </div>
