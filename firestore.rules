@@ -39,7 +39,9 @@ service cloud.firestore {
     // ── Documents (invoices, estimates, contracts) ────────────────────────
     match /documents/{docId} {
       allow read, write: if isAdmin()
-        || (isAuth() && resource.data.ownerUid == request.auth.uid);
+        || (isAuth() && (
+          resource == null || resource.data.ownerUid == request.auth.uid
+        ));
     }
 
     // ── Business owners (user profiles) ──────────────────────────────────

@@ -2816,6 +2816,18 @@ function _docGenerateHTML() {
     ? (_docLang === 'es' ? 'COSTO ESTIMADO DEL PROYECTO' : 'ESTIMATED PROJECT COST')
     : L.grandTotal;
 
+  // Pre-build payment terms strings to avoid deep template nesting
+  const ptLabel = _docLang === 'es' ? 'Términos de Pago' : 'Payment Terms';
+  const ptLine1 = _docLang === 'es'
+    ? 'Un anticipo de <strong>$' + advance.toFixed(2) + '</strong> se aplica al costo total estimado del proyecto de <strong>$' + grand.toFixed(2) + '</strong>.'
+    : 'A <strong>$' + advance.toFixed(2) + '</strong> advance payment is applied toward the total estimated project cost of <strong>$' + grand.toFixed(2) + '</strong>.';
+  const ptLine2 = _docLang === 'es'
+    ? 'El saldo restante de <strong>$' + balance.toFixed(2) + '</strong> vence al completar el trabajo.'
+    : 'The remaining <strong>$' + balance.toFixed(2) + '</strong> balance is due upon completion of the work.';
+  const durationLabel = _docLang === 'es' ? 'Duración Estimada' : 'Estimated Duration';
+  const durationApprox = _docLang === 'es' ? 'Aproximadamente' : 'Approximately';
+  const durationNote   = _docLang === 'es' ? ', sujeto a las condiciones del sitio.' : ', subject to actual site conditions.';
+
   // Scope formatter — converts lines starting with "- " or "• " to bullet list
   const scopeHtml = (() => {
     if (!jobScope) return '';
@@ -2996,23 +3008,15 @@ function _docGenerateHTML() {
 
   ${_docType === 'estimate' && advance > 0 ? `
   <div style="margin-bottom:20px;padding:14px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;">
-    <div style="font-size:0.68rem;font-weight:800;color:#1d4ed8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">💳 ${_docLang === 'es' ? 'Términos de Pago' : 'Payment Terms'}</div>
-    <p style="font-size:0.82rem;color:#1e3a5f;margin:0 0 6px;">
-      ${_docLang === 'es'
-        ? `Un anticipo de <strong>$${advance.toFixed(2)}</strong> se aplica al costo total estimado del proyecto de <strong>$${grand.toFixed(2)}</strong>.`
-        : `A <strong>$${advance.toFixed(2)}</strong> advance payment is applied toward the total estimated project cost of <strong>$${grand.toFixed(2)}</strong>.`}
-    </p>
-    <p style="font-size:0.82rem;color:#1e3a5f;margin:0;">
-      ${_docLang === 'es'
-        ? `El saldo restante de <strong>$${balance.toFixed(2)}</strong> vence al completar el trabajo.`
-        : `The remaining <strong>$${balance.toFixed(2)}</strong> balance is due upon completion of the work.`}
-    </p>
+    <div style="font-size:0.68rem;font-weight:800;color:#1d4ed8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">💳 ${ptLabel}</div>
+    <p style="font-size:0.82rem;color:#1e3a5f;margin:0 0 6px;">${ptLine1}</p>
+    <p style="font-size:0.82rem;color:#1e3a5f;margin:0;">${ptLine2}</p>
   </div>` : ''}
 
   ${duration ? `
   <div style="margin-bottom:20px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
-    <div style="font-size:0.68rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">⏱ ${_docLang === 'es' ? 'Duración Estimada' : 'Estimated Duration'}</div>
-    <p style="font-size:0.85rem;color:#1e293b;margin:0;">${_docLang === 'es' ? 'Aproximadamente' : 'Approximately'} <strong>${_esc(duration)}</strong>${_docLang === 'es' ? ', sujeto a las condiciones del sitio.' : ', subject to actual site conditions.'}</p>
+    <div style="font-size:0.68rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">⏱ ${durationLabel}</div>
+    <p style="font-size:0.85rem;color:#1e293b;margin:0;">${durationApprox} <strong>${_esc(duration)}</strong>${durationNote}</p>
   </div>` : ''}
 
   ${_docType === 'contract' && contractTxt ? `
