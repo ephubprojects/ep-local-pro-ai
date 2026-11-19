@@ -2675,18 +2675,26 @@ window._docRemoveItem = function(idx) {
   _docUpdatePreview();
 };
 
+// Inline oninput handlers run in global scope; this bridge gives them access to module-scoped _docItems
+window._docItemSet = function(i, field, val) {
+  if (!_docItems[i]) return;
+  _docItems[i][field] = (field === 'desc') ? val : (parseFloat(val) || 0);
+  window._docUpdateTotals();
+  window._docUpdatePreview();
+};
+
 function _docRenderItems() {
   const container = document.getElementById('docItemsList');
   if (!container) return;
   container.innerHTML = _docItems.map((item, i) => `
     <div class="doc-item-row">
       <input type="text"   value="${_esc(item.desc)}"  placeholder="Description"
-        oninput="_docItems[${i}].desc=this.value;_docUpdatePreview()" />
+        oninput="window._docItemSet(${i},'desc',this.value)" />
       <input type="number" value="${item.qty}"  min="0" step="1"
-        oninput="_docItems[${i}].qty=parseFloat(this.value)||0;_docUpdateTotals();_docUpdatePreview()" />
+        oninput="window._docItemSet(${i},'qty',this.value)" />
       <input type="number" value="${item.price}" min="0" step="0.01" placeholder="0.00"
-        oninput="_docItems[${i}].price=parseFloat(this.value)||0;_docUpdateTotals();_docUpdatePreview()" />
-      <div class="doc-item-total">$${((item.qty||0)*(item.price||0)).toFixed(2)}</div>
+        oninput="window._docItemSet(${i},'price',this.value)" />
+      <div class="doc-item-total" id="docItemTotal_${i}">$${((item.qty||0)*(item.price||0)).toFixed(2)}</div>
       <button class="doc-item-del" onclick="window._docRemoveItem(${i})">✕</button>
     </div>`).join('');
 }
