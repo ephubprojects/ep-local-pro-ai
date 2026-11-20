@@ -4127,6 +4127,14 @@ window._docToggleCustomers = function() {
   if (!hidden) loadCustomers();
 };
 
+window._docTogglePayment = function() {
+  const panel = document.getElementById('docPaymentPanel');
+  const btn   = document.getElementById('docPaymentToggle');
+  if (!panel) return;
+  const hidden = panel.classList.toggle('hidden');
+  if (btn) btn.textContent = hidden ? '💳 Payment' : '💳 Hide Payment';
+};
+
 window._custFilter = function(q) {
   const list = q.trim()
     ? _docAllCustomers.filter(c =>

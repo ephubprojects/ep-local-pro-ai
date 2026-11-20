@@ -427,9 +427,67 @@
           <h2>Documents</h2>
           <p class="docs-page-sub">All invoices, estimates, contracts &amp; receipts across every business</p>
         </div>
-        <div style="display:flex;gap:8px;flex-shrink:0">
+        <div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap">
           <button class="btn-action" id="docCustomersToggle" onclick="window._docToggleCustomers()">👥 Customers</button>
+          <button class="btn-action" id="docPaymentToggle" onclick="window._docTogglePayment()">💳 Payment</button>
           <button class="btn-save" onclick="window._openDocCreator()">+ Create Document</button>
+        </div>
+      </div>
+
+      <!-- Payment Methods panel (collapsible) -->
+      <div id="docPaymentPanel" class="hidden">
+        <div class="section-card" style="margin-bottom:16px">
+          <div class="section-card-header">
+            <h2>💳 Payment Methods</h2>
+            <span class="readonly-note">These buttons appear at the bottom of your documents so clients can pay instantly.</span>
+          </div>
+          <div style="margin-top:12px;">
+            <!-- CashApp -->
+            <div class="pm-row">
+              <div class="pm-row-left">
+                <label class="pm-toggle-label">
+                  <input type="checkbox" id="pmCashappEnabled" class="pm-toggle-input"/>
+                  <span class="pm-toggle-track"><span class="pm-toggle-thumb"></span></span>
+                </label>
+                <span class="pm-name">💚 CashApp</span>
+              </div>
+              <input type="text" class="pm-url-input" id="pmCashappValue" placeholder="$YourCashTag  or  https://cash.app/$..."/>
+            </div>
+            <!-- Zelle -->
+            <div class="pm-row">
+              <div class="pm-row-left">
+                <label class="pm-toggle-label">
+                  <input type="checkbox" id="pmZelleEnabled" class="pm-toggle-input"/>
+                  <span class="pm-toggle-track"><span class="pm-toggle-thumb"></span></span>
+                </label>
+                <span class="pm-name">💜 Zelle</span>
+              </div>
+              <input type="text" class="pm-url-input" id="pmZelleValue" placeholder="Phone number or email  (e.g. 8057073720)"/>
+            </div>
+            <!-- Card -->
+            <div class="pm-row">
+              <div class="pm-row-left">
+                <label class="pm-toggle-label">
+                  <input type="checkbox" id="pmCardEnabled" class="pm-toggle-input"/>
+                  <span class="pm-toggle-track"><span class="pm-toggle-thumb"></span></span>
+                </label>
+                <span class="pm-name">💳 Credit / Debit Card</span>
+              </div>
+              <input type="text" class="pm-url-input" id="pmCardValue" placeholder="https://your-payment-link.com"/>
+            </div>
+            <!-- Financing (admin-enabled only) -->
+            <div class="pm-row" id="pmFinancingRow" style="display:none;">
+              <div class="pm-row-left">
+                <label class="pm-toggle-label">
+                  <input type="checkbox" id="pmFinancingEnabled" class="pm-toggle-input"/>
+                  <span class="pm-toggle-track"><span class="pm-toggle-thumb"></span></span>
+                </label>
+                <span class="pm-name">🏦 Financing <span class="pm-admin-badge">Admin Feature</span></span>
+              </div>
+              <input type="text" class="pm-url-input" id="pmFinancingValue" placeholder="https://your-financing-link.com"/>
+            </div>
+            <button class="btn-save" id="savePaymentMethodsBtn" style="margin-top:14px;" onclick="savePaymentMethods()">Save Payment Methods</button>
+          </div>
         </div>
       </div>
 
@@ -782,56 +840,6 @@
               <button class="btn-copy" id="adminCopyDemoBtn">Copy</button>
             </div>
           </div>
-        </div>
-
-        <div class="settings-section" style="margin-top:28px;" id="paymentMethodsSection">
-          <h3>💳 Payment Methods</h3>
-          <p class="readonly-note" style="margin-bottom:16px;">These buttons appear at the bottom of your documents so clients can pay instantly.</p>
-          <!-- CashApp -->
-          <div class="pm-row">
-            <div class="pm-row-left">
-              <label class="pm-toggle-label">
-                <input type="checkbox" id="pmCashappEnabled" class="pm-toggle-input"/>
-                <span class="pm-toggle-track"><span class="pm-toggle-thumb"></span></span>
-              </label>
-              <span class="pm-name">💚 CashApp</span>
-            </div>
-            <input type="text" class="pm-url-input" id="pmCashappValue" placeholder="$YourCashTag  or  https://cash.app/$..."/>
-          </div>
-          <!-- Zelle -->
-          <div class="pm-row">
-            <div class="pm-row-left">
-              <label class="pm-toggle-label">
-                <input type="checkbox" id="pmZelleEnabled" class="pm-toggle-input"/>
-                <span class="pm-toggle-track"><span class="pm-toggle-thumb"></span></span>
-              </label>
-              <span class="pm-name">💜 Zelle</span>
-            </div>
-            <input type="text" class="pm-url-input" id="pmZelleValue" placeholder="Phone number or email  (e.g. 8057073720)"/>
-          </div>
-          <!-- Card -->
-          <div class="pm-row">
-            <div class="pm-row-left">
-              <label class="pm-toggle-label">
-                <input type="checkbox" id="pmCardEnabled" class="pm-toggle-input"/>
-                <span class="pm-toggle-track"><span class="pm-toggle-thumb"></span></span>
-              </label>
-              <span class="pm-name">💳 Credit / Debit Card</span>
-            </div>
-            <input type="text" class="pm-url-input" id="pmCardValue" placeholder="https://your-payment-link.com"/>
-          </div>
-          <!-- Financing (admin-enabled only) -->
-          <div class="pm-row" id="pmFinancingRow" style="display:none;">
-            <div class="pm-row-left">
-              <label class="pm-toggle-label">
-                <input type="checkbox" id="pmFinancingEnabled" class="pm-toggle-input"/>
-                <span class="pm-toggle-track"><span class="pm-toggle-thumb"></span></span>
-              </label>
-              <span class="pm-name">🏦 Financing <span class="pm-admin-badge">Admin Feature</span></span>
-            </div>
-            <input type="text" class="pm-url-input" id="pmFinancingValue" placeholder="https://your-financing-link.com"/>
-          </div>
-          <button class="btn-save" id="savePaymentMethodsBtn" style="margin-top:16px;" onclick="savePaymentMethods()">Save Payment Methods</button>
         </div>
 
         <div class="settings-section" style="margin-top:28px;">
