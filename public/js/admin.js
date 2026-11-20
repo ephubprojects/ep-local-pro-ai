@@ -1598,6 +1598,11 @@ async function adminToggleFinancingAll(enabled) {
   }
 }
 
+// Expose to global scope (required because admin.js loads as type="module")
+window.savePaymentMethods   = savePaymentMethods;
+window.adminToggleFinancing    = adminToggleFinancing;
+window.adminToggleFinancingAll = adminToggleFinancingAll;
+
 async function cancelMyAccount() {
   if (!confirm('Cancel your own admin account? This action cannot be undone.')) return;
   try {
