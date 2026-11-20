@@ -1131,6 +1131,15 @@
       <!-- LEFT: Form -->
       <div class="doc-form-col">
 
+        <!-- Type Purpose Banner -->
+        <div id="docTypeBanner" class="doc-type-banner">
+          <span id="docTypeBannerIcon" class="doc-banner-icon">📄</span>
+          <div>
+            <div id="docTypeBannerTitle" class="doc-banner-title">Invoice</div>
+            <div id="docTypeBannerDesc" class="doc-banner-desc">Request payment for completed work</div>
+          </div>
+        </div>
+
         <!-- Business Info -->
         <div class="doc-form-section">
           <div class="doc-fsec-title">🏢 <span data-en="Business Info" data-es="Info del Negocio">Business Info</span></div>
@@ -1153,7 +1162,7 @@
 
         <!-- Customer -->
         <div class="doc-form-section">
-          <div class="doc-fsec-title">👤 <span data-en="Bill To" data-es="Facturar a">Bill To</span></div>
+          <div class="doc-fsec-title">👤 <span id="docBillToLabel" data-en="Bill To" data-es="Facturar a">Bill To</span></div>
           <div class="doc-search-row">
             <input type="text" id="docCustSearch" class="doc-input" placeholder="🔍 Search saved customers…"
               oninput="window._docSearchCustomers(this.value)" style="flex:1"/>
@@ -1181,7 +1190,7 @@
         <!-- Document Details -->
         <div class="doc-form-section">
           <div class="doc-fsec-title">📋 <span data-en="Document Details" data-es="Detalles">Document Details</span></div>
-          <div style="display:flex;gap:5px;align-items:center;margin-bottom:8px">
+          <div style="display:flex;gap:5px;align-items:center;margin-bottom:8px" id="docProjectTitleRow">
             <div style="flex:1;min-width:0">
               <label class="doc-field-label" data-en="Project Title" data-es="Título del Proyecto">Project Title</label>
               <input type="text" id="docProjectTitle" class="doc-input"
@@ -1200,16 +1209,36 @@
               <input type="date" id="docDate" class="doc-input" oninput="window._docUpdatePreview()"/>
             </div>
             <div style="flex:1;min-width:110px" id="docDueDateWrap">
-              <label class="doc-field-label" data-en="Due Date" data-es="Vencimiento">Due Date</label>
+              <label class="doc-field-label" id="docDueDateLabel" data-en="Due Date" data-es="Vencimiento">Due Date</label>
               <input type="date" id="docDueDate" class="doc-input" oninput="window._docUpdatePreview()"/>
             </div>
+          </div>
+          <!-- Payment Method (receipt only) -->
+          <div id="docPaymentMethodRow" style="display:none;margin-top:6px">
+            <label class="doc-field-label" data-en="Payment Method" data-es="Método de Pago">Payment Method</label>
+            <select id="docPaymentMethod" class="doc-input" onchange="window._docUpdatePreview()">
+              <option value="cash">💵 Cash</option>
+              <option value="check">📝 Check</option>
+              <option value="card">💳 Card / Debit</option>
+              <option value="zelle">📱 Zelle</option>
+              <option value="venmo">📱 Venmo</option>
+              <option value="cashapp">📱 Cash App</option>
+              <option value="transfer">🏦 Bank Transfer</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <!-- Invoice Reference # (receipt only) — links receipt back to its invoice -->
+          <div id="docInvoiceRefRow" style="display:none;margin-top:6px">
+            <label class="doc-field-label" data-en="Reference Invoice #" data-es="Ref. Factura #">Reference Invoice #</label>
+            <input type="text" id="docInvoiceRef" class="doc-input" placeholder="e.g. INV-4751 (optional)"
+              oninput="window._docUpdatePreview()"/>
           </div>
         </div>
 
         <!-- Job Details -->
-        <div class="doc-form-section">
-          <div class="doc-fsec-title">🔧 <span data-en="Job Details" data-es="Detalles del Trabajo">Job Details</span></div>
-          <div style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
+        <div class="doc-form-section" id="docJobDetailsSection">
+          <div class="doc-fsec-title">🔧 <span id="docJobDetailsTitle" data-en="Job Details" data-es="Detalles del Trabajo">Job Details</span></div>
+          <div style="display:flex;gap:5px;align-items:center;margin-bottom:5px" id="docOrderedByRow">
             <div style="flex:1;min-width:0">
               <label class="doc-field-label" data-en="Ordered By" data-es="Ordenado Por">Ordered By</label>
               <input type="text" id="docJobOrderedBy" class="doc-input" placeholder="Name of person who ordered"
@@ -1225,7 +1254,7 @@
             </div>
             <button class="doc-voice-btn" style="margin-top:16px" onclick="window._docVoiceField('docJobLocation')" title="Voice input">🎤</button>
           </div>
-          <div style="display:flex;gap:5px;align-items:center">
+          <div style="display:flex;gap:5px;align-items:center" id="docDurationRow">
             <div style="flex:1;min-width:0">
               <label class="doc-field-label" data-en="Estimated Duration" data-es="Duración Estimada">Estimated Duration</label>
               <input type="text" id="docDuration" class="doc-input" placeholder="e.g. 2–3 days"
@@ -1249,7 +1278,7 @@
         <!-- Line Items (invoice/estimate/receipt) -->
         <div class="doc-form-section" id="docLineItemsSection">
           <div class="doc-fsec-title" style="display:flex;justify-content:space-between;align-items:center">
-            <span>🧾 <span data-en="Line Items &amp; Pricing" data-es="Partidas y Precios">Line Items &amp; Pricing</span></span>
+            <span>🧾 <span id="docLineItemsTitle" data-en="Line Items &amp; Pricing" data-es="Partidas y Precios">Line Items &amp; Pricing</span></span>
             <div style="display:flex;align-items:center;gap:8px">
               <label class="doc-pricing-toggle" title="Enable / Disable pricing details">
                 <input type="checkbox" id="docShowPricing" checked onchange="window._docTogglePricing()">
@@ -1272,7 +1301,7 @@
                 <span data-en="Subtotal" data-es="Subtotal">Subtotal</span>
                 <strong id="docSubtotal">$0.00</strong>
               </div>
-              <div class="doc-totals-row">
+              <div class="doc-totals-row" id="docTaxRow">
                 <span data-en="Tax" data-es="Impuesto">Tax</span>
                 <span style="display:flex;align-items:center;gap:4px">
                   <input type="number" id="docTaxRate" value="0" min="0" max="100" step="0.5"
@@ -1282,10 +1311,10 @@
                 </span>
               </div>
               <div class="doc-totals-row doc-totals-grand">
-                <span data-en="Total" data-es="Total">Total</span>
+                <span id="docGrandTotalLabelSpan" data-en="Total" data-es="Total">Total</span>
                 <strong id="docGrandTotal">$0.00</strong>
               </div>
-              <div class="doc-totals-row">
+              <div class="doc-totals-row" id="docAdvanceRow">
                 <span data-en="Advance Payment" data-es="Anticipo Recibido">Advance Payment</span>
                 <span style="display:flex;align-items:center;gap:3px;font-size:0.82rem;color:#15803d">
                   - $<input type="number" id="docAdvancePayment" value="0" min="0" step="0.01"
@@ -1293,11 +1322,18 @@
                     oninput="window._docUpdateTotals();window._docUpdatePreview();">
                 </span>
               </div>
-              <div class="doc-totals-row doc-totals-balance">
+              <div class="doc-totals-row doc-totals-balance" id="docBalanceRow">
                 <span data-en="Remaining Balance" data-es="Saldo Pendiente">Remaining Balance</span>
                 <strong id="docBalanceDue">$0.00</strong>
               </div>
             </div>
+          </div>
+          <!-- Payment Instructions (invoice only) — how to pay -->
+          <div id="docPayInstructRow" style="display:none;margin-top:8px">
+            <label class="doc-field-label" data-en="Payment Instructions" data-es="Instrucciones de Pago">Payment Instructions</label>
+            <textarea id="docPayInstructions" class="doc-input" rows="2"
+              placeholder="e.g. Zelle: (805) 707-3720 · Check payable to: Partida's Plumbing"
+              oninput="window._docUpdatePreview()" style="resize:vertical;width:100%"></textarea>
           </div>
         </div>
 
@@ -1319,12 +1355,12 @@
             <button class="doc-voice-btn" onclick="window._docVoiceField('docNotes')" title="Voice input">🎤</button>
           </div>
           <textarea id="docNotes" class="doc-input" rows="2"
-            placeholder="Thank you for your business!"
+            placeholder="Thank you for your business!" data-ph-invoice="Thank you for your business!" data-ph-estimate="Thank you for considering our services!" data-ph-contract="Additional terms or special conditions…" data-ph-receipt="Thank you for your payment!"
             oninput="window._docUpdatePreview()" style="resize:vertical;width:100%"></textarea>
         </div>
 
         <!-- Terms & Conditions -->
-        <div class="doc-form-section">
+        <div class="doc-form-section" id="docTCFormSection">
           <div class="doc-fsec-title" style="display:flex;justify-content:space-between;align-items:center">
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0">
               <input type="checkbox" id="docIncludeTC" style="width:auto;accent-color:var(--indigo)" onchange="window._docToggleTC()"/>

@@ -2,9 +2,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Admin email
+    // Admin: hardcoded email OR role == 'admin' in owners doc
     function isAdmin() {
-      return request.auth != null && request.auth.token.email == 'ezperfilsystem@gmail.com';
+      return request.auth != null && (
+        request.auth.token.email == 'ezperfilsystem@gmail.com' ||
+        (exists(/databases/$(database)/documents/owners/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/owners/$(request.auth.uid)).data.role == 'admin')
+      );
     }
 
     // Authenticated user

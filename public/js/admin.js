@@ -2586,6 +2586,7 @@ window._openDocCreator = function(existingDoc) {
     _setDocVal('docDuration',      existingDoc.duration     || '');
     _setDocVal('docJobScope',      existingDoc.jobScope     || '');
     _setDocVal('docAdvancePayment', existingDoc.advance || 0);
+    if (existingDoc.paymentMethod) { const pmEl = document.getElementById('docPaymentMethod'); if (pmEl) pmEl.value = existingDoc.paymentMethod; }
     // Restore pricing toggle
     _docShowPricing = existingDoc.showPricing !== false;
     const _pChk = document.getElementById('docShowPricing');
@@ -2677,26 +2678,124 @@ window._docSetLang = function(lang) {
   modal.querySelectorAll('[data-en]').forEach(el => {
     el.textContent = el.getAttribute(`data-${lang}`) || el.getAttribute('data-en');
   });
+  _docApplyTypeLayout();
   _docUpdatePreview();
 };
 
 // ── Document type ─────────────────────────────────────────────
 window._docSetType = function(type) {
   _docType = type;
-  // Update active tab
   document.querySelectorAll('.doc-type-tab').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.doctype === type);
   });
-  // Show/hide sections
-  const lineItems  = document.getElementById('docLineItemsSection');
-  const contract   = document.getElementById('docContractSection');
-  const dueDateWrap= document.getElementById('docDueDateWrap');
-  const isContract = type === 'contract';
-  if (lineItems)  lineItems.classList.toggle('hidden', isContract);
-  if (contract)   contract.classList.toggle('hidden', !isContract);
-  if (dueDateWrap) dueDateWrap.style.display = (type === 'receipt' || type === 'contract') ? 'none' : '';
+  _docApplyTypeLayout();
   _docUpdatePreview();
 };
+
+function _docApplyTypeLayout() {
+  const show = (id, v) => { const el = document.getElementById(id); if (el) el.style.display = v ? '' : 'none'; };
+  const setTxt = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+
+  const isInvoice  = _docType === 'invoice';
+  const isEstimate = _docType === 'estimate';
+  const isContract = _docType === 'contract';
+  const isReceipt  = _docType === 'receipt';
+  const es = _docLang === 'es';
+
+  // ── Type Purpose Banner ───────────────────────────────────
+  const BANNER = {
+    invoice:  { icon:'📄', color:'#4f46e5', title: es?'Factura':'Invoice',
+                desc: es?'Solicitar pago por trabajo completado':'Request payment for completed work' },
+    estimate: { icon:'📋', color:'#059669', title: es?'Estimación':'Estimate',
+                desc: es?'Proponer un precio antes de comenzar el trabajo':'Propose a price before starting the job' },
+    contract: { icon:'📝', color:'#7c3aed', title: es?'Contrato':'Contract',
+                desc: es?'Acuerdo legal entre usted y su cliente':'Legal agreement between you and your client' },
+    receipt:  { icon:'🧾', color:'#0891b2', title: es?'Recibo':'Receipt',
+                desc: es?'Confirmar que se recibió el pago':'Confirm payment has been received in full' },
+  };
+  const bd = BANNER[_docType] || BANNER.invoice;
+  setTxt('docTypeBannerIcon', bd.icon);
+  setTxt('docTypeBannerTitle', bd.title);
+  setTxt('docTypeBannerDesc', bd.desc);
+  const bannerEl = document.getElementById('docTypeBanner');
+  if (bannerEl) bannerEl.style.borderLeftColor = bd.color;
+
+  // ── Invoice Reference # (receipt only) ───────────────────
+  show('docInvoiceRefRow', isReceipt);
+
+  // ── Payment Instructions (invoice only) ──────────────────
+  show('docPayInstructRow', isInvoice);
+
+  // Project Title — estimates & contracts only
+  show('docProjectTitleRow', isEstimate || isContract);
+
+  // Due Date — hidden for receipt; label adapts
+  show('docDueDateWrap', !isReceipt);
+  if (isEstimate)      setTxt('docDueDateLabel', es ? 'Válido Hasta' : 'Valid Until');
+  else if (isContract) setTxt('docDueDateLabel', es ? 'Fecha de Fin' : 'End Date');
+  else                 setTxt('docDueDateLabel', es ? 'Vencimiento' : 'Due Date');
+
+  // Payment Method — receipt only
+  show('docPaymentMethodRow', isReceipt);
+
+  // Job Details section — estimate & contract only (invoice & receipt don't need job location)
+  show('docJobDetailsSection', isEstimate || isContract);
+  // Ordered By — estimate only (contract client IS the person who ordered)
+  show('docOrderedByRow', isEstimate);
+  // Duration — estimate only
+  show('docDurationRow', isEstimate);
+  // Job Details title adapts
+  setTxt('docJobDetailsTitle', isContract
+    ? (es ? 'Detalles del Proyecto' : 'Project Details')
+    : (es ? 'Detalles del Trabajo' : 'Job Details'));
+
+  // Scope of Work — estimates & contracts only
+  show('docScopeSection', isEstimate || isContract);
+
+  // Line Items — hidden for contract
+  const liSec = document.getElementById('docLineItemsSection');
+  if (liSec) liSec.classList.toggle('hidden', isContract);
+
+  // Line Items title adapts by type
+  if (isReceipt)      setTxt('docLineItemsTitle', es ? 'Artículos / Servicios Pagados' : 'Items / Services Paid');
+  else if (isEstimate) setTxt('docLineItemsTitle', es ? 'Partidas del Proyecto' : 'Project Items & Costs');
+  else                 setTxt('docLineItemsTitle', es ? 'Partidas y Precios' : 'Line Items & Pricing');
+
+  // Tax row — hidden for receipt (receipt shows what was paid, not tax calculation)
+  show('docTaxRow', !isReceipt);
+
+  // Advance & Balance rows — hidden for receipt (already paid) and contract
+  show('docAdvanceRow', !isReceipt && !isContract);
+  show('docBalanceRow', !isReceipt && !isContract);
+
+  // Grand Total label
+  if (isReceipt) setTxt('docGrandTotalLabelSpan', es ? 'Total Recibido' : 'Amount Received');
+  else           setTxt('docGrandTotalLabelSpan', es ? 'Total' : 'Total');
+
+  // Contract Terms section — contract only
+  const conSec = document.getElementById('docContractSection');
+  if (conSec) conSec.classList.toggle('hidden', !isContract);
+
+  // T&C section — hidden for receipt; force-checked for contract
+  show('docTCFormSection', !isReceipt);
+  if (isContract) {
+    const cb = document.getElementById('docIncludeTC');
+    if (cb && !cb.checked) { cb.checked = true; document.getElementById('docTCSection')?.classList.remove('hidden'); }
+  }
+
+  // Bill To label
+  if (isReceipt)       setTxt('docBillToLabel', es ? 'Recibido De' : 'Received From');
+  else if (isContract) setTxt('docBillToLabel', es ? 'Cliente' : 'Client');
+  else if (isEstimate) setTxt('docBillToLabel', es ? 'Preparado Para' : 'Prepared For');
+  else                 setTxt('docBillToLabel', es ? 'Facturar a' : 'Bill To');
+
+  // Notes placeholder adapts by type
+  const notesEl = document.getElementById('docNotes');
+  if (notesEl) {
+    const ph = notesEl.dataset['ph' + _docType.charAt(0).toUpperCase() + _docType.slice(1)];
+    if (ph) notesEl.placeholder = ph;
+  }
+}
 
 // ── Line items ────────────────────────────────────────────────
 window._docAddItem = function() {
@@ -2845,10 +2944,33 @@ function _docGetData() {
     if (inList) html += '</ul>'; return html;
   })();
   const logoHtml = _docLogoDataUrl ? `<img src="${_docLogoDataUrl}" alt="Logo" style="max-height:70px;max-width:150px;object-fit:contain;"/>` : '';
+  const paymentMethod = document.getElementById('docPaymentMethod')?.value || '';
+  const PM_LABELS = { cash:'Cash', check:'Check', card:'Card / Debit', zelle:'Zelle', venmo:'Venmo', cashapp:'Cash App', transfer:'Bank Transfer', other:'Other' };
+  const PM_LABELS_ES = { cash:'Efectivo', check:'Cheque', card:'Tarjeta / Débito', zelle:'Zelle', venmo:'Venmo', cashapp:'Cash App', transfer:'Transferencia', other:'Otro' };
+  const paymentMethodLabel = (_docLang === 'es' ? PM_LABELS_ES[paymentMethod] : PM_LABELS[paymentMethod]) || paymentMethod;
+  const pmRowLabel = _docLang === 'es' ? 'Método de Pago' : 'Payment Method';
+  const receiptPaymentHtml = (_docType === 'receipt' && paymentMethod)
+    ? `<tr><td style="padding:6px 10px;font-size:0.82rem;color:#475569;">${pmRowLabel}</td><td style="padding:6px 10px;text-align:right;font-weight:700;color:#15803d;">${_esc(paymentMethodLabel)}</td></tr>`
+    : '';
+
+  // Receipt: Invoice Reference # and PAID IN FULL stamp
+  const invoiceRef = document.getElementById('docInvoiceRef')?.value || '';
+  const paidInFullHtml = (_docType === 'receipt')
+    ? `<div style="margin:16px 0;padding:12px 20px;background:linear-gradient(135deg,#15803d,#166534);color:#fff;border-radius:10px;text-align:center;font-size:1.05rem;font-weight:800;letter-spacing:.06em;">✅ ${_docLang==='es'?'PAGO RECIBIDO EN SU TOTALIDAD':'PAID IN FULL'}</div>`
+    : '';
+
+  // Invoice: Payment Instructions
+  const payInstructions = document.getElementById('docPayInstructions')?.value || '';
+  const payInstructionsHtml = (_docType === 'invoice' && payInstructions)
+    ? `<div style="margin-top:12px;padding:12px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #4f46e5;border-radius:6px;"><div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:5px;">💳 ${_docLang==='es'?'Instrucciones de Pago':'Payment Instructions'}</div><div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;">${_esc(payInstructions)}</div></div>`
+    : '';
+
   return { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
     docNumber, docDate, docDueDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
     duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
-    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_COLORS, TYPE_LABELS_ES, scopeHtml };
+    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_COLORS, TYPE_LABELS_ES, scopeHtml,
+    paymentMethod, paymentMethodLabel, receiptPaymentHtml, invoiceRef, paidInFullHtml,
+    payInstructions, payInstructionsHtml };
 }
 
 function _docGenerateHTML() {
@@ -2933,6 +3055,23 @@ function _docTplClassic() {
     ? `<img src="${_docLogoDataUrl}" alt="Logo" style="max-height:70px;max-width:150px;object-fit:contain;"/>`
     : '';
 
+  const paymentMethod = document.getElementById('docPaymentMethod')?.value || '';
+  const PM_LABELS = { cash:'Cash', check:'Check', card:'Card / Debit', zelle:'Zelle', venmo:'Venmo', cashapp:'Cash App', transfer:'Bank Transfer', other:'Other' };
+  const PM_LABELS_ES = { cash:'Efectivo', check:'Cheque', card:'Tarjeta / Débito', zelle:'Zelle', venmo:'Venmo', cashapp:'Cash App', transfer:'Transferencia', other:'Otro' };
+  const paymentMethodLabel = (_docLang === 'es' ? PM_LABELS_ES[paymentMethod] : PM_LABELS[paymentMethod]) || paymentMethod;
+  const pmRowLabel = _docLang === 'es' ? 'Método de Pago' : 'Payment Method';
+  const receiptPaymentHtml = (_docType === 'receipt' && paymentMethod)
+    ? `<tr><td style="padding:6px 10px;font-size:0.82rem;color:#475569;">${pmRowLabel}</td><td style="padding:6px 10px;text-align:right;font-weight:700;color:#15803d;">${_esc(paymentMethodLabel)}</td></tr>`
+    : '';
+  const invoiceRef = document.getElementById('docInvoiceRef')?.value || '';
+  const paidInFullHtml = (_docType === 'receipt')
+    ? `<div style="margin:16px 0;padding:12px 20px;background:linear-gradient(135deg,#15803d,#166534);color:#fff;border-radius:10px;text-align:center;font-size:1.05rem;font-weight:800;letter-spacing:.06em;">✅ ${_docLang==='es'?'PAGO RECIBIDO EN SU TOTALIDAD':'PAID IN FULL'}</div>`
+    : '';
+  const payInstructions = document.getElementById('docPayInstructions')?.value || '';
+  const payInstructionsHtml = (_docType === 'invoice' && payInstructions)
+    ? `<div style="margin-top:12px;padding:12px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #4f46e5;border-radius:6px;"><div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:5px;">💳 ${_docLang==='es'?'Instrucciones de Pago':'Payment Instructions'}</div><div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;">${_esc(payInstructions)}</div></div>`
+    : '';
+
   const typeLabel = L[_docType] || _docType;
 
   // Format dates nicely
@@ -3015,6 +3154,7 @@ function _docTplClassic() {
       ${docDate   ? `<div class="doc-meta">${L.date}:&nbsp;<strong>${fmtDate(docDate)}</strong></div>` : ''}
       ${docDueDate && _docType !== 'receipt' && _docType !== 'contract'
           ? `<div class="doc-meta">${L.due}:&nbsp;<strong>${fmtDate(docDueDate)}</strong></div>` : ''}
+      ${invoiceRef && _docType === 'receipt' ? `<div class="doc-meta">${_docLang==='es'?'Factura Ref':'Ref Invoice'}:&nbsp;<strong>${_esc(invoiceRef)}</strong></div>` : ''}
     </div>
   </div>
 
@@ -3083,9 +3223,12 @@ function _docTplClassic() {
     <tr><td>${L.subtotal}</td><td style="text-align:right">$${subtotal.toFixed(2)}</td></tr>
     ${taxRate > 0 ? `<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right">$${taxAmt.toFixed(2)}</td></tr>` : ''}
     <tr class="grand"><td><strong>${grandTotalLabel}</strong></td><td style="text-align:right"><strong>$${grand.toFixed(2)}</strong></td></tr>
+    ${receiptPaymentHtml}
     ${advance > 0 ? `<tr><td style="color:#15803d;">${L.advance}</td><td style="text-align:right;color:#15803d;">- $${advance.toFixed(2)}</td></tr>` : ''}
     ${advance > 0 ? `<tr class="balance-due"><td><strong style="color:#dc2626;">${L.balance}</strong></td><td style="text-align:right;color:#dc2626;font-weight:800;font-size:1.1rem;">$${balance.toFixed(2)}</td></tr>` : ''}
-  </table>` : ''}
+  </table>
+  ${paidInFullHtml}
+  ${payInstructionsHtml}` : ''}
 
   ${_docType === 'estimate' && advance > 0 ? `
   <div style="margin-bottom:20px;padding:14px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;">
@@ -3128,7 +3271,8 @@ function _docTplBold() {
   const { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
     docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
     duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
-    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml } = _docGetData();
+    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
+    receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef } = _docGetData();
 
   const itemsHtml = _docType !== 'contract' ? _docItems.map(it => {
     const k = it.type || 'other';
@@ -3158,7 +3302,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}thead tr{background
   <div class="hdr">
     <div class="hdr-logo">${logoHtml||`<div style="width:80px;height:60px;background:#f1f5f9;border-radius:4px;"></div>`}</div>
     <div class="hdr-mid"><div class="hdr-biz">${_esc(bizName)}</div>${bizAddress?`<div class="hdr-det">${_esc(bizAddress)}</div>`:''}${bizPhone?`<div class="hdr-det">📞 ${_esc(bizPhone)}</div>`:''}${bizEmail?`<div class="hdr-det">✉ ${_esc(bizEmail)}</div>`:''}</div>
-    <div class="hdr-right"><div class="hdr-type">${typeLabel}</div>${docNumber?`<div class="hdr-num">#${_esc(docNumber)}</div>`:''}${docDate?`<div class="hdr-num">${fmtDate(docDate)}</div>`:''}</div>
+    <div class="hdr-right"><div class="hdr-type">${typeLabel}</div>${docNumber?`<div class="hdr-num">#${_esc(docNumber)}</div>`:''}${docDate?`<div class="hdr-num">${fmtDate(docDate)}</div>`:''}${invoiceRef&&_docType==='receipt'?`<div class="hdr-num">${_docLang==='es'?'Ref':'Ref'}: ${_esc(invoiceRef)}</div>`:''}</div>
   </div>
   <div class="red-bar"></div>
   <div class="info-row">
@@ -3169,7 +3313,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}thead tr{background
     ${(projectTitle||jobOrderedBy||jobLocation||duration)?`<div class="field-row">${projectTitle?`<div class="field-item"><div class="field-lbl">${_docLang==='es'?'Proyecto':'Project'}</div><div class="field-val">${_esc(projectTitle)}</div></div>`:''} ${jobOrderedBy?`<div class="field-item"><div class="field-lbl">${_docLang==='es'?'Ordenado Por':'Ordered By'}</div><div class="field-val">${_esc(jobOrderedBy)}</div></div>`:''} ${jobLocation?`<div class="field-item"><div class="field-lbl">${_docLang==='es'?'Ubicación':'Location'}</div><div class="field-val">${_esc(jobLocation)}</div></div>`:''} ${duration?`<div class="field-item"><div class="field-lbl">${_docLang==='es'?'Duración':'Duration'}</div><div class="field-val">${_esc(duration)}</div></div>`:''}</div>`:''}
     ${jobScope?`<div class="scope-box"><div class="scope-lbl">${_docLang==='es'?'Alcance del Trabajo':'Scope of Work'}</div>${scopeHtml}</div>`:''}
     ${(_docShowPricing&&_docType!=='contract')?`<table><thead><tr><th>${L.desc}</th><th style="text-align:right;">${L.total}</th></tr></thead><tbody>${itemsHtml}</tbody></table>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:20px;"><table class="totals"><tr><td>${L.subtotal}</td><td style="text-align:right;">$${subtotal.toFixed(2)}</td></tr>${taxRate>0?`<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right;">$${taxAmt.toFixed(2)}</td></tr>`:''}<tr class="grand"><td><strong>${grandTotalLabel}</strong></td><td style="text-align:right;"><strong>$${grand.toFixed(2)}</strong></td></tr>${advance>0?`<tr><td>${L.advance}</td><td style="text-align:right;color:#15803d;">−$${advance.toFixed(2)}</td></tr>`:''} ${advance>0?`<tr class="balance"><td><strong>${L.balance}</strong></td><td style="text-align:right;"><strong>$${balance.toFixed(2)}</strong></td></tr>`:''}</table></div>`:''}
+    <div style="display:flex;justify-content:flex-end;margin-bottom:20px;"><table class="totals"><tr><td>${L.subtotal}</td><td style="text-align:right;">$${subtotal.toFixed(2)}</td></tr>${taxRate>0?`<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right;">$${taxAmt.toFixed(2)}</td></tr>`:''}<tr class="grand"><td><strong>${grandTotalLabel}</strong></td><td style="text-align:right;"><strong>$${grand.toFixed(2)}</strong></td></tr>${receiptPaymentHtml}${advance>0?`<tr><td>${L.advance}</td><td style="text-align:right;color:#15803d;">−$${advance.toFixed(2)}</td></tr>`:''} ${advance>0?`<tr class="balance"><td><strong>${L.balance}</strong></td><td style="text-align:right;"><strong>$${balance.toFixed(2)}</strong></td></tr>`:''}</table></div>${paidInFullHtml}${payInstructionsHtml}`:''}
     ${_docType==='contract'&&contractTxt?`<div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;line-height:1.6;border:1px solid #e2e8f0;padding:14px;margin-bottom:16px;">${_esc(contractTxt)}</div>`:''}
     ${notes?`<div class="notes">📌 ${_esc(notes)}</div>`:''}
     ${includeTC&&termsText?`<div style="margin-top:20px;padding-top:14px;border-top:2px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">⚖️ ${L.tcTitle}</div><div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;padding:12px;">${_esc(termsText)}</div></div>`:''}
@@ -3184,7 +3328,8 @@ function _docTplExecutive() {
   const { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
     docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
     duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
-    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml } = _docGetData();
+    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
+    receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef } = _docGetData();
 
   const gold = '#c9972b'; const navy = '#0f172a';
 
@@ -3213,7 +3358,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}thead tr{background
 <body><div class="wrap">
   <div class="hdr">
     <div class="hdr-left"><div class="logo-box">${logoHtml||`<div style="width:60px;height:50px;background:rgba(255,255,255,.1);border-radius:4px;"></div>`}</div><div><div class="biz-name">${_esc(bizName)}</div>${bizAddress?`<div class="biz-det">${_esc(bizAddress)}</div>`:''}${bizPhone?`<div class="biz-det">${_esc(bizPhone)}</div>`:''}${bizEmail?`<div class="biz-det">${_esc(bizEmail)}</div>`:''}</div></div>
-    <div class="hdr-right"><div class="doc-type">${typeLabel}</div>${docNumber?`<div class="doc-num"># ${_esc(docNumber)}</div>`:''}${docDate?`<div class="doc-num">${fmtDate(docDate)}</div>`:''}</div>
+    <div class="hdr-right"><div class="doc-type">${typeLabel}</div>${docNumber?`<div class="doc-num"># ${_esc(docNumber)}</div>`:''}${docDate?`<div class="doc-num">${fmtDate(docDate)}</div>`:''}${invoiceRef&&_docType==='receipt'?`<div class="doc-num">${_docLang==='es'?'Ref':'Ref'}: ${_esc(invoiceRef)}</div>`:''}</div>
   </div>
   <div class="gold-bar"></div>
   <div class="party-row">
@@ -3224,7 +3369,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}thead tr{background
     ${(projectTitle||jobOrderedBy||jobLocation||duration)?`<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">${projectTitle?`<div style="flex:2;min-width:180px;padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;border-left:3px solid ${gold};"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_docLang==='es'?'Proyecto':'Project'}</div><div style="font-size:0.9rem;font-weight:700;color:${navy};">${_esc(projectTitle)}</div></div>`:''} ${jobOrderedBy?`<div style="flex:1;min-width:140px;padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_docLang==='es'?'Ordenado Por':'Ordered By'}</div><div style="font-size:0.85rem;font-weight:600;">${_esc(jobOrderedBy)}</div></div>`:''} ${jobLocation?`<div style="flex:1;min-width:140px;padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_docLang==='es'?'Ubicación':'Location'}</div><div style="font-size:0.85rem;font-weight:600;">${_esc(jobLocation)}</div></div>`:''} ${duration?`<div style="flex:1;min-width:120px;padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_docLang==='es'?'Duración':'Duration'}</div><div style="font-size:0.85rem;font-weight:600;">${_esc(duration)}</div></div>`:''}</div>`:''}
     ${jobScope?`<div class="scope-box"><div class="scope-lbl">${_docLang==='es'?'Alcance del Trabajo':'Scope of Work'}</div>${scopeHtml}</div>`:''}
     ${(_docShowPricing&&_docType!=='contract')?`<table><thead><tr><th>${L.desc}</th><th style="text-align:right;">${L.total}</th></tr></thead><tbody>${itemsHtml}</tbody></table>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:20px;"><table class="totals"><tr><td>${L.subtotal}</td><td style="text-align:right;">$${subtotal.toFixed(2)}</td></tr>${taxRate>0?`<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right;">$${taxAmt.toFixed(2)}</td></tr>`:''}<tr class="grand"><td><strong>${grandTotalLabel}</strong></td><td style="text-align:right;"><strong>$${grand.toFixed(2)}</strong></td></tr>${advance>0?`<tr><td style="color:#15803d;">${L.advance}</td><td style="text-align:right;color:#15803d;">−$${advance.toFixed(2)}</td></tr>`:''} ${advance>0?`<tr class="balance"><td><strong>${L.balance}</strong></td><td style="text-align:right;"><strong>$${balance.toFixed(2)}</strong></td></tr>`:''}</table></div>`:''}
+    <div style="display:flex;justify-content:flex-end;margin-bottom:20px;"><table class="totals"><tr><td>${L.subtotal}</td><td style="text-align:right;">$${subtotal.toFixed(2)}</td></tr>${taxRate>0?`<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right;">$${taxAmt.toFixed(2)}</td></tr>`:''}<tr class="grand"><td><strong>${grandTotalLabel}</strong></td><td style="text-align:right;"><strong>$${grand.toFixed(2)}</strong></td></tr>${receiptPaymentHtml}${advance>0?`<tr><td style="color:#15803d;">${L.advance}</td><td style="text-align:right;color:#15803d;">−$${advance.toFixed(2)}</td></tr>`:''} ${advance>0?`<tr class="balance"><td><strong>${L.balance}</strong></td><td style="text-align:right;"><strong>$${balance.toFixed(2)}</strong></td></tr>`:''}</table></div>${paidInFullHtml}${payInstructionsHtml}`:''}
     ${_docType==='contract'&&contractTxt?`<div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;line-height:1.7;border:1px solid #e2e8f0;padding:16px;background:#fafaf8;margin-bottom:16px;">${_esc(contractTxt)}</div>`:''}
     ${notes?`<div class="notes">📌 ${_esc(notes)}</div>`:''}
     ${includeTC&&termsText?`<div style="margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">⚖️ ${L.tcTitle}</div><div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;background:#fafaf8;border:1px solid #e2e8f0;padding:14px;">${_esc(termsText)}</div></div>`:''}
@@ -3239,7 +3384,8 @@ function _docTplModern() {
   const { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
     docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
     duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
-    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_COLORS, TYPE_LABELS_ES, scopeHtml } = _docGetData();
+    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_COLORS, TYPE_LABELS_ES, scopeHtml,
+    receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef } = _docGetData();
 
   const itemsHtml = _docType !== 'contract' ? _docItems.map(it => {
     const k = it.type || 'other';
@@ -3268,7 +3414,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px;border-radius:12px;
 <body><div class="wrap">
   <div class="hdr">
     <div style="display:flex;align-items:center;gap:14px;"><div class="logo-wrap">${logoHtml||`<div style="width:52px;height:44px;background:rgba(255,255,255,.2);border-radius:8px;"></div>`}</div><div><div class="hdr-biz">${_esc(bizName)}</div>${bizAddress?`<div class="hdr-det">${_esc(bizAddress)}</div>`:''}${bizPhone?`<div class="hdr-det">${_esc(bizPhone)}</div>`:''}${bizEmail?`<div class="hdr-det">${_esc(bizEmail)}</div>`:''}</div></div>
-    <div style="text-align:right;"><div class="doc-type">${typeLabel}</div>${docNumber?`<div class="doc-num">#${_esc(docNumber)}</div>`:''}${docDate?`<div class="doc-num">${fmtDate(docDate)}</div>`:''}</div>
+    <div style="text-align:right;"><div class="doc-type">${typeLabel}</div>${docNumber?`<div class="doc-num">#${_esc(docNumber)}</div>`:''}${docDate?`<div class="doc-num">${fmtDate(docDate)}</div>`:''}${invoiceRef&&_docType==='receipt'?`<div class="doc-num">${_docLang==='es'?'Ref':'Ref'}: ${_esc(invoiceRef)}</div>`:''}</div>
   </div>
   <div class="party-cards">
     <div class="card"><div class="card-lbl">${_esc(bizName)||'From'}</div><div class="card-name">${_esc(bizName)}</div><div class="card-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
@@ -3278,7 +3424,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px;border-radius:12px;
     ${(projectTitle||jobOrderedBy||jobLocation||duration)?`<div class="info-cards">${projectTitle?`<div class="ic" style="border-left:3px solid #7c3aed;"><div class="ic-lbl">${_docLang==='es'?'Proyecto':'Project'}</div><div class="ic-val">${_esc(projectTitle)}</div></div>`:''} ${jobOrderedBy?`<div class="ic"><div class="ic-lbl">${_docLang==='es'?'Ordenado Por':'Ordered By'}</div><div class="ic-val">${_esc(jobOrderedBy)}</div></div>`:''} ${jobLocation?`<div class="ic"><div class="ic-lbl">${_docLang==='es'?'Ubicación':'Location'}</div><div class="ic-val">${_esc(jobLocation)}</div></div>`:''} ${duration?`<div class="ic"><div class="ic-lbl">${_docLang==='es'?'Duración':'Duration'}</div><div class="ic-val">${_esc(duration)}</div></div>`:''}</div>`:''}
     ${jobScope?`<div class="scope-card"><div class="scope-lbl">${_docLang==='es'?'Alcance del Trabajo':'Scope of Work'}</div>${scopeHtml}</div>`:''}
     ${(_docShowPricing&&_docType!=='contract')?`<table><thead><tr><th>${L.desc}</th><th style="text-align:right;">${L.total}</th></tr></thead><tbody>${itemsHtml}</tbody></table>
-    <div class="totals-wrap"><table class="totals"><tr><td>${L.subtotal}</td><td style="text-align:right;">$${subtotal.toFixed(2)}</td></tr>${taxRate>0?`<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right;">$${taxAmt.toFixed(2)}</td></tr>`:''}<tr class="grand"><td><strong>${grandTotalLabel}</strong></td><td style="text-align:right;"><strong>$${grand.toFixed(2)}</strong></td></tr>${advance>0?`<tr><td style="color:#15803d;">${L.advance}</td><td style="text-align:right;color:#15803d;">−$${advance.toFixed(2)}</td></tr>`:''} ${advance>0?`<tr class="balance"><td><strong>${L.balance}</strong></td><td style="text-align:right;"><strong>$${balance.toFixed(2)}</strong></td></tr>`:''}</table></div>`:''}
+    <div class="totals-wrap"><table class="totals"><tr><td>${L.subtotal}</td><td style="text-align:right;">$${subtotal.toFixed(2)}</td></tr>${taxRate>0?`<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right;">$${taxAmt.toFixed(2)}</td></tr>`:''}<tr class="grand"><td><strong>${grandTotalLabel}</strong></td><td style="text-align:right;"><strong>$${grand.toFixed(2)}</strong></td></tr>${receiptPaymentHtml}${advance>0?`<tr><td style="color:#15803d;">${L.advance}</td><td style="text-align:right;color:#15803d;">−$${advance.toFixed(2)}</td></tr>`:''} ${advance>0?`<tr class="balance"><td><strong>${L.balance}</strong></td><td style="text-align:right;"><strong>$${balance.toFixed(2)}</strong></td></tr>`:''}</table></div>${paidInFullHtml}${payInstructionsHtml}`:''}
     ${_docType==='contract'&&contractTxt?`<div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;line-height:1.7;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;">${_esc(contractTxt)}</div>`:''}
     ${notes?`<div class="notes">📌 ${_esc(notes)}</div>`:''}
     ${includeTC&&termsText?`<div style="margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">⚖️ ${L.tcTitle}</div><div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;padding:14px;">${_esc(termsText)}</div></div>`:''}
@@ -3293,7 +3439,8 @@ function _docTplMinimal() {
   const { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
     docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
     duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
-    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml } = _docGetData();
+    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
+    receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef } = _docGetData();
 
   const itemsHtml = _docType !== 'contract' ? _docItems.map(it => {
     const k = it.type || 'other';
@@ -3319,7 +3466,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}thead th{padding:8p
 <body><div class="wrap">
   <div class="top">
     <div>${logoHtml}<div class="biz-name">${_esc(bizName)}</div>${bizAddress?`<div class="biz-det">${_esc(bizAddress)}</div>`:''}${bizPhone?`<div class="biz-det">${_esc(bizPhone)}</div>`:''}${bizEmail?`<div class="biz-det">${_esc(bizEmail)}</div>`:''}</div>
-    <div style="text-align:right;"><div class="doc-type">${typeLabel}</div>${docNumber?`<div class="doc-num"># ${_esc(docNumber)}</div>`:''}${docDate?`<div class="doc-num">${fmtDate(docDate)}</div>`:''}</div>
+    <div style="text-align:right;"><div class="doc-type">${typeLabel}</div>${docNumber?`<div class="doc-num"># ${_esc(docNumber)}</div>`:''}${docDate?`<div class="doc-num">${fmtDate(docDate)}</div>`:''}${invoiceRef&&_docType==='receipt'?`<div class="doc-num">${_docLang==='es'?'Ref':'Ref'}: ${_esc(invoiceRef)}</div>`:''}</div>
   </div>
   <div class="parties">
     <div class="party"><div class="party-lbl">${_docLang==='es'?'De':'From'}</div><div class="party-name">${_esc(bizName)||'—'}</div><div class="party-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
@@ -3329,7 +3476,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}thead th{padding:8p
   ${projectTitle?`<div style="margin-bottom:20px;"><div class="section-head">${_docLang==='es'?'Proyecto':'Project'}</div><div style="font-size:1rem;font-weight:600;">${_esc(projectTitle)}</div></div>`:''}
   ${jobScope?`<div style="margin-bottom:24px;"><div class="section-head">${_docLang==='es'?'Alcance del Trabajo':'Scope of Work'}</div>${scopeHtml}</div>`:''}
   ${(_docShowPricing&&_docType!=='contract')?`<table><thead><tr><th>${L.desc}</th><th style="text-align:right;">${L.total}</th></tr></thead><tbody>${itemsHtml}</tbody></table>
-  <div style="display:flex;justify-content:flex-end;margin-bottom:24px;"><table class="totals"><tr><td>${L.subtotal}</td><td style="text-align:right;">$${subtotal.toFixed(2)}</td></tr>${taxRate>0?`<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right;">$${taxAmt.toFixed(2)}</td></tr>`:''}<tr class="grand"><td><strong>${grandTotalLabel}</strong></td><td style="text-align:right;"><strong>$${grand.toFixed(2)}</strong></td></tr>${advance>0?`<tr><td>${L.advance}</td><td style="text-align:right;">−$${advance.toFixed(2)}</td></tr>`:''} ${advance>0?`<tr class="balance"><td><strong>${L.balance}</strong></td><td style="text-align:right;"><strong>$${balance.toFixed(2)}</strong></td></tr>`:''}</table></div>`:''}
+  <div style="display:flex;justify-content:flex-end;margin-bottom:24px;"><table class="totals"><tr><td>${L.subtotal}</td><td style="text-align:right;">$${subtotal.toFixed(2)}</td></tr>${taxRate>0?`<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right;">$${taxAmt.toFixed(2)}</td></tr>`:''}<tr class="grand"><td><strong>${grandTotalLabel}</strong></td><td style="text-align:right;"><strong>$${grand.toFixed(2)}</strong></td></tr>${receiptPaymentHtml}${advance>0?`<tr><td>${L.advance}</td><td style="text-align:right;">−$${advance.toFixed(2)}</td></tr>`:''} ${advance>0?`<tr class="balance"><td><strong>${L.balance}</strong></td><td style="text-align:right;"><strong>$${balance.toFixed(2)}</strong></td></tr>`:''}</table></div>${paidInFullHtml}${payInstructionsHtml}`:''}
   ${duration?`<div style="margin-bottom:20px;"><div class="section-head">${_docLang==='es'?'Duración Estimada':'Est. Duration'}</div><div style="font-size:0.85rem;">${_esc(duration)}</div></div>`:''}
   ${_docType==='contract'&&contractTxt?`<div style="margin-bottom:20px;"><div class="section-head">${L.terms}</div><div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;line-height:1.7;">${_esc(contractTxt)}</div></div>`:''}
   ${notes?`<div class="notes">Note: ${_esc(notes)}</div>`:''}
@@ -3395,10 +3542,11 @@ window._docSave = async function() {
       advance:      parseFloat(document.getElementById('docAdvancePayment')?.value || 0),
       includeTC:    document.getElementById('docIncludeTC')?.checked  || false,
       termsText:    document.getElementById('docTermsText')?.value    || '',
-      taxRate:      parseFloat(document.getElementById('docTaxRate')?.value || 0),
-      items:        _docItems,
-      logoUrl:      logoUrl,
-      htmlContent:  htmlContent,
+      taxRate:        parseFloat(document.getElementById('docTaxRate')?.value || 0),
+      paymentMethod:  document.getElementById('docPaymentMethod')?.value || '',
+      items:          _docItems,
+      logoUrl:        logoUrl,
+      htmlContent:    htmlContent,
       designTemplate: _docDesignTemplate,
       ownerUid:     auth.currentUser?.uid || '',
       createdAt:    serverTimestamp()
@@ -3488,11 +3636,12 @@ window._docSaveTemplate = async function() {
       showPricing:  _docShowPricing,
       includeTC:    document.getElementById('docIncludeTC')?.checked  || false,
       termsText:    document.getElementById('docTermsText')?.value    || '',
-      taxRate:      parseFloat(document.getElementById('docTaxRate')?.value || 0),
-      items:        _docItems,
-      logoUrl:      _docLogoDataUrl,
+      taxRate:        parseFloat(document.getElementById('docTaxRate')?.value || 0),
+      paymentMethod:  document.getElementById('docPaymentMethod')?.value || '',
+      items:          _docItems,
+      logoUrl:        _docLogoDataUrl,
       designTemplate: _docDesignTemplate,
-      ownerUid:     auth.currentUser?.uid || '',
+      ownerUid:       auth.currentUser?.uid || '',
       createdAt:    serverTimestamp()
     });
     await _loadDocTemplates();
@@ -3558,6 +3707,7 @@ window._docLoadTemplate = async function(id) {
   if (_tplPChk) _tplPChk.checked = _docShowPricing;
   document.getElementById('docPricingContent')?.classList.toggle('hidden', !_docShowPricing);
   _setDocVal('docAdvancePayment', 0);
+  if (tpl.paymentMethod) { const pmEl = document.getElementById('docPaymentMethod'); if (pmEl) pmEl.value = tpl.paymentMethod; }
   const tplTcEl = document.getElementById('docIncludeTC');
   const tplTcChecked = !!tpl.includeTC;
   if (tplTcEl) tplTcEl.checked = tplTcChecked;
@@ -3701,8 +3851,11 @@ window._docShareEmail = function() {
   const typeLabel= L[_docType] || _docType;
   const docNum   = document.getElementById('docNumber')?.value || '';
   const custEmail= document.getElementById('docCustEmail')?.value || '';
-  const subject  = `${typeLabel}${docNum ? ' #' + docNum : ''}`;
-  window.location.href = `mailto:${encodeURIComponent(custEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(_docBuildSummaryText())}`;
+  const subject  = encodeURIComponent(`${typeLabel}${docNum ? ' #' + docNum : ''}`);
+  const body     = encodeURIComponent(_docBuildSummaryText());
+  // Open Gmail compose directly (reliable across all systems, no mail app needed)
+  const gmailUrl = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(custEmail)}&su=${subject}&body=${body}`;
+  window.open(gmailUrl, '_blank', 'noopener');
 };
 
 window._docCopySummary = function() {
