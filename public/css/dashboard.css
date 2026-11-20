@@ -2026,15 +2026,14 @@
 
 /* ── Document Cards ───────────────────────────────────────── */
 .docs-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
 }
 
 .doc-card {
-  display: grid;
-  grid-template-columns: 4px 1fr auto;
-  align-items: stretch;
+  display: flex;
+  flex-direction: column;
   background: #fff;
   border: 1px solid var(--border, #e2e8f0);
   border-radius: 12px;
@@ -2043,10 +2042,10 @@
 }
 .doc-card:hover {
   box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
-.doc-card-stripe { width: 4px; }
+.doc-card-stripe { width: 100%; height: 5px; flex-shrink: 0; }
 .doc-card-stripe.stripe-invoice  { background: #4f46e5; }
 .doc-card-stripe.stripe-estimate { background: #f59e0b; }
 .doc-card-stripe.stripe-contract { background: #7c3aed; }
@@ -2055,17 +2054,18 @@
 .doc-card-body {
   padding: 14px 16px;
   display: flex;
-  align-items: center;
-  gap: 20px;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
   min-width: 0;
 }
 
-.doc-card-type { flex-shrink: 0; min-width: 80px; }
-.doc-card-num  { font-size: 0.7rem; color: var(--muted, #64748b); margin-top: 3px; font-family: monospace; }
+.doc-card-type { display: flex; align-items: center; gap: 8px; }
+.doc-card-num  { font-size: 0.7rem; color: var(--muted, #64748b); font-family: monospace; }
 
 .doc-card-info { flex: 1; min-width: 0; }
 .doc-card-customer {
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 600;
   color: var(--navy, #0f172a);
   white-space: nowrap;
@@ -2075,7 +2075,7 @@
 .doc-card-meta {
   font-size: 0.775rem;
   color: var(--muted, #64748b);
-  margin-top: 3px;
+  margin-top: 2px;
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
@@ -2084,20 +2084,18 @@
 .doc-card-meta-dot::before { content: '·'; margin-right: 10px; }
 
 .doc-card-amount {
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: 1.15rem;
+  font-weight: 800;
   color: var(--navy, #0f172a);
-  flex-shrink: 0;
-  min-width: 80px;
-  text-align: right;
+  margin-top: 2px;
 }
 
 .doc-card-actions {
-  padding: 14px 14px 14px 0;
+  padding: 10px 16px 12px;
   display: flex;
   gap: 6px;
-  align-items: center;
-  flex-shrink: 0;
+  flex-wrap: wrap;
+  border-top: 1px solid #f1f5f9;
 }
 
 /* ── Generate Modal label badge ───────────────────────────── */
@@ -2186,8 +2184,8 @@
   .docs-create-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .docs-create-card { padding: 14px 12px 26px; }
   .dcc-icon { font-size: 1.5rem; }
-  .doc-card-amount { display: none; }
-  .doc-card-body { gap: 12px; }
+  .docs-list { grid-template-columns: 1fr; }
+  .doc-card-body { gap: 8px; }
 }
 
 /* ══════════════════════════════════════════════════════════
