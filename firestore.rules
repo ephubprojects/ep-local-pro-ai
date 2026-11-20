@@ -42,7 +42,9 @@ service cloud.firestore {
 
     // ── Documents (invoices, estimates, contracts) ────────────────────────
     match /documents/{docId} {
-      allow read, write: if isAdmin()
+      allow get: if true;  // public read by ID — shareable live link viewer
+      allow list: if isAdmin() || isAuth();
+      allow write: if isAdmin()
         || (isAuth() && (
           resource == null || resource.data.ownerUid == request.auth.uid
         ));

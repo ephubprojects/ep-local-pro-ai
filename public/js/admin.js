@@ -13,7 +13,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 import {
   collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
-  query, where, orderBy, limit, onSnapshot, serverTimestamp
+  query, where, orderBy, limit, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // ── Category data (inline — no fetch needed) ────────────────
@@ -2700,12 +2700,30 @@ window._openDocCreator = function(existingDoc) {
   modal.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
 
+  // Update save button label and edit-mode banner
+  const saveBtn = document.getElementById('docSaveBtn');
+  let editBanner = document.getElementById('docEditModeBanner');
+  if (_docCurrentId) {
+    if (saveBtn) saveBtn.innerHTML = '✏️ Update Document';
+    if (!editBanner) {
+      editBanner = document.createElement('div');
+      editBanner.id = 'docEditModeBanner';
+      editBanner.style.cssText = 'background:#fef9c3;border-bottom:1px solid #fde047;padding:6px 16px;font-size:0.78rem;color:#78350f;font-weight:600;display:flex;align-items:center;gap:8px;';
+      modal.querySelector('.doc-creator-wrap')?.prepend(editBanner);
+    }
+    editBanner.innerHTML = `✏️ Editing document — changes will overwrite the saved version. <span style="opacity:.7">${existingDoc?.docNumber || ''}</span>`;
+    editBanner.style.display = 'flex';
+  } else {
+    if (saveBtn) saveBtn.innerHTML = '💾 Save Document';
+    if (editBanner) editBanner.style.display = 'none';
+  }
+
   // Reset state
   _docItems = existingDoc?.items || [{ desc:'', qty:1, price:0 }];
   _docType  = existingDoc?.type || 'invoice';
   _docLogoDataUrl = existingDoc?.logoUrl || existingDoc?.logoDataUrl || '';
-  _docSetType(_docType);
-  _docSetLang(_docLang);
+  window._docSetType(_docType);
+  window._docSetLang(_docLang);
 
   // Pre-fill from existing doc or from business profile
   if (existingDoc) {
@@ -2830,6 +2848,12 @@ window._docSetType = function(type) {
   document.querySelectorAll('.doc-type-tab').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.doctype === type);
   });
+  // Update doc number prefix if it still matches the auto-generated pattern
+  const numEl = document.getElementById('docNumber');
+  if (numEl && /^(INV|EST|CON|REC)-\d+$/i.test(numEl.value)) {
+    const suffix = numEl.value.split('-')[1];
+    numEl.value = type.slice(0,3).toUpperCase() + '-' + suffix;
+  }
   _docApplyTypeLayout();
   _docUpdatePreview();
 };
@@ -3026,6 +3050,21 @@ window._docUpdatePreview = function() {
   if (!frame) return;
   const html = _docGenerateHTML();
   frame.srcdoc = html;
+  const hint = document.getElementById('docPaymentHint');
+  if (hint) {
+    const hasPayment = _buildPaymentBlockHtml().length > 0;
+    hint.style.display = hasPayment ? 'none' : 'flex';
+  }
+};
+
+window._docCloseAndOpenPayment = function() {
+  const modal = document.getElementById('docCreatorModal');
+  if (modal) modal.classList.add('hidden');
+  const panel = document.getElementById('docPaymentPanel');
+  const btn   = document.getElementById('docPaymentToggle');
+  if (panel) { panel.classList.remove('hidden'); }
+  if (btn)   { btn.textContent = '💳 Hide Payment'; }
+  document.getElementById('docSection')?.scrollIntoView({ behavior:'smooth' });
 };
 
 // ── Design Template Switcher ──────────────────────────────────
@@ -3440,7 +3479,7 @@ function _docTplBold() {
 .red-bar{height:5px;background:#dc2626}
 .info-row{display:flex}.info-box{flex:1;padding:14px 16px;border:1px solid #e2e8f0;border-top:3px solid #111}.info-box.red{border-top-color:#dc2626}.info-lbl{font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px}.info-name{font-size:0.9rem;font-weight:700;color:#1e293b}.info-det{font-size:0.75rem;color:#64748b;line-height:1.5;margin-top:2px}
 .body{padding:20px}
-.field-row{display:flex;gap:16px;margin-bottom:14px;flex-wrap:wrap}.field-item{flex:1;min-width:140px}.field-lbl{font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px}.field-val{font-size:0.85rem;font-weight:600;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:3px;min-height:20px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}.field-item{}.field-lbl{font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px}.field-val{font-size:0.85rem;font-weight:600;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:3px;min-height:20px}
 table{width:100%;border-collapse:collapse;margin-bottom:16px}thead tr{background:#111;color:#fff}thead th{padding:9px 12px;text-align:left;font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}thead th:not(:first-child){text-align:right}tbody tr:nth-child(even){background:#fafafa}
 .totals{margin-left:auto;width:280px;border-top:3px solid #dc2626;border:1px solid #e2e8f0}.totals td{padding:7px 12px;font-size:0.85rem;color:#475569;border-bottom:1px solid #f1f5f9}.totals .grand td{font-size:1rem;font-weight:900;color:#111;background:#f8f8f8}.totals .balance td{font-size:1.05rem;font-weight:900;color:#dc2626;background:#fff5f5}
 .scope-box{padding:12px 16px;border:1px solid #e2e8f0;border-left:4px solid #dc2626;background:#fafafa;margin-bottom:16px}.scope-lbl{font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:8px}
@@ -3516,7 +3555,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}thead tr{background
     <div class="party client"><div class="plbl" style="color:${navy}">${L.billTo}</div><div class="pname">${_esc(custName)||'—'}</div><div class="pdet">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
   </div>
   <div class="body">
-    ${(projectTitle||jobOrderedBy||jobLocation||duration)?`<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">${projectTitle?`<div style="flex:2;min-width:180px;padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;border-left:3px solid ${gold};"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_docLang==='es'?'Proyecto':'Project'}</div><div style="font-size:0.9rem;font-weight:700;color:${navy};">${_esc(projectTitle)}</div></div>`:''} ${jobOrderedBy?`<div style="flex:1;min-width:140px;padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_docLang==='es'?'Ordenado Por':'Ordered By'}</div><div style="font-size:0.85rem;font-weight:600;">${_esc(jobOrderedBy)}</div></div>`:''} ${jobLocation?`<div style="flex:1;min-width:140px;padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_docLang==='es'?'Ubicación':'Location'}</div><div style="font-size:0.85rem;font-weight:600;">${_esc(jobLocation)}</div></div>`:''} ${duration?`<div style="flex:1;min-width:120px;padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_docLang==='es'?'Duración':'Duration'}</div><div style="font-size:0.85rem;font-weight:600;">${_esc(duration)}</div></div>`:''}</div>`:''}
+    ${(projectTitle||jobOrderedBy||jobLocation||duration)?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">${projectTitle?`<div style="padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;border-left:3px solid ${gold};"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_docLang==='es'?'Proyecto':'Project'}</div><div style="font-size:0.9rem;font-weight:700;color:${navy};">${_esc(projectTitle)}</div></div>`:''} ${jobOrderedBy?`<div style="padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_docLang==='es'?'Ordenado Por':'Ordered By'}</div><div style="font-size:0.85rem;font-weight:600;">${_esc(jobOrderedBy)}</div></div>`:''} ${jobLocation?`<div style="padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_docLang==='es'?'Ubicación':'Location'}</div><div style="font-size:0.85rem;font-weight:600;">${_esc(jobLocation)}</div></div>`:''} ${duration?`<div style="padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_docLang==='es'?'Duración':'Duration'}</div><div style="font-size:0.85rem;font-weight:600;">${_esc(duration)}</div></div>`:''}</div>`:''}
     ${jobScope?`<div class="scope-box"><div class="scope-lbl">${_docLang==='es'?'Alcance del Trabajo':'Scope of Work'}</div>${scopeHtml}</div>`:''}
     ${(_docShowPricing&&_docType!=='contract')?`<table><thead><tr><th>${L.desc}</th><th style="text-align:right;">${L.total}</th></tr></thead><tbody>${itemsHtml}</tbody></table>
     <div style="display:flex;justify-content:flex-end;margin-bottom:20px;"><table class="totals"><tr><td>${L.subtotal}</td><td style="text-align:right;">$${subtotal.toFixed(2)}</td></tr>${taxRate>0?`<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right;">$${taxAmt.toFixed(2)}</td></tr>`:''}<tr class="grand"><td><strong>${grandTotalLabel}</strong></td><td style="text-align:right;"><strong>$${grand.toFixed(2)}</strong></td></tr>${receiptPaymentHtml}${advance>0?`<tr><td style="color:#15803d;">${L.advance}</td><td style="text-align:right;color:#15803d;">−$${advance.toFixed(2)}</td></tr>`:''} ${advance>0?`<tr class="balance"><td><strong>${L.balance}</strong></td><td style="text-align:right;"><strong>$${balance.toFixed(2)}</strong></td></tr>`:''}</table></div>${paidInFullHtml}${payInstructionsHtml}`:''}
@@ -3555,7 +3594,7 @@ function _docTplModern() {
 .hdr{background:linear-gradient(135deg,#7c3aed 0%,#0891b2 100%);padding:28px 32px;color:#fff;display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}.logo-wrap{background:rgba(255,255,255,.2);border-radius:12px;padding:8px;display:inline-flex;align-items:center;justify-content:center}.hdr-biz{font-size:1rem;font-weight:800}.hdr-det{font-size:0.72rem;color:rgba(255,255,255,.75);margin-top:2px}.doc-type{font-size:2rem;font-weight:900;letter-spacing:-0.02em;text-transform:uppercase}.doc-num{font-size:0.75rem;color:rgba(255,255,255,.75);margin-top:4px}
 .party-cards{display:flex;gap:16px;padding:20px 24px;flex-wrap:wrap}.card{flex:1;min-width:200px;background:#f8fafc;border-radius:12px;padding:14px 18px;border:1px solid #e2e8f0}.card-lbl{font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px}.card-name{font-size:0.95rem;font-weight:700;color:#1e293b}.card-det{font-size:0.75rem;color:#64748b;line-height:1.5;margin-top:3px}
 .body{padding:0 24px 24px}
-.info-cards{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}.ic{flex:1;min-width:140px;background:#f8fafc;border-radius:10px;padding:12px 14px;border:1px solid #e2e8f0}.ic-lbl{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px}.ic-val{font-size:0.85rem;font-weight:600;color:#1e293b}
+.info-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}.ic{background:#f8fafc;border-radius:10px;padding:12px 14px;border:1px solid #e2e8f0}.ic-lbl{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px}.ic-val{font-size:0.85rem;font-weight:600;color:#1e293b}
 table{width:100%;border-collapse:collapse;margin-bottom:16px;border-radius:12px;overflow:hidden}thead tr{background:linear-gradient(90deg,#7c3aed,#0891b2);color:#fff}thead th{padding:10px 14px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}thead th:not(:first-child){text-align:right}tbody tr:nth-child(even){background:#f8fafc}
 .totals-wrap{display:flex;justify-content:flex-end;margin-bottom:20px}.totals{width:300px;background:#f8fafc;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0}.totals td{padding:8px 16px;font-size:0.85rem;color:#475569;border-bottom:1px solid #f1f5f9}.totals .grand td{font-size:1.05rem;font-weight:800;color:#1e293b;background:linear-gradient(90deg,#f0f0ff,#e8f9ff);border-bottom:none}.totals .balance td{font-size:1.05rem;font-weight:800;color:#dc2626;background:#fff5f5}
 .scope-card{background:#f8fafc;border-radius:12px;padding:16px;margin-bottom:20px;border:1px solid #e2e8f0;border-left:4px solid #7c3aed}.scope-lbl{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:8px}
@@ -3715,24 +3754,88 @@ window._docSave = async function() {
     data.customerName = data.custName;
     data.amount       = grand.toFixed(2);
 
+    let savedId = _docCurrentId;
     if (_docCurrentId) {
       await updateDoc(doc(db, 'documents', _docCurrentId), { ...data, updatedAt: serverTimestamp() });
     } else {
-      await addDoc(collection(db, 'documents'), data);
+      const ref = await addDoc(collection(db, 'documents'), data);
+      savedId = ref.id;
+      _docCurrentId = savedId;
     }
 
-    // Close modal
+    // Close creator
     document.getElementById('docCreatorModal')?.classList.add('hidden');
     document.body.style.overflow = '';
-    // Refresh docs list
     loadAdminDocuments();
-    alert('Document saved successfully!');
+
+    // Show share modal with live link
+    const viewUrl = `${window.location.origin}/view.html?id=${savedId}`;
+    _docShowShareModal(viewUrl, data.docNumber, data.type);
   } catch(e) {
     alert('Error saving document: ' + e.message);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '💾 Save Document'; }
   }
 };
+
+function _docShowShareModal(viewUrl, docNumber, type) {
+  const existing = document.getElementById('docShareModal');
+  if (existing) existing.remove();
+
+  const typeLabel = (type || 'document').charAt(0).toUpperCase() + (type || 'document').slice(1);
+
+  const modal = document.createElement('div');
+  modal.id = 'docShareModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:28px 28px 24px;max-width:460px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:2.5rem;margin-bottom:8px;">✅</div>
+        <div style="font-size:1.1rem;font-weight:800;color:#1e293b;">${_docCurrentId ? 'Document Saved!' : 'Document Updated!'}</div>
+        <div style="font-size:0.82rem;color:#64748b;margin-top:4px;">${typeLabel}${docNumber ? ' #' + docNumber : ''} — ready to share</div>
+      </div>
+      <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px;">Shareable Link</div>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:0.78rem;color:#475569;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${viewUrl}</span>
+        <button id="shareModalCopyBtn" style="background:#4f46e5;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">Copy Link</button>
+      </div>
+      <div style="font-size:0.73rem;color:#94a3b8;margin-bottom:16px;">🔄 When you edit and save again, the customer's link auto-updates instantly</div>
+      <div style="display:flex;gap:10px;">
+        <button id="shareModalWA" style="flex:1;background:#22c55e;color:#fff;border:none;border-radius:9px;padding:10px;font-size:0.82rem;font-weight:700;cursor:pointer;">💬 WhatsApp</button>
+        <button id="shareModalEmail" style="flex:1;background:#4f46e5;color:#fff;border:none;border-radius:9px;padding:10px;font-size:0.82rem;font-weight:700;cursor:pointer;">📧 Email</button>
+        <button id="shareModalClose" style="flex:1;background:#f1f5f9;color:#1e293b;border:none;border-radius:9px;padding:10px;font-size:0.82rem;font-weight:700;cursor:pointer;">Done</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(modal);
+
+  document.getElementById('shareModalCopyBtn')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(viewUrl).then(() => {
+      const b = document.getElementById('shareModalCopyBtn');
+      if (b) { b.textContent = '✓ Copied!'; setTimeout(() => { b.textContent = 'Copy Link'; }, 2000); }
+    });
+  });
+
+  document.getElementById('shareModalWA')?.addEventListener('click', () => {
+    const L = DOC_LABELS[_docLang];
+    const typeL = L[type] || type;
+    const reviewText = _docLang === 'es' ? `Revisa tu ${typeL} aquí` : `Review your ${typeLabel} here`;
+    const msg = `${reviewText}:\n${viewUrl}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  });
+
+  document.getElementById('shareModalEmail')?.addEventListener('click', () => {
+    const L = DOC_LABELS[_docLang];
+    const typeL = L[type] || type;
+    const subject = encodeURIComponent(`${typeL}${docNumber ? ' #' + docNumber : ''}`);
+    const reviewText = _docLang === 'es' ? `Revisa tu ${typeL} aquí` : `Review your ${typeLabel} here`;
+    const body = encodeURIComponent(`${reviewText}:\n${viewUrl}\n\nThis link always shows the latest version.`);
+    window.open(`https://mail.google.com/mail/?view=cm&su=${subject}&body=${body}`, '_blank', 'noopener');
+  });
+
+  document.getElementById('shareModalClose')?.addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
 
 async function _docAutoSaveCustomer(docData) {
   try {
@@ -3962,59 +4065,38 @@ window._docResetTC = function() {
 };
 
 // ── Share & Copy ──────────────────────────────────────────────
-function _docBuildSummaryText() {
-  const L         = DOC_LABELS[_docLang];
-  const typeLabel = L[_docType] || _docType;
-  const bizName   = document.getElementById('docBizName')?.value  || '';
-  const custName  = document.getElementById('docCustName')?.value || '';
-  const docNum    = document.getElementById('docNumber')?.value   || '';
-  const docDate   = document.getElementById('docDate')?.value     || '';
-  const jobOrderedBy = document.getElementById('docJobOrderedBy')?.value || '';
-  const jobLocation  = document.getElementById('docJobLocation')?.value  || '';
-  const taxRate   = parseFloat(document.getElementById('docTaxRate')?.value || 0);
-  const advance   = parseFloat(document.getElementById('docAdvancePayment')?.value || 0);
-  const subtotal  = _docItems.reduce((s, it) => s + (it.price||0), 0);
-  const grand     = subtotal * (1 + taxRate/100);
-  const balance   = Math.max(0, grand - advance);
-
-  let t = `*${typeLabel.toUpperCase()}${docNum ? ' #' + docNum : ''}*\n`;
-  if (docDate)       t += `${L.date}: ${docDate}\n`;
-  if (bizName)       t += `From: ${bizName}\n`;
-  if (custName)      t += `${L.billTo}: ${custName}\n`;
-  if (jobOrderedBy)  t += `${_docLang === 'es' ? 'Ordenado por' : 'Ordered by'}: ${jobOrderedBy}\n`;
-  if (jobLocation)   t += `${_docLang === 'es' ? 'Ubicación' : 'Job Location'}: ${jobLocation}\n`;
-  t += '\n';
-  _docItems.forEach(it => {
-    if (it.desc) t += `• ${it.desc}  $${(it.price||0).toFixed(2)}\n`;
-  });
-  t += `\n${L.grandTotal}: $${grand.toFixed(2)}`;
-  if (advance > 0) {
-    t += `\n${L.advance}: -$${advance.toFixed(2)}`;
-    t += `\n${L.balance}: $${balance.toFixed(2)}`;
-  }
-  return t;
+function _docNeedsSave() {
+  showToast('Save the document first to get a shareable link — click 💾 Save Document', 'error');
 }
 
 window._docShareWA = function() {
-  window.open(`https://wa.me/?text=${encodeURIComponent(_docBuildSummaryText())}`, '_blank');
+  if (!_docCurrentId) { _docNeedsSave(); return; }
+  const L          = DOC_LABELS[_docLang];
+  const typeLabel  = L[_docType] || _docType;
+  const viewUrl    = `${window.location.origin}/view.html?id=${_docCurrentId}`;
+  const reviewText = _docLang === 'es' ? `Revisa tu ${typeLabel} aquí` : `Review your ${typeLabel} here`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(`${reviewText}:\n${viewUrl}`)}`, '_blank');
 };
 
 window._docShareEmail = function() {
-  const L        = DOC_LABELS[_docLang];
-  const typeLabel= L[_docType] || _docType;
-  const docNum   = document.getElementById('docNumber')?.value || '';
-  const custEmail= document.getElementById('docCustEmail')?.value || '';
-  const subject  = encodeURIComponent(`${typeLabel}${docNum ? ' #' + docNum : ''}`);
-  const body     = encodeURIComponent(_docBuildSummaryText());
-  // Open Gmail compose directly (reliable across all systems, no mail app needed)
-  const gmailUrl = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(custEmail)}&su=${subject}&body=${body}`;
-  window.open(gmailUrl, '_blank', 'noopener');
+  if (!_docCurrentId) { _docNeedsSave(); return; }
+  const L         = DOC_LABELS[_docLang];
+  const typeLabel = L[_docType] || _docType;
+  const docNum    = document.getElementById('docNumber')?.value  || '';
+  const custEmail = document.getElementById('docCustEmail')?.value || '';
+  const viewUrl    = `${window.location.origin}/view.html?id=${_docCurrentId}`;
+  const reviewText = _docLang === 'es' ? `Revisa tu ${typeLabel} aquí` : `Review your ${typeLabel} here`;
+  const subject   = encodeURIComponent(`${typeLabel}${docNum ? ' #' + docNum : ''}`);
+  const body      = encodeURIComponent(`${reviewText}:\n${viewUrl}\n\nThis link always shows the latest version.`);
+  window.open(`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(custEmail)}&su=${subject}&body=${body}`, '_blank', 'noopener');
 };
 
 window._docCopySummary = function() {
+  if (!_docCurrentId) { _docNeedsSave(); return; }
   const btn = document.getElementById('docCopyBtn');
-  navigator.clipboard.writeText(_docBuildSummaryText()).then(() => {
-    if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = '🔗 Copy'; }, 2000); }
+  const url = `${window.location.origin}/view.html?id=${_docCurrentId}`;
+  navigator.clipboard.writeText(url).then(() => {
+    if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = '🔗 Copy Link'; }, 2000); }
   }).catch(() => alert('Could not copy to clipboard.'));
 };
 

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Document</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #f1f5f9; }
+
+    #loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 14px;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      color: #64748b;
+      font-size: 0.9rem;
+    }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid #e2e8f0;
+      border-top-color: #4f46e5;
+      border-radius: 50%;
+      animation: spin .75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #error {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 10px;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      color: #64748b;
+      text-align: center;
+      padding: 20px;
+    }
+    #error .err-icon { font-size: 3rem; }
+    #error p { font-size: 0.95rem; max-width: 320px; line-height: 1.6; }
+
+    #frame-wrap { display: none; }
+    #docFrame {
+      width: 100%;
+      border: none;
+      display: block;
+      /* height set dynamically via JS */
+    }
+
+    .live-badge {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      background: rgba(15,23,42,.85);
+      color: #fff;
+      font-size: 0.72rem;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      padding: 6px 12px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      backdrop-filter: blur(4px);
+      z-index: 9999;
+      pointer-events: none;
+    }
+    .live-dot {
+      width: 7px; height: 7px;
+      background: #22c55e;
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  </style>
+</head>
+<body>
+
+  <div id="loading">
+    <div class="spinner"></div>
+    <span>Loading document…</span>
+  </div>
+
+  <div id="error">
+    <div class="err-icon">📄</div>
+    <p id="errorMsg">Document not found.</p>
+  </div>
+
+  <div id="frame-wrap">
+    <iframe id="docFrame" title="Document" scrolling="no"></iframe>
+    <div class="live-badge">
+      <span class="live-dot"></span>
+      Live document
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getFirestore, doc, onSnapshot }
+      from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey:            'AIzaSyB4M24fLSHNKdWRHDDu9xj2sPGYCDZExiA',
+      authDomain:        'ep-local-pro-ai.firebaseapp.com',
+      projectId:         'ep-local-pro-ai',
+      storageBucket:     'ep-local-pro-ai.firebasestorage.app',
+      messagingSenderId: '182127678437',
+      appId:             '1:182127678437:web:073432114afc243b5d150c'
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    const loading   = document.getElementById('loading');
+    const errorDiv  = document.getElementById('error');
+    const errorMsg  = document.getElementById('errorMsg');
+    const frameWrap = document.getElementById('frame-wrap');
+    const frame     = document.getElementById('docFrame');
+
+    function showError(msg) {
+      loading.style.display   = 'none';
+      frameWrap.style.display = 'none';
+      errorDiv.style.display  = 'flex';
+      errorMsg.textContent    = msg;
+    }
+
+    function resizeFrame() {
+      try {
+        const h = frame.contentDocument?.body?.scrollHeight;
+        if (h && h > 100) frame.style.height = h + 'px';
+      } catch (_) {}
+    }
+
+    const id = new URLSearchParams(location.search).get('id');
+
+    if (!id) {
+      showError('No document ID provided. Please use the link shared by your service provider.');
+    } else {
+      onSnapshot(
+        doc(db, 'documents', id),
+        snap => {
+          if (!snap.exists()) {
+            showError('This document was not found or has been deleted.');
+            return;
+          }
+          const data = snap.data();
+          if (!data.htmlContent) {
+            showError('No preview is available for this document.');
+            return;
+          }
+
+          // Set page title
+          const typeName = data.type
+            ? data.type.charAt(0).toUpperCase() + data.type.slice(1)
+            : 'Document';
+          document.title = `${typeName}${data.docNumber ? ' ' + data.docNumber : ''}`;
+
+          // Render into iframe
+          frame.srcdoc = data.htmlContent;
+          frame.onload = () => {
+            resizeFrame();
+            // Re-check after images / fonts settle
+            setTimeout(resizeFrame, 600);
+          };
+
+          loading.style.display   = 'none';
+          frameWrap.style.display = 'block';
+        },
+        err => {
+          console.error('view.html onSnapshot error:', err);
+          showError('Could not load this document. The link may have expired or the document is private.');
+        }
+      );
+    }
+  </script>
+</body>
+</html>
