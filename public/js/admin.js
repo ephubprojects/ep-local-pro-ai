@@ -37,6 +37,8 @@ const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
 let currentUser = null;
 let demosPendingDeleteId = null;
 let allDemos = [];
+let _paymentMethodsData = { cashapp:{enabled:false,value:''}, zelle:{enabled:false,value:''}, card:{enabled:false,value:''}, financing:{enabled:false,value:'',adminEnabled:false} };
+let _allUsersForFinancing = [];
 let customCategories = [];
 let catIconDataUrl = '';
 
@@ -220,6 +222,12 @@ async function onAdminReady(user) {
       if (sln) sln.value = od.lastName  || '';
       if (sph) sph.value = od.phone     || '';
       if (sun) sun.value = od.username  || '';
+
+      // Load payment methods into form
+      if (od.paymentMethods) {
+        _paymentMethodsData = od.paymentMethods;
+        _populatePaymentMethodsForm(od.paymentMethods);
+      }
 
       const username = od.username || '';
       if (username) {
@@ -439,7 +447,7 @@ function showSection(name) {
   // Load data for section on first visit
   if (name === 'demos')      { loadDemos(); window._adminLoadDemoRequests(); }
   if (name === 'businesses') loadBusinesses();
-  if (name === 'settings')   loadSettings();
+  if (name === 'settings')   { loadSettings(); adminLoadFinancingUsers(); }
   if (name === 'calendar')   { loadCalendarConfig(); window._adminLoadBookings(); }
 }
 
@@ -1458,6 +1466,135 @@ async function saveProfile() {
   } catch (err) {
     console.error('saveProfile error:', err);
     showToast('Error saving profile', 'error');
+  }
+}
+
+function _populatePaymentMethodsForm(methods) {
+  if (!methods) return;
+  ['cashapp','zelle','card','financing'].forEach(k => {
+    const key = k.charAt(0).toUpperCase() + k.slice(1);
+    const cb  = document.getElementById(`pm${key}Enabled`);
+    const inp = document.getElementById(`pm${key}Value`);
+    if (cb)  cb.checked = !!(methods[k]?.enabled);
+    if (inp) inp.value  = methods[k]?.value || '';
+  });
+  const finRow = document.getElementById('pmFinancingRow');
+  if (finRow) finRow.style.display = methods.financing?.adminEnabled ? '' : 'none';
+}
+
+async function savePaymentMethods() {
+  const btn = document.getElementById('savePaymentMethodsBtn');
+  const orig = btn?.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving…'; }
+  try {
+    const methods = {
+      cashapp:   { enabled: document.getElementById('pmCashappEnabled')?.checked   || false, value: document.getElementById('pmCashappValue')?.value.trim()   || '' },
+      zelle:     { enabled: document.getElementById('pmZelleEnabled')?.checked     || false, value: document.getElementById('pmZelleValue')?.value.trim()     || '' },
+      card:      { enabled: document.getElementById('pmCardEnabled')?.checked      || false, value: document.getElementById('pmCardValue')?.value.trim()      || '' },
+      financing: { enabled: document.getElementById('pmFinancingEnabled')?.checked || false, value: document.getElementById('pmFinancingValue')?.value.trim() || '', adminEnabled: _paymentMethodsData.financing?.adminEnabled || false }
+    };
+    await updateDoc(doc(db, 'owners', currentUser.uid), { paymentMethods: methods, updatedAt: serverTimestamp() });
+    _paymentMethodsData = methods;
+    showToast('Payment methods saved ✓', 'success');
+  } catch (err) {
+    console.error('savePaymentMethods:', err);
+    showToast('Error saving payment methods', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
+}
+
+function _buildPaymentBlockHtml() {
+  const methods = _paymentMethodsData;
+  if (!methods) return '';
+  const PM_CFG = {
+    cashapp:   { icon:'💚', label:'Pay with CashApp', bg:'#00c244', color:'#000', href: v => v.startsWith('http') ? v : `https://cash.app/${v.startsWith('$')?v:'$'+v}` },
+    zelle:     { icon:'💜', label:'Send via Zelle',   bg:'#6b1fbf', color:'#fff', href: v => v.startsWith('http') ? v : null },
+    card:      { icon:'💳', label:'Pay by Card',      bg:'#1a56db', color:'#fff', href: v => v.startsWith('http') ? v : null },
+    financing: { icon:'🏦', label:'Apply Financing',  bg:'#ea580c', color:'#fff', href: v => v.startsWith('http') ? v : null }
+  };
+  const btns = [];
+  for (const [key, cfg] of Object.entries(PM_CFG)) {
+    const m = methods[key];
+    if (!m?.enabled || !m?.value) continue;
+    if (key === 'financing' && !m.adminEnabled) continue;
+    const link = cfg.href(m.value);
+    const style = `display:inline-flex;align-items:center;gap:7px;padding:10px 20px;background:${cfg.bg};color:${cfg.color};border-radius:8px;font-size:0.82rem;font-weight:700;text-decoration:none;letter-spacing:.01em;`;
+    btns.push(link
+      ? `<a href="${_esc(link)}" target="_blank" rel="noopener" style="${style}">${cfg.icon} ${cfg.label}</a>`
+      : `<span style="${style}">${cfg.icon} ${cfg.label}: ${_esc(m.value)}</span>`);
+  }
+  return btns.join('');
+}
+
+// ── Admin: Financing Gateway ──────────────────────────────────
+async function adminLoadFinancingUsers() {
+  const tbody = document.getElementById('financingUsersBody');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><p>⏳ Loading…</p></div></td></tr>`;
+  try {
+    const snap = await getDocs(query(collection(db, 'owners'), orderBy('createdAt', 'desc')));
+    _allUsersForFinancing = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => (u.acctType || 'personal') === 'personal');
+    renderFinancingUsersTable(_allUsersForFinancing);
+  } catch (err) {
+    console.error('adminLoadFinancingUsers:', err);
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><p>Error loading users.</p></div></td></tr>`;
+  }
+}
+
+function renderFinancingUsersTable(users) {
+  const tbody = document.getElementById('financingUsersBody');
+  if (!tbody) return;
+  if (!users.length) {
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><p>No users yet.</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = users.map(u => {
+    const on = u.paymentMethods?.financing?.adminEnabled || false;
+    return `<tr>
+      <td>${escHTML(((u.firstName||'')+' '+(u.lastName||'')).trim()||'—')}</td>
+      <td class="cell-mono">${escHTML(u.username||'—')}</td>
+      <td>${escHTML(u.email||'—')}</td>
+      <td style="text-align:center;">
+        <label class="pm-toggle-label">
+          <input type="checkbox" class="pm-toggle-input" ${on?'checked':''} onchange="adminToggleFinancing('${escAttr(u.id)}',this.checked)"/>
+          <span class="pm-toggle-track"><span class="pm-toggle-thumb"></span></span>
+        </label>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function adminToggleFinancing(uid, enabled) {
+  try {
+    const ref = doc(db, 'owners', uid);
+    const snap = await getDoc(ref);
+    const existing = snap.exists() ? (snap.data().paymentMethods || {}) : {};
+    await updateDoc(ref, { paymentMethods: { ...existing, financing: { ...(existing.financing||{}), adminEnabled: enabled } } });
+    const u = _allUsersForFinancing.find(x => x.id === uid);
+    if (u) { if (!u.paymentMethods) u.paymentMethods = {}; if (!u.paymentMethods.financing) u.paymentMethods.financing = {}; u.paymentMethods.financing.adminEnabled = enabled; }
+    showToast(`Financing ${enabled?'enabled':'disabled'}`, 'success');
+  } catch (err) {
+    console.error('adminToggleFinancing:', err);
+    showToast('Error updating financing', 'error');
+  }
+}
+
+async function adminToggleFinancingAll(enabled) {
+  if (!_allUsersForFinancing.length) await adminLoadFinancingUsers();
+  if (!confirm(`${enabled?'Enable':'Disable'} financing for all ${_allUsersForFinancing.length} user(s)?`)) return;
+  try {
+    await Promise.all(_allUsersForFinancing.map(async u => {
+      const ref = doc(db, 'owners', u.id);
+      const snap = await getDoc(ref);
+      const existing = snap.exists() ? (snap.data().paymentMethods || {}) : {};
+      return updateDoc(ref, { paymentMethods: { ...existing, financing: { ...(existing.financing||{}), adminEnabled: enabled } } });
+    }));
+    await adminLoadFinancingUsers();
+    showToast(`Financing ${enabled?'enabled':'disabled'} for all users`, 'success');
+  } catch (err) {
+    console.error('adminToggleFinancingAll:', err);
+    showToast('Error updating financing for all users', 'error');
   }
 }
 
@@ -2970,7 +3107,7 @@ function _docGetData() {
     duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
     grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_COLORS, TYPE_LABELS_ES, scopeHtml,
     paymentMethod, paymentMethodLabel, receiptPaymentHtml, invoiceRef, paidInFullHtml,
-    payInstructions, payInstructionsHtml };
+    payInstructions, payInstructionsHtml, paymentBlockHtml: _buildPaymentBlockHtml() };
 }
 
 function _docGenerateHTML() {
@@ -3071,6 +3208,7 @@ function _docTplClassic() {
   const payInstructionsHtml = (_docType === 'invoice' && payInstructions)
     ? `<div style="margin-top:12px;padding:12px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #4f46e5;border-radius:6px;"><div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:5px;">💳 ${_docLang==='es'?'Instrucciones de Pago':'Payment Instructions'}</div><div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;">${_esc(payInstructions)}</div></div>`
     : '';
+  const paymentBlockHtml = _buildPaymentBlockHtml();
 
   const typeLabel = L[_docType] || _docType;
 
@@ -3257,6 +3395,12 @@ function _docTplClassic() {
     <div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;">${_esc(termsText)}</div>
   </div>` : ''}
 
+  ${paymentBlockHtml ? `
+  <div style="margin-top:28px;padding:18px 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;text-align:center;">
+    <div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:12px;">💳 ${_docLang==='es'?'Opciones de Pago':'Payment Options'}</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">${paymentBlockHtml}</div>
+  </div>` : ''}
+
   <div class="doc-footer">
     <span>${L.thankYou}</span>
     <span>${typeLabel} ${_esc(docNumber)}</span>
@@ -3272,7 +3416,7 @@ function _docTplBold() {
     docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
     duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
     grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
-    receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef } = _docGetData();
+    receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef, paymentBlockHtml } = _docGetData();
 
   const itemsHtml = _docType !== 'contract' ? _docItems.map(it => {
     const k = it.type || 'other';
@@ -3317,6 +3461,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}thead tr{background
     ${_docType==='contract'&&contractTxt?`<div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;line-height:1.6;border:1px solid #e2e8f0;padding:14px;margin-bottom:16px;">${_esc(contractTxt)}</div>`:''}
     ${notes?`<div class="notes">📌 ${_esc(notes)}</div>`:''}
     ${includeTC&&termsText?`<div style="margin-top:20px;padding-top:14px;border-top:2px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">⚖️ ${L.tcTitle}</div><div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;padding:12px;">${_esc(termsText)}</div></div>`:''}
+    ${paymentBlockHtml?`<div style="margin-top:20px;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;text-align:center;"><div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:10px;">💳 ${_docLang==='es'?'Opciones de Pago':'Payment Options'}</div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">${paymentBlockHtml}</div></div>`:''}
     ${sigBlock}
   </div>
   <div class="foot"><span>${L.thankYou}</span><span>${typeLabel} ${_esc(docNumber)}</span></div>
@@ -3329,7 +3474,7 @@ function _docTplExecutive() {
     docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
     duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
     grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
-    receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef } = _docGetData();
+    receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef, paymentBlockHtml } = _docGetData();
 
   const gold = '#c9972b'; const navy = '#0f172a';
 
@@ -3373,6 +3518,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}thead tr{background
     ${_docType==='contract'&&contractTxt?`<div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;line-height:1.7;border:1px solid #e2e8f0;padding:16px;background:#fafaf8;margin-bottom:16px;">${_esc(contractTxt)}</div>`:''}
     ${notes?`<div class="notes">📌 ${_esc(notes)}</div>`:''}
     ${includeTC&&termsText?`<div style="margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">⚖️ ${L.tcTitle}</div><div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;background:#fafaf8;border:1px solid #e2e8f0;padding:14px;">${_esc(termsText)}</div></div>`:''}
+    ${paymentBlockHtml?`<div style="margin-top:20px;padding:16px;background:#fdf8ef;border:1px solid #fde68a;border-radius:10px;text-align:center;"><div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#92400e;margin-bottom:10px;">💳 ${_docLang==='es'?'Opciones de Pago':'Payment Options'}</div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">${paymentBlockHtml}</div></div>`:''}
     ${sigBlock}
   </div>
   <div class="foot"><span>${L.thankYou}</span><span>${typeLabel} ${_esc(docNumber)}</span></div>
@@ -3385,7 +3531,7 @@ function _docTplModern() {
     docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
     duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
     grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_COLORS, TYPE_LABELS_ES, scopeHtml,
-    receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef } = _docGetData();
+    receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef, paymentBlockHtml } = _docGetData();
 
   const itemsHtml = _docType !== 'contract' ? _docItems.map(it => {
     const k = it.type || 'other';
@@ -3428,6 +3574,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px;border-radius:12px;
     ${_docType==='contract'&&contractTxt?`<div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;line-height:1.7;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;">${_esc(contractTxt)}</div>`:''}
     ${notes?`<div class="notes">📌 ${_esc(notes)}</div>`:''}
     ${includeTC&&termsText?`<div style="margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">⚖️ ${L.tcTitle}</div><div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;padding:14px;">${_esc(termsText)}</div></div>`:''}
+    ${paymentBlockHtml?`<div style="margin-top:20px;padding:16px;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:12px;text-align:center;"><div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#4338ca;margin-bottom:10px;">💳 ${_docLang==='es'?'Opciones de Pago':'Payment Options'}</div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">${paymentBlockHtml}</div></div>`:''}
     ${sigBlock}
   </div>
   <div class="foot"><span>${L.thankYou}</span><span>${typeLabel} ${_esc(docNumber)}</span></div>
@@ -3440,7 +3587,7 @@ function _docTplMinimal() {
     docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
     duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
     grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
-    receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef } = _docGetData();
+    receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef, paymentBlockHtml } = _docGetData();
 
   const itemsHtml = _docType !== 'contract' ? _docItems.map(it => {
     const k = it.type || 'other';
@@ -3481,6 +3628,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}thead th{padding:8p
   ${_docType==='contract'&&contractTxt?`<div style="margin-bottom:20px;"><div class="section-head">${L.terms}</div><div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;line-height:1.7;">${_esc(contractTxt)}</div></div>`:''}
   ${notes?`<div class="notes">Note: ${_esc(notes)}</div>`:''}
   ${includeTC&&termsText?`<div style="margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;"><div class="section-head">⚖️ ${L.tcTitle}</div><div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;">${_esc(termsText)}</div></div>`:''}
+  ${paymentBlockHtml?`<div style="margin-top:28px;padding:16px;border:1px solid #e2e8f0;border-left:3px solid #1e293b;text-align:center;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:10px;">💳 ${_docLang==='es'?'Opciones de Pago':'Payment Options'}</div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">${paymentBlockHtml}</div></div>`:''}
   ${sigBlock}
   <div class="foot"><span>${L.thankYou}</span><span>${typeLabel} ${_esc(docNumber)}</span></div>
 </div></body></html>`;

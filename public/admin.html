@@ -784,6 +784,56 @@
           </div>
         </div>
 
+        <div class="settings-section" style="margin-top:28px;" id="paymentMethodsSection">
+          <h3>💳 Payment Methods</h3>
+          <p class="readonly-note" style="margin-bottom:16px;">These buttons appear at the bottom of your documents so clients can pay instantly.</p>
+          <!-- CashApp -->
+          <div class="pm-row">
+            <div class="pm-row-left">
+              <label class="pm-toggle-label">
+                <input type="checkbox" id="pmCashappEnabled" class="pm-toggle-input"/>
+                <span class="pm-toggle-track"><span class="pm-toggle-thumb"></span></span>
+              </label>
+              <span class="pm-name">💚 CashApp</span>
+            </div>
+            <input type="text" class="pm-url-input" id="pmCashappValue" placeholder="$YourCashTag  or  https://cash.app/$..."/>
+          </div>
+          <!-- Zelle -->
+          <div class="pm-row">
+            <div class="pm-row-left">
+              <label class="pm-toggle-label">
+                <input type="checkbox" id="pmZelleEnabled" class="pm-toggle-input"/>
+                <span class="pm-toggle-track"><span class="pm-toggle-thumb"></span></span>
+              </label>
+              <span class="pm-name">💜 Zelle</span>
+            </div>
+            <input type="text" class="pm-url-input" id="pmZelleValue" placeholder="Phone number or email  (e.g. 8057073720)"/>
+          </div>
+          <!-- Card -->
+          <div class="pm-row">
+            <div class="pm-row-left">
+              <label class="pm-toggle-label">
+                <input type="checkbox" id="pmCardEnabled" class="pm-toggle-input"/>
+                <span class="pm-toggle-track"><span class="pm-toggle-thumb"></span></span>
+              </label>
+              <span class="pm-name">💳 Credit / Debit Card</span>
+            </div>
+            <input type="text" class="pm-url-input" id="pmCardValue" placeholder="https://your-payment-link.com"/>
+          </div>
+          <!-- Financing (admin-enabled only) -->
+          <div class="pm-row" id="pmFinancingRow" style="display:none;">
+            <div class="pm-row-left">
+              <label class="pm-toggle-label">
+                <input type="checkbox" id="pmFinancingEnabled" class="pm-toggle-input"/>
+                <span class="pm-toggle-track"><span class="pm-toggle-thumb"></span></span>
+              </label>
+              <span class="pm-name">🏦 Financing <span class="pm-admin-badge">Admin Feature</span></span>
+            </div>
+            <input type="text" class="pm-url-input" id="pmFinancingValue" placeholder="https://your-financing-link.com"/>
+          </div>
+          <button class="btn-save" id="savePaymentMethodsBtn" style="margin-top:16px;" onclick="savePaymentMethods()">Save Payment Methods</button>
+        </div>
+
         <div class="settings-section" style="margin-top:28px;">
           <h3>Your Sponsor</h3>
           <div class="sponsor-info-grid">
@@ -858,6 +908,30 @@
                 <option value="TxGEqnHWrfWFTfGW9XjX">Diego (Male)</option>
               </select>
             </div>
+          </div>
+        </div>
+
+        <div class="settings-section" style="margin-top:28px;" id="adminFinancingGatewaySection">
+          <h3>🏦 Financing Gateway</h3>
+          <p class="readonly-note" style="margin-bottom:14px;">Control which users can offer financing on their documents. Only users you enable will see the Financing option.</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+            <button class="btn-sm btn-pm-success" onclick="adminToggleFinancingAll(true)">✅ Enable All Users</button>
+            <button class="btn-sm btn-pm-danger"  onclick="adminToggleFinancingAll(false)">❌ Disable All Users</button>
+          </div>
+          <div class="admin-table-wrap" style="max-height:340px;overflow-y:auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Username</th>
+                  <th>Email</th>
+                  <th style="text-align:center;">Financing</th>
+                </tr>
+              </thead>
+              <tbody id="financingUsersBody">
+                <tr><td colspan="4"><div class="empty-state"><p>Open Settings to manage financing access.</p></div></td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
 

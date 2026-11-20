@@ -2570,3 +2570,22 @@ textarea.doc-input { resize: vertical; }
   color: #64748b;
   margin-top: 1px;
 }
+
+/* ── Payment Methods Settings ─────────────────────────────── */
+.pm-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #f1f5f9; flex-wrap:wrap; }
+.pm-row:last-of-type { border-bottom:none; }
+.pm-row-left { display:flex; align-items:center; gap:10px; min-width:200px; }
+.pm-toggle-label { position:relative; cursor:pointer; display:inline-flex; align-items:center; }
+.pm-toggle-input { position:absolute; opacity:0; width:0; height:0; }
+.pm-toggle-track { width:40px; height:22px; background:#cbd5e1; border-radius:11px; position:relative; transition:background 0.2s; display:block; flex-shrink:0; }
+.pm-toggle-input:checked + .pm-toggle-track { background:#4f46e5; }
+.pm-toggle-thumb { position:absolute; top:3px; left:3px; width:16px; height:16px; background:#fff; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,.3); transition:left 0.2s; }
+.pm-toggle-input:checked + .pm-toggle-track .pm-toggle-thumb { left:21px; }
+.pm-name { font-size:0.85rem; font-weight:600; color:#1e293b; }
+.pm-admin-badge { font-size:0.68rem; font-weight:700; background:#fef3c7; color:#92400e; border:1px solid #fde68a; border-radius:4px; padding:1px 6px; margin-left:4px; vertical-align:middle; }
+.pm-url-input { flex:1; min-width:200px; padding:7px 10px; border:1px solid #e2e8f0; border-radius:6px; font-size:0.82rem; color:#1e293b; background:#f8fafc; }
+.pm-url-input:focus { outline:none; border-color:#4f46e5; background:#fff; }
+.btn-sm { padding:6px 14px; border-radius:6px; border:none; font-size:0.8rem; font-weight:700; cursor:pointer; transition:opacity .15s; }
+.btn-sm:hover { opacity:.85; }
+.btn-pm-success { background:#15803d; color:#fff; }
+.btn-pm-danger  { background:#dc2626; color:#fff; }
