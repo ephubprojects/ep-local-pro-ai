@@ -3372,7 +3372,7 @@ function _docBuildSummaryText() {
   const jobLocation  = document.getElementById('docJobLocation')?.value  || '';
   const taxRate   = parseFloat(document.getElementById('docTaxRate')?.value || 0);
   const advance   = parseFloat(document.getElementById('docAdvancePayment')?.value || 0);
-  const subtotal  = _docItems.reduce((s, it) => s + (it.qty||0)*(it.price||0), 0);
+  const subtotal  = _docItems.reduce((s, it) => s + (it.price||0), 0);
   const grand     = subtotal * (1 + taxRate/100);
   const balance   = Math.max(0, grand - advance);
 
@@ -3384,7 +3384,7 @@ function _docBuildSummaryText() {
   if (jobLocation)   t += `${_docLang === 'es' ? 'Ubicación' : 'Job Location'}: ${jobLocation}\n`;
   t += '\n';
   _docItems.forEach(it => {
-    if (it.desc) t += `• ${it.desc}  x${it.qty||0}  $${((it.qty||0)*(it.price||0)).toFixed(2)}\n`;
+    if (it.desc) t += `• ${it.desc}  $${(it.price||0).toFixed(2)}\n`;
   });
   t += `\n${L.grandTotal}: $${grand.toFixed(2)}`;
   if (advance > 0) {
