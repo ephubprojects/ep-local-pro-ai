@@ -2523,6 +2523,7 @@ let _docAllCustomers  = [];
 let _docAllTemplates  = [];
 let _docCurrentId     = null;
 let _docShowPricing   = true;
+let _docDesignTemplate = 'classic';
 let _docVoiceRecognizer = null;
 
 // Labels per language
@@ -2605,6 +2606,8 @@ window._openDocCreator = function(existingDoc) {
       if (img) { img.src = _docLogoDataUrl; img.style.display = 'block'; }
       if (ph)  ph.style.display = 'none';
     }
+    _docDesignTemplate = existingDoc?.designTemplate || 'classic';
+    window._docSetDesign(_docDesignTemplate);
   } else {
     // Clear form
     ['docBizName','docBizAddress','docBizPhone','docBizEmail',
@@ -2623,6 +2626,9 @@ window._openDocCreator = function(existingDoc) {
     if (tcEl2) tcEl2.checked = false;
     document.getElementById('docTCSection')?.classList.add('hidden');
     _setDocVal('docTermsText', '');
+    // Reset design template
+    _docDesignTemplate = 'classic';
+    window._docSetDesign('classic');
     // Set today's date
     _setDocVal('docDate', new Date().toISOString().slice(0,10));
     // Auto-increment doc number
@@ -2781,8 +2787,82 @@ window._docUpdatePreview = function() {
   frame.srcdoc = html;
 };
 
-// ── HTML Generator ────────────────────────────────────────────
+// ── Design Template Switcher ──────────────────────────────────
+window._docSetDesign = function(name) {
+  _docDesignTemplate = name;
+  document.querySelectorAll('.doc-design-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('docDesign-' + name);
+  if (btn) btn.classList.add('active');
+  _docUpdatePreview();
+};
+
+// ── HTML Generator — shared data extractor ────────────────────
+function _docGetData() {
+  const L = DOC_LABELS[_docLang];
+  const bizName    = document.getElementById('docBizName')?.value    || '';
+  const bizAddress = document.getElementById('docBizAddress')?.value || '';
+  const bizPhone   = document.getElementById('docBizPhone')?.value   || '';
+  const bizEmail   = document.getElementById('docBizEmail')?.value   || '';
+  const custName   = document.getElementById('docCustName')?.value   || '';
+  const custEmail  = document.getElementById('docCustEmail')?.value  || '';
+  const custPhone  = document.getElementById('docCustPhone')?.value  || '';
+  const custAddr   = document.getElementById('docCustAddress')?.value|| '';
+  const docNumber  = document.getElementById('docNumber')?.value     || '';
+  const docDate    = document.getElementById('docDate')?.value       || '';
+  const docDueDate = document.getElementById('docDueDate')?.value    || '';
+  const notes      = document.getElementById('docNotes')?.value        || '';
+  const contractTxt= document.getElementById('docContractText')?.value || '';
+  const projectTitle=document.getElementById('docProjectTitle')?.value || '';
+  const jobOrderedBy=document.getElementById('docJobOrderedBy')?.value || '';
+  const jobLocation= document.getElementById('docJobLocation')?.value  || '';
+  const duration   = document.getElementById('docDuration')?.value     || '';
+  const jobScope   = document.getElementById('docJobScope')?.value     || '';
+  const taxRate    = parseFloat(document.getElementById('docTaxRate')?.value || 0);
+  const advance    = parseFloat(document.getElementById('docAdvancePayment')?.value || 0);
+  const includeTC  = document.getElementById('docIncludeTC')?.checked || false;
+  const termsText  = document.getElementById('docTermsText')?.value || '';
+  const subtotal   = _docItems.reduce((s, it) => s + (it.price||0), 0);
+  const taxAmt     = subtotal * taxRate / 100;
+  const grand      = subtotal + taxAmt;
+  const balance    = Math.max(0, grand - advance);
+  const grandTotalLabel = _docType === 'estimate'
+    ? (_docLang === 'es' ? 'COSTO ESTIMADO DEL PROYECTO' : 'ESTIMATED PROJECT COST')
+    : L.grandTotal;
+  const typeLabel  = L[_docType] || _docType;
+  const fmtDate    = d => { if (!d) return ''; const [y,m,day] = d.split('-'); return `${m}/${day}/${y}`; };
+  const TYPE_COLORS   = { labor:'#4f46e5', parts:'#0891b2', material:'#059669', equipment:'#d97706', permit:'#7c3aed', service:'#db2777', other:'#64748b' };
+  const TYPE_LABELS_ES= { labor:'Mano de Obra', parts:'Partes', material:'Material', equipment:'Equipo', permit:'Permiso', service:'Servicio', other:'Otro' };
+  const scopeHtml = (() => {
+    if (!jobScope) return '';
+    const lines = jobScope.split('\n'); let html = ''; let inList = false;
+    for (const line of lines) {
+      const t = line.trim();
+      if (t.startsWith('- ') || t.startsWith('• ') || t.startsWith('* ')) {
+        if (!inList) { html += '<ul style="margin:6px 0 8px 18px;padding:0">'; inList = true; }
+        html += `<li style="margin:3px 0;font-size:0.82rem;color:#475569">${_esc(t.slice(2))}</li>`;
+      } else { if (inList) { html += '</ul>'; inList = false; } if (t) html += `<p style="margin:0 0 6px;font-size:0.82rem;color:#475569">${_esc(t)}</p>`; }
+    }
+    if (inList) html += '</ul>'; return html;
+  })();
+  const logoHtml = _docLogoDataUrl ? `<img src="${_docLogoDataUrl}" alt="Logo" style="max-height:70px;max-width:150px;object-fit:contain;"/>` : '';
+  return { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
+    docNumber, docDate, docDueDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
+    duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
+    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_COLORS, TYPE_LABELS_ES, scopeHtml };
+}
+
 function _docGenerateHTML() {
+  switch (_docDesignTemplate) {
+    case 'bold':       return _docTplBold();
+    case 'executive':  return _docTplExecutive();
+    case 'modern':     return _docTplModern();
+    case 'minimal':    return _docTplMinimal();
+    default:           return _docTplClassic();
+  }
+}
+
+// ── Template 1: Classic ───────────────────────────────────────
+function _docTplClassic() {
   const L = DOC_LABELS[_docLang];
   const bizName    = document.getElementById('docBizName')?.value    || '';
   const bizAddress = document.getElementById('docBizAddress')?.value || '';
@@ -3043,6 +3123,222 @@ function _docGenerateHTML() {
 </html>`;
 }
 
+// ── Template 2: Bold Contractor (red & black) ─────────────────
+function _docTplBold() {
+  const { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
+    docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
+    duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
+    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml } = _docGetData();
+
+  const itemsHtml = _docType !== 'contract' ? _docItems.map(it => {
+    const k = it.type || 'other';
+    const tl = _docLang === 'es' ? (TYPE_LABELS_ES[k] || k) : k.charAt(0).toUpperCase() + k.slice(1);
+    return `<tr><td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;"><span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;color:#dc2626;">${_esc(tl)}</span><br><span style="font-size:0.82rem;">${_esc(it.desc)}</span></td><td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;">$${(it.price||0).toFixed(2)}</td></tr>`;
+  }).join('') : '';
+
+  const sigBlock = `<div style="display:flex;gap:40px;margin-top:32px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:180px;"><div style="border-bottom:2px solid #111;height:40px;margin-bottom:4px;"></div><div style="font-size:0.68rem;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">${_docLang==='es'?'Firma del Evaluador':'Evaluator Signature'}</div></div>
+    <div style="flex:1;min-width:180px;"><div style="border-bottom:2px solid #111;height:40px;margin-bottom:4px;"></div><div style="font-size:0.68rem;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">${_docLang==='es'?'Firma del Cliente':'Customer Signature'}</div></div>
+  </div>`;
+
+  return `<!DOCTYPE html><html lang="${_docLang==='es'?'es':'en'}"><head><meta charset="utf-8"/><title>${typeLabel} ${docNumber}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1e293b;background:#fff;padding:0;font-size:13px;line-height:1.5}.wrap{max-width:760px;margin:0 auto}
+.hdr{background:#111;display:flex;align-items:stretch;min-height:100px}.hdr-logo{background:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:center;min-width:120px}.hdr-mid{flex:1;padding:16px 20px;display:flex;flex-direction:column;justify-content:center}.hdr-biz{font-size:1rem;font-weight:800;color:#fff}.hdr-det{font-size:0.72rem;color:#94a3b8;margin-top:2px}.hdr-right{background:#dc2626;padding:14px 20px;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center;min-width:140px}.hdr-type{font-size:1.3rem;font-weight:900;color:#fff;text-transform:uppercase}.hdr-num{font-size:0.75rem;color:#fecaca;margin-top:4px}
+.red-bar{height:5px;background:#dc2626}
+.info-row{display:flex}.info-box{flex:1;padding:14px 16px;border:1px solid #e2e8f0;border-top:3px solid #111}.info-box.red{border-top-color:#dc2626}.info-lbl{font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px}.info-name{font-size:0.9rem;font-weight:700;color:#1e293b}.info-det{font-size:0.75rem;color:#64748b;line-height:1.5;margin-top:2px}
+.body{padding:20px}
+.field-row{display:flex;gap:16px;margin-bottom:14px;flex-wrap:wrap}.field-item{flex:1;min-width:140px}.field-lbl{font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px}.field-val{font-size:0.85rem;font-weight:600;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:3px;min-height:20px}
+table{width:100%;border-collapse:collapse;margin-bottom:16px}thead tr{background:#111;color:#fff}thead th{padding:9px 12px;text-align:left;font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}thead th:not(:first-child){text-align:right}tbody tr:nth-child(even){background:#fafafa}
+.totals{margin-left:auto;width:280px;border-top:3px solid #dc2626;border:1px solid #e2e8f0}.totals td{padding:7px 12px;font-size:0.85rem;color:#475569;border-bottom:1px solid #f1f5f9}.totals .grand td{font-size:1rem;font-weight:900;color:#111;background:#f8f8f8}.totals .balance td{font-size:1.05rem;font-weight:900;color:#dc2626;background:#fff5f5}
+.scope-box{padding:12px 16px;border:1px solid #e2e8f0;border-left:4px solid #dc2626;background:#fafafa;margin-bottom:16px}.scope-lbl{font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:8px}
+.notes{background:#fffbeb;border-left:4px solid #d97706;padding:10px 14px;font-size:0.82rem;color:#78350f;margin-bottom:14px}
+.foot{background:#111;color:#94a3b8;padding:10px 20px;display:flex;justify-content:space-between;font-size:0.7rem;margin-top:20px}
+@media print{body{padding:0}.wrap{max-width:100%}}</style></head>
+<body><div class="wrap">
+  <div class="hdr">
+    <div class="hdr-logo">${logoHtml||`<div style="width:80px;height:60px;background:#f1f5f9;border-radius:4px;"></div>`}</div>
+    <div class="hdr-mid"><div class="hdr-biz">${_esc(bizName)}</div>${bizAddress?`<div class="hdr-det">${_esc(bizAddress)}</div>`:''}${bizPhone?`<div class="hdr-det">📞 ${_esc(bizPhone)}</div>`:''}${bizEmail?`<div class="hdr-det">✉ ${_esc(bizEmail)}</div>`:''}</div>
+    <div class="hdr-right"><div class="hdr-type">${typeLabel}</div>${docNumber?`<div class="hdr-num">#${_esc(docNumber)}</div>`:''}${docDate?`<div class="hdr-num">${fmtDate(docDate)}</div>`:''}</div>
+  </div>
+  <div class="red-bar"></div>
+  <div class="info-row">
+    <div class="info-box"><div class="info-lbl">${_docLang==='es'?'Empresa':'Company'}</div><div class="info-name">${_esc(bizName)||'—'}</div><div class="info-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
+    <div class="info-box red"><div class="info-lbl">${L.billTo}</div><div class="info-name">${_esc(custName)||'—'}</div><div class="info-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
+  </div>
+  <div class="body">
+    ${(projectTitle||jobOrderedBy||jobLocation||duration)?`<div class="field-row">${projectTitle?`<div class="field-item"><div class="field-lbl">${_docLang==='es'?'Proyecto':'Project'}</div><div class="field-val">${_esc(projectTitle)}</div></div>`:''} ${jobOrderedBy?`<div class="field-item"><div class="field-lbl">${_docLang==='es'?'Ordenado Por':'Ordered By'}</div><div class="field-val">${_esc(jobOrderedBy)}</div></div>`:''} ${jobLocation?`<div class="field-item"><div class="field-lbl">${_docLang==='es'?'Ubicación':'Location'}</div><div class="field-val">${_esc(jobLocation)}</div></div>`:''} ${duration?`<div class="field-item"><div class="field-lbl">${_docLang==='es'?'Duración':'Duration'}</div><div class="field-val">${_esc(duration)}</div></div>`:''}</div>`:''}
+    ${jobScope?`<div class="scope-box"><div class="scope-lbl">${_docLang==='es'?'Alcance del Trabajo':'Scope of Work'}</div>${scopeHtml}</div>`:''}
+    ${(_docShowPricing&&_docType!=='contract')?`<table><thead><tr><th>${L.desc}</th><th style="text-align:right;">${L.total}</th></tr></thead><tbody>${itemsHtml}</tbody></table>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:20px;"><table class="totals"><tr><td>${L.subtotal}</td><td style="text-align:right;">$${subtotal.toFixed(2)}</td></tr>${taxRate>0?`<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right;">$${taxAmt.toFixed(2)}</td></tr>`:''}<tr class="grand"><td><strong>${grandTotalLabel}</strong></td><td style="text-align:right;"><strong>$${grand.toFixed(2)}</strong></td></tr>${advance>0?`<tr><td>${L.advance}</td><td style="text-align:right;color:#15803d;">−$${advance.toFixed(2)}</td></tr>`:''} ${advance>0?`<tr class="balance"><td><strong>${L.balance}</strong></td><td style="text-align:right;"><strong>$${balance.toFixed(2)}</strong></td></tr>`:''}</table></div>`:''}
+    ${_docType==='contract'&&contractTxt?`<div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;line-height:1.6;border:1px solid #e2e8f0;padding:14px;margin-bottom:16px;">${_esc(contractTxt)}</div>`:''}
+    ${notes?`<div class="notes">📌 ${_esc(notes)}</div>`:''}
+    ${includeTC&&termsText?`<div style="margin-top:20px;padding-top:14px;border-top:2px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">⚖️ ${L.tcTitle}</div><div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;padding:12px;">${_esc(termsText)}</div></div>`:''}
+    ${sigBlock}
+  </div>
+  <div class="foot"><span>${L.thankYou}</span><span>${typeLabel} ${_esc(docNumber)}</span></div>
+</div></body></html>`;
+}
+
+// ── Template 3: Executive Dark (navy & gold) ──────────────────
+function _docTplExecutive() {
+  const { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
+    docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
+    duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
+    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml } = _docGetData();
+
+  const gold = '#c9972b'; const navy = '#0f172a';
+
+  const itemsHtml = _docType !== 'contract' ? _docItems.map(it => {
+    const k = it.type || 'other';
+    const tl = _docLang === 'es' ? (TYPE_LABELS_ES[k] || k) : k.charAt(0).toUpperCase() + k.slice(1);
+    return `<tr><td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;"><span style="font-size:0.65rem;font-weight:700;color:${gold};text-transform:uppercase;letter-spacing:.04em;">${_esc(tl)}</span><br><span style="font-size:0.82rem;">${_esc(it.desc)}</span></td><td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;">$${(it.price||0).toFixed(2)}</td></tr>`;
+  }).join('') : '';
+
+  const sigBlock = `<div style="display:flex;gap:40px;margin-top:36px;padding-top:20px;border-top:1px solid #e2e8f0;flex-wrap:wrap;">
+    <div style="flex:1;min-width:200px;"><div style="border-bottom:1px solid ${navy};height:40px;margin-bottom:6px;"></div><div style="font-size:0.68rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">${_docLang==='es'?'Firma Autorizada':'Authorized Signature'}</div></div>
+    <div style="flex:1;min-width:200px;"><div style="border-bottom:1px solid ${navy};height:40px;margin-bottom:6px;"></div><div style="font-size:0.68rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">${_docLang==='es'?'Firma del Cliente':'Client Signature'}</div></div>
+  </div>`;
+
+  return `<!DOCTYPE html><html lang="${_docLang==='es'?'es':'en'}"><head><meta charset="utf-8"/><title>${typeLabel} ${docNumber}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Georgia',serif;color:#1e293b;background:#fff;padding:0;font-size:13px;line-height:1.6}.wrap{max-width:760px;margin:0 auto}
+.hdr{background:${navy};padding:28px 32px;display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap}.hdr-left{display:flex;align-items:center;gap:16px}.logo-box{background:rgba(255,255,255,.1);padding:8px;border-radius:4px;min-width:60px;text-align:center}.biz-name{font-size:1.1rem;font-weight:700;color:#fff}.biz-det{font-size:0.75rem;color:#94a3b8;margin-top:2px}.hdr-right{text-align:right}.doc-type{font-size:1.8rem;font-weight:400;color:${gold};letter-spacing:.06em;text-transform:uppercase;font-style:italic}.doc-num{font-size:0.8rem;color:#94a3b8;margin-top:4px}
+.gold-bar{height:3px;background:linear-gradient(90deg,${gold},#f5d87a,${gold})}
+.party-row{display:flex;gap:1px;background:#e2e8f0}.party{flex:1;background:#fff;padding:16px 20px;border-bottom:3px solid ${gold}}.party.client{border-bottom-color:${navy}}.plbl{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${gold};margin-bottom:6px}.pname{font-size:0.95rem;font-weight:700;color:${navy}}.pdet{font-size:0.75rem;color:#64748b;margin-top:3px;line-height:1.5}
+.body{padding:24px}
+table{width:100%;border-collapse:collapse;margin-bottom:16px}thead tr{background:${navy};color:#fff}thead th{padding:10px 14px;text-align:left;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em}thead th:not(:first-child){text-align:right}tbody tr:nth-child(even){background:#fafaf8}.totals{margin-left:auto;width:300px;border-top:3px solid ${gold};border:1px solid #e2e8f0}.totals td{padding:8px 14px;font-size:0.85rem;color:#475569;border-bottom:1px solid #f1f5f9}.totals .grand td{font-weight:800;color:${navy};background:#fdf8ef;border-bottom:none}.totals .balance td{font-weight:800;color:#dc2626;background:#fff5f5}
+.scope-box{padding:16px 20px;background:#fafaf8;border-left:4px solid ${gold};margin-bottom:20px}.scope-lbl{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:8px}
+.notes{background:#fdf8ef;border:1px solid #fde68a;padding:12px 16px;font-size:0.82rem;color:#78350f;margin-bottom:16px}
+.foot{background:${navy};color:#94a3b8;padding:12px 24px;display:flex;justify-content:space-between;font-size:0.7rem;margin-top:24px}
+@media print{body{padding:0}.wrap{max-width:100%}}</style></head>
+<body><div class="wrap">
+  <div class="hdr">
+    <div class="hdr-left"><div class="logo-box">${logoHtml||`<div style="width:60px;height:50px;background:rgba(255,255,255,.1);border-radius:4px;"></div>`}</div><div><div class="biz-name">${_esc(bizName)}</div>${bizAddress?`<div class="biz-det">${_esc(bizAddress)}</div>`:''}${bizPhone?`<div class="biz-det">${_esc(bizPhone)}</div>`:''}${bizEmail?`<div class="biz-det">${_esc(bizEmail)}</div>`:''}</div></div>
+    <div class="hdr-right"><div class="doc-type">${typeLabel}</div>${docNumber?`<div class="doc-num"># ${_esc(docNumber)}</div>`:''}${docDate?`<div class="doc-num">${fmtDate(docDate)}</div>`:''}</div>
+  </div>
+  <div class="gold-bar"></div>
+  <div class="party-row">
+    <div class="party"><div class="plbl">${_esc(bizName)||'From'}</div><div class="pname">${_esc(bizName)}</div><div class="pdet">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
+    <div class="party client"><div class="plbl" style="color:${navy}">${L.billTo}</div><div class="pname">${_esc(custName)||'—'}</div><div class="pdet">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
+  </div>
+  <div class="body">
+    ${(projectTitle||jobOrderedBy||jobLocation||duration)?`<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">${projectTitle?`<div style="flex:2;min-width:180px;padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;border-left:3px solid ${gold};"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_docLang==='es'?'Proyecto':'Project'}</div><div style="font-size:0.9rem;font-weight:700;color:${navy};">${_esc(projectTitle)}</div></div>`:''} ${jobOrderedBy?`<div style="flex:1;min-width:140px;padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_docLang==='es'?'Ordenado Por':'Ordered By'}</div><div style="font-size:0.85rem;font-weight:600;">${_esc(jobOrderedBy)}</div></div>`:''} ${jobLocation?`<div style="flex:1;min-width:140px;padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_docLang==='es'?'Ubicación':'Location'}</div><div style="font-size:0.85rem;font-weight:600;">${_esc(jobLocation)}</div></div>`:''} ${duration?`<div style="flex:1;min-width:120px;padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_docLang==='es'?'Duración':'Duration'}</div><div style="font-size:0.85rem;font-weight:600;">${_esc(duration)}</div></div>`:''}</div>`:''}
+    ${jobScope?`<div class="scope-box"><div class="scope-lbl">${_docLang==='es'?'Alcance del Trabajo':'Scope of Work'}</div>${scopeHtml}</div>`:''}
+    ${(_docShowPricing&&_docType!=='contract')?`<table><thead><tr><th>${L.desc}</th><th style="text-align:right;">${L.total}</th></tr></thead><tbody>${itemsHtml}</tbody></table>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:20px;"><table class="totals"><tr><td>${L.subtotal}</td><td style="text-align:right;">$${subtotal.toFixed(2)}</td></tr>${taxRate>0?`<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right;">$${taxAmt.toFixed(2)}</td></tr>`:''}<tr class="grand"><td><strong>${grandTotalLabel}</strong></td><td style="text-align:right;"><strong>$${grand.toFixed(2)}</strong></td></tr>${advance>0?`<tr><td style="color:#15803d;">${L.advance}</td><td style="text-align:right;color:#15803d;">−$${advance.toFixed(2)}</td></tr>`:''} ${advance>0?`<tr class="balance"><td><strong>${L.balance}</strong></td><td style="text-align:right;"><strong>$${balance.toFixed(2)}</strong></td></tr>`:''}</table></div>`:''}
+    ${_docType==='contract'&&contractTxt?`<div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;line-height:1.7;border:1px solid #e2e8f0;padding:16px;background:#fafaf8;margin-bottom:16px;">${_esc(contractTxt)}</div>`:''}
+    ${notes?`<div class="notes">📌 ${_esc(notes)}</div>`:''}
+    ${includeTC&&termsText?`<div style="margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">⚖️ ${L.tcTitle}</div><div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;background:#fafaf8;border:1px solid #e2e8f0;padding:14px;">${_esc(termsText)}</div></div>`:''}
+    ${sigBlock}
+  </div>
+  <div class="foot"><span>${L.thankYou}</span><span>${typeLabel} ${_esc(docNumber)}</span></div>
+</div></body></html>`;
+}
+
+// ── Template 4: Modern Gradient (purple → teal) ───────────────
+function _docTplModern() {
+  const { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
+    docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
+    duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
+    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_COLORS, TYPE_LABELS_ES, scopeHtml } = _docGetData();
+
+  const itemsHtml = _docType !== 'contract' ? _docItems.map(it => {
+    const k = it.type || 'other';
+    const tc = TYPE_COLORS[k] || '#64748b';
+    const tl = _docLang === 'es' ? (TYPE_LABELS_ES[k] || k) : k.charAt(0).toUpperCase() + k.slice(1);
+    return `<tr><td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:0.6rem;font-weight:800;text-transform:uppercase;background:${tc};color:#fff;margin-bottom:3px;">${_esc(tl)}</span><br><span style="font-size:0.82rem;">${_esc(it.desc)}</span></td><td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:700;">$${(it.price||0).toFixed(2)}</td></tr>`;
+  }).join('') : '';
+
+  const sigBlock = `<div style="display:flex;gap:24px;margin-top:32px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:180px;background:#f8fafc;border-radius:12px;padding:16px 20px;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:24px;">${_docLang==='es'?'Firma del Evaluador':'Evaluator Signature'}</div><div style="border-top:2px solid #7c3aed;"></div></div>
+    <div style="flex:1;min-width:180px;background:#f8fafc;border-radius:12px;padding:16px 20px;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:24px;">${_docLang==='es'?'Firma del Cliente':'Client Signature'}</div><div style="border-top:2px solid #0891b2;"></div></div>
+  </div>`;
+
+  return `<!DOCTYPE html><html lang="${_docLang==='es'?'es':'en'}"><head><meta charset="utf-8"/><title>${typeLabel} ${docNumber}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1e293b;background:#f1f5f9;padding:20px;font-size:13px;line-height:1.5}.wrap{max-width:760px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.1)}
+.hdr{background:linear-gradient(135deg,#7c3aed 0%,#0891b2 100%);padding:28px 32px;color:#fff;display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}.logo-wrap{background:rgba(255,255,255,.2);border-radius:12px;padding:8px;display:inline-flex;align-items:center;justify-content:center}.hdr-biz{font-size:1rem;font-weight:800}.hdr-det{font-size:0.72rem;color:rgba(255,255,255,.75);margin-top:2px}.doc-type{font-size:2rem;font-weight:900;letter-spacing:-0.02em;text-transform:uppercase}.doc-num{font-size:0.75rem;color:rgba(255,255,255,.75);margin-top:4px}
+.party-cards{display:flex;gap:16px;padding:20px 24px;flex-wrap:wrap}.card{flex:1;min-width:200px;background:#f8fafc;border-radius:12px;padding:14px 18px;border:1px solid #e2e8f0}.card-lbl{font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px}.card-name{font-size:0.95rem;font-weight:700;color:#1e293b}.card-det{font-size:0.75rem;color:#64748b;line-height:1.5;margin-top:3px}
+.body{padding:0 24px 24px}
+.info-cards{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}.ic{flex:1;min-width:140px;background:#f8fafc;border-radius:10px;padding:12px 14px;border:1px solid #e2e8f0}.ic-lbl{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px}.ic-val{font-size:0.85rem;font-weight:600;color:#1e293b}
+table{width:100%;border-collapse:collapse;margin-bottom:16px;border-radius:12px;overflow:hidden}thead tr{background:linear-gradient(90deg,#7c3aed,#0891b2);color:#fff}thead th{padding:10px 14px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}thead th:not(:first-child){text-align:right}tbody tr:nth-child(even){background:#f8fafc}
+.totals-wrap{display:flex;justify-content:flex-end;margin-bottom:20px}.totals{width:300px;background:#f8fafc;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0}.totals td{padding:8px 16px;font-size:0.85rem;color:#475569;border-bottom:1px solid #f1f5f9}.totals .grand td{font-size:1.05rem;font-weight:800;color:#1e293b;background:linear-gradient(90deg,#f0f0ff,#e8f9ff);border-bottom:none}.totals .balance td{font-size:1.05rem;font-weight:800;color:#dc2626;background:#fff5f5}
+.scope-card{background:#f8fafc;border-radius:12px;padding:16px;margin-bottom:20px;border:1px solid #e2e8f0;border-left:4px solid #7c3aed}.scope-lbl{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:8px}
+.notes{background:#fffbeb;border-radius:10px;border:1px solid #fde68a;padding:12px 16px;font-size:0.82rem;color:#78350f;margin-bottom:16px}
+.foot{background:linear-gradient(135deg,#7c3aed,#0891b2);color:rgba(255,255,255,.8);padding:12px 24px;display:flex;justify-content:space-between;font-size:0.72rem}
+@media print{body{padding:0;background:#fff}.wrap{box-shadow:none;border-radius:0;max-width:100%}}</style></head>
+<body><div class="wrap">
+  <div class="hdr">
+    <div style="display:flex;align-items:center;gap:14px;"><div class="logo-wrap">${logoHtml||`<div style="width:52px;height:44px;background:rgba(255,255,255,.2);border-radius:8px;"></div>`}</div><div><div class="hdr-biz">${_esc(bizName)}</div>${bizAddress?`<div class="hdr-det">${_esc(bizAddress)}</div>`:''}${bizPhone?`<div class="hdr-det">${_esc(bizPhone)}</div>`:''}${bizEmail?`<div class="hdr-det">${_esc(bizEmail)}</div>`:''}</div></div>
+    <div style="text-align:right;"><div class="doc-type">${typeLabel}</div>${docNumber?`<div class="doc-num">#${_esc(docNumber)}</div>`:''}${docDate?`<div class="doc-num">${fmtDate(docDate)}</div>`:''}</div>
+  </div>
+  <div class="party-cards">
+    <div class="card"><div class="card-lbl">${_esc(bizName)||'From'}</div><div class="card-name">${_esc(bizName)}</div><div class="card-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
+    <div class="card"><div class="card-lbl">${L.billTo}</div><div class="card-name">${_esc(custName)||'—'}</div><div class="card-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
+  </div>
+  <div class="body">
+    ${(projectTitle||jobOrderedBy||jobLocation||duration)?`<div class="info-cards">${projectTitle?`<div class="ic" style="border-left:3px solid #7c3aed;"><div class="ic-lbl">${_docLang==='es'?'Proyecto':'Project'}</div><div class="ic-val">${_esc(projectTitle)}</div></div>`:''} ${jobOrderedBy?`<div class="ic"><div class="ic-lbl">${_docLang==='es'?'Ordenado Por':'Ordered By'}</div><div class="ic-val">${_esc(jobOrderedBy)}</div></div>`:''} ${jobLocation?`<div class="ic"><div class="ic-lbl">${_docLang==='es'?'Ubicación':'Location'}</div><div class="ic-val">${_esc(jobLocation)}</div></div>`:''} ${duration?`<div class="ic"><div class="ic-lbl">${_docLang==='es'?'Duración':'Duration'}</div><div class="ic-val">${_esc(duration)}</div></div>`:''}</div>`:''}
+    ${jobScope?`<div class="scope-card"><div class="scope-lbl">${_docLang==='es'?'Alcance del Trabajo':'Scope of Work'}</div>${scopeHtml}</div>`:''}
+    ${(_docShowPricing&&_docType!=='contract')?`<table><thead><tr><th>${L.desc}</th><th style="text-align:right;">${L.total}</th></tr></thead><tbody>${itemsHtml}</tbody></table>
+    <div class="totals-wrap"><table class="totals"><tr><td>${L.subtotal}</td><td style="text-align:right;">$${subtotal.toFixed(2)}</td></tr>${taxRate>0?`<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right;">$${taxAmt.toFixed(2)}</td></tr>`:''}<tr class="grand"><td><strong>${grandTotalLabel}</strong></td><td style="text-align:right;"><strong>$${grand.toFixed(2)}</strong></td></tr>${advance>0?`<tr><td style="color:#15803d;">${L.advance}</td><td style="text-align:right;color:#15803d;">−$${advance.toFixed(2)}</td></tr>`:''} ${advance>0?`<tr class="balance"><td><strong>${L.balance}</strong></td><td style="text-align:right;"><strong>$${balance.toFixed(2)}</strong></td></tr>`:''}</table></div>`:''}
+    ${_docType==='contract'&&contractTxt?`<div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;line-height:1.7;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;">${_esc(contractTxt)}</div>`:''}
+    ${notes?`<div class="notes">📌 ${_esc(notes)}</div>`:''}
+    ${includeTC&&termsText?`<div style="margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">⚖️ ${L.tcTitle}</div><div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;padding:14px;">${_esc(termsText)}</div></div>`:''}
+    ${sigBlock}
+  </div>
+  <div class="foot"><span>${L.thankYou}</span><span>${typeLabel} ${_esc(docNumber)}</span></div>
+</div></body></html>`;
+}
+
+// ── Template 5: Minimal Pro (black & white, clean) ────────────
+function _docTplMinimal() {
+  const { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
+    docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
+    duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
+    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml } = _docGetData();
+
+  const itemsHtml = _docType !== 'contract' ? _docItems.map(it => {
+    const k = it.type || 'other';
+    const tl = _docLang === 'es' ? (TYPE_LABELS_ES[k] || k) : k.charAt(0).toUpperCase() + k.slice(1);
+    return `<tr><td style="padding:10px 0;border-bottom:1px solid #e2e8f0;"><span style="font-size:0.65rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;">${_esc(tl)}</span><br><span style="font-size:0.85rem;">${_esc(it.desc)}</span></td><td style="padding:10px 0;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;">$${(it.price||0).toFixed(2)}</td></tr>`;
+  }).join('') : '';
+
+  const sigBlock = `<div style="display:flex;gap:60px;margin-top:48px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:180px;"><div style="border-bottom:1px solid #1e293b;padding-top:36px;margin-bottom:6px;"></div><div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;">${_docLang==='es'?'Firma del Evaluador':'Evaluator Signature'}&nbsp;&nbsp;${_docLang==='es'?'Fecha':'Date'} ___________</div></div>
+    <div style="flex:1;min-width:180px;"><div style="border-bottom:1px solid #1e293b;padding-top:36px;margin-bottom:6px;"></div><div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;">${_docLang==='es'?'Firma del Cliente':'Client Signature'}&nbsp;&nbsp;${_docLang==='es'?'Fecha':'Date'} ___________</div></div>
+  </div>`;
+
+  return `<!DOCTYPE html><html lang="${_docLang==='es'?'es':'en'}"><head><meta charset="utf-8"/><title>${typeLabel} ${docNumber}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1e293b;background:#fff;padding:40px;font-size:13px;line-height:1.6}.wrap{max-width:720px;margin:0 auto}
+.top{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:2px solid #1e293b;margin-bottom:28px;gap:16px;flex-wrap:wrap}.biz-name{font-size:0.9rem;font-weight:700;margin-top:8px}.biz-det{font-size:0.75rem;color:#64748b;margin-top:1px}.doc-type{font-size:2rem;font-weight:300;text-transform:uppercase;letter-spacing:.08em}.doc-num{font-size:0.78rem;color:#94a3b8;margin-top:6px}
+.parties{display:flex;gap:40px;margin-bottom:28px;padding-bottom:28px;border-bottom:1px solid #e2e8f0;flex-wrap:wrap}.party{flex:1;min-width:160px}.party-lbl{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;border-bottom:1px solid #e2e8f0;padding-bottom:4px;margin-bottom:6px}.party-name{font-size:0.9rem;font-weight:600}.party-det{font-size:0.75rem;color:#64748b;margin-top:3px;line-height:1.5}
+table{width:100%;border-collapse:collapse;margin-bottom:16px}thead th{padding:8px 0;text-align:left;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;border-bottom:2px solid #1e293b}thead th:not(:first-child){text-align:right}
+.totals{margin-left:auto;width:260px}.totals td{padding:5px 0;font-size:0.85rem;color:#475569;border-bottom:1px solid #f1f5f9}.totals .grand td{font-size:1rem;font-weight:700;color:#1e293b;border-top:2px solid #1e293b;border-bottom:none;padding-top:8px}.totals .balance td{font-size:1.05rem;font-weight:800}
+.section-head{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;border-bottom:1px solid #e2e8f0;padding-bottom:4px;margin-bottom:8px}
+.notes{border-left:3px solid #1e293b;padding:8px 14px;font-size:0.82rem;color:#475569;margin-bottom:16px}
+.foot{margin-top:40px;padding-top:16px;border-top:2px solid #1e293b;display:flex;justify-content:space-between;font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8}
+@media print{body{padding:24px}.wrap{max-width:100%}}</style></head>
+<body><div class="wrap">
+  <div class="top">
+    <div>${logoHtml}<div class="biz-name">${_esc(bizName)}</div>${bizAddress?`<div class="biz-det">${_esc(bizAddress)}</div>`:''}${bizPhone?`<div class="biz-det">${_esc(bizPhone)}</div>`:''}${bizEmail?`<div class="biz-det">${_esc(bizEmail)}</div>`:''}</div>
+    <div style="text-align:right;"><div class="doc-type">${typeLabel}</div>${docNumber?`<div class="doc-num"># ${_esc(docNumber)}</div>`:''}${docDate?`<div class="doc-num">${fmtDate(docDate)}</div>`:''}</div>
+  </div>
+  <div class="parties">
+    <div class="party"><div class="party-lbl">${_docLang==='es'?'De':'From'}</div><div class="party-name">${_esc(bizName)||'—'}</div><div class="party-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
+    <div class="party"><div class="party-lbl">${L.billTo}</div><div class="party-name">${_esc(custName)||'—'}</div><div class="party-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
+    ${jobOrderedBy||jobLocation?`<div class="party">${jobOrderedBy?`<div class="party-lbl">${_docLang==='es'?'Ordenado Por':'Ordered By'}</div><div class="party-name">${_esc(jobOrderedBy)}</div>`:''} ${jobLocation?`<div class="party-lbl" style="margin-top:8px;">${_docLang==='es'?'Ubicación':'Location'}</div><div class="party-det">${_esc(jobLocation)}</div>`:''}</div>`:''}
+  </div>
+  ${projectTitle?`<div style="margin-bottom:20px;"><div class="section-head">${_docLang==='es'?'Proyecto':'Project'}</div><div style="font-size:1rem;font-weight:600;">${_esc(projectTitle)}</div></div>`:''}
+  ${jobScope?`<div style="margin-bottom:24px;"><div class="section-head">${_docLang==='es'?'Alcance del Trabajo':'Scope of Work'}</div>${scopeHtml}</div>`:''}
+  ${(_docShowPricing&&_docType!=='contract')?`<table><thead><tr><th>${L.desc}</th><th style="text-align:right;">${L.total}</th></tr></thead><tbody>${itemsHtml}</tbody></table>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:24px;"><table class="totals"><tr><td>${L.subtotal}</td><td style="text-align:right;">$${subtotal.toFixed(2)}</td></tr>${taxRate>0?`<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right;">$${taxAmt.toFixed(2)}</td></tr>`:''}<tr class="grand"><td><strong>${grandTotalLabel}</strong></td><td style="text-align:right;"><strong>$${grand.toFixed(2)}</strong></td></tr>${advance>0?`<tr><td>${L.advance}</td><td style="text-align:right;">−$${advance.toFixed(2)}</td></tr>`:''} ${advance>0?`<tr class="balance"><td><strong>${L.balance}</strong></td><td style="text-align:right;"><strong>$${balance.toFixed(2)}</strong></td></tr>`:''}</table></div>`:''}
+  ${duration?`<div style="margin-bottom:20px;"><div class="section-head">${_docLang==='es'?'Duración Estimada':'Est. Duration'}</div><div style="font-size:0.85rem;">${_esc(duration)}</div></div>`:''}
+  ${_docType==='contract'&&contractTxt?`<div style="margin-bottom:20px;"><div class="section-head">${L.terms}</div><div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;line-height:1.7;">${_esc(contractTxt)}</div></div>`:''}
+  ${notes?`<div class="notes">Note: ${_esc(notes)}</div>`:''}
+  ${includeTC&&termsText?`<div style="margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;"><div class="section-head">⚖️ ${L.tcTitle}</div><div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;">${_esc(termsText)}</div></div>`:''}
+  ${sigBlock}
+  <div class="foot"><span>${L.thankYou}</span><span>${typeLabel} ${_esc(docNumber)}</span></div>
+</div></body></html>`;
+}
+
 // ── Save to Firestore ─────────────────────────────────────────
 window._docSave = async function() {
   const btn = document.getElementById('docSaveBtn');
@@ -3103,6 +3399,7 @@ window._docSave = async function() {
       items:        _docItems,
       logoUrl:      logoUrl,
       htmlContent:  htmlContent,
+      designTemplate: _docDesignTemplate,
       ownerUid:     auth.currentUser?.uid || '',
       createdAt:    serverTimestamp()
     };
@@ -3194,6 +3491,7 @@ window._docSaveTemplate = async function() {
       taxRate:      parseFloat(document.getElementById('docTaxRate')?.value || 0),
       items:        _docItems,
       logoUrl:      _docLogoDataUrl,
+      designTemplate: _docDesignTemplate,
       ownerUid:     auth.currentUser?.uid || '',
       createdAt:    serverTimestamp()
     });

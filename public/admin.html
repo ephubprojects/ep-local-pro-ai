@@ -1373,6 +1373,29 @@
             <button class="btn-action"          onclick="window._docPrint()">🖨️ Print / PDF</button>
           </div>
         </div>
+        <!-- Template Design Picker -->
+        <div class="doc-design-picker" id="docDesignPicker">
+          <button class="doc-design-btn active" id="docDesign-classic" onclick="window._docSetDesign('classic')" title="Classic">
+            <div class="dd-swatch" style="background:linear-gradient(135deg,#4f46e5 50%,#7c3aed 100%)"></div>
+            <span>Classic</span>
+          </button>
+          <button class="doc-design-btn" id="docDesign-bold" onclick="window._docSetDesign('bold')" title="Bold Contractor">
+            <div class="dd-swatch" style="background:linear-gradient(135deg,#111 50%,#dc2626 100%)"></div>
+            <span>Bold</span>
+          </button>
+          <button class="doc-design-btn" id="docDesign-executive" onclick="window._docSetDesign('executive')" title="Executive Dark">
+            <div class="dd-swatch" style="background:linear-gradient(135deg,#0f172a 50%,#b8862b 100%)"></div>
+            <span>Executive</span>
+          </button>
+          <button class="doc-design-btn" id="docDesign-modern" onclick="window._docSetDesign('modern')" title="Modern Gradient">
+            <div class="dd-swatch" style="background:linear-gradient(135deg,#7c3aed 0%,#0891b2 100%)"></div>
+            <span>Modern</span>
+          </button>
+          <button class="doc-design-btn" id="docDesign-minimal" onclick="window._docSetDesign('minimal')" title="Minimal Pro">
+            <div class="dd-swatch" style="background:linear-gradient(135deg,#1e293b 50%,#64748b 100%)"></div>
+            <span>Minimal</span>
+          </button>
+        </div>
         <iframe id="docPreviewFrame" class="doc-preview-frame" title="Document Preview"></iframe>
       </div>
 
