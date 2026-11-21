@@ -510,13 +510,18 @@
         </div>
       </div>
 
-      <!-- Filter tabs -->
+      <!-- Filter tabs + Search -->
       <div class="docs-tabs-bar">
         <button class="docs-tab active" data-filter="all">All <span class="docs-tab-count" id="adCountAll">0</span></button>
         <button class="docs-tab" data-filter="invoice">Invoices <span class="docs-tab-count" id="adCountInvoice">0</span></button>
         <button class="docs-tab" data-filter="estimate">Estimates <span class="docs-tab-count" id="adCountEstimate">0</span></button>
         <button class="docs-tab" data-filter="contract">Contracts <span class="docs-tab-count" id="adCountContract">0</span></button>
         <button class="docs-tab" data-filter="receipt">Receipts <span class="docs-tab-count" id="adCountReceipt">0</span></button>
+      </div>
+      <div style="margin-bottom:12px;">
+        <input id="adminDocsSearch" type="search" placeholder="🔍  Search by customer name, job # or phone…"
+          style="width:100%;padding:9px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:0.85rem;color:#1e293b;background:#f8fafc;outline:none;"
+          oninput="window._adminDocsSearch(this.value)"/>
       </div>
 
       <!-- Documents list -->

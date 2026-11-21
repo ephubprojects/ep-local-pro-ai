@@ -2063,15 +2063,33 @@ function updateAdminDocCounts() {
   });
 }
 
+let _adminDocsSearchQ = '';
+
+window._adminDocsSearch = function(q) {
+  _adminDocsSearchQ = q.trim().toLowerCase();
+  renderAdminDocCards();
+};
+
 function renderAdminDocCards() {
   const list = document.getElementById('adminDocsList');
   if (!list) return;
-  const filtered = adminDocFilter === 'all'
+
+  let filtered = adminDocFilter === 'all'
     ? adminAllDocs
     : adminAllDocs.filter(d => d.type === adminDocFilter);
 
+  if (_adminDocsSearchQ) {
+    const q = _adminDocsSearchQ;
+    filtered = filtered.filter(d =>
+      (d.custName      || '').toLowerCase().includes(q) ||
+      (d.customerName  || '').toLowerCase().includes(q) ||
+      (d.docNumber     || '').toLowerCase().includes(q) ||
+      (d.custPhone     || '').replace(/\D/g,'').includes(q.replace(/\D/g,''))
+    );
+  }
+
   if (!filtered.length) {
-    list.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📄</div><p>No ${adminDocFilter === 'all' ? '' : adminDocFilter + ' '}documents found.</p></div>`;
+    list.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📄</div><p>No documents found.</p></div>`;
     return;
   }
 
@@ -2082,47 +2100,37 @@ function renderAdminDocCards() {
   filtered.forEach(docData => {
     const typeLbl    = typeLabels[docData.type] || docData.type || '—';
     const badgeClass = badgeCls[docData.type] || '';
-    // Support both old schema (amount) and new schema (items array)
     let amountNum = Number(docData.amount) || 0;
     if (!amountNum && docData.items?.length) {
-      const sub = docData.items.reduce((s,it)=>s+(it.qty||0)*(it.price||0),0);
+      const sub = docData.items.reduce((s,it)=>s+(it.price||0),0);
       amountNum = sub * (1 + (docData.taxRate||0)/100);
     }
-    const amount   = amountNum
-      ? `$${amountNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-      : '—';
+    const amount    = amountNum ? `$${amountNum.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}` : '—';
     const custLabel = docData.customerName || docData.custName || '—';
 
-    const card = document.createElement('div');
-    card.className = 'doc-card';
-    card.innerHTML = `
-      <div class="doc-card-stripe stripe-${docData.type || ''}"></div>
-      <div class="doc-card-body">
-        <div class="doc-card-type">
-          <span class="badge ${badgeClass}">${typeLbl}</span>
-          ${docData.docNumber ? `<div class="doc-card-num">${docData.docNumber}</div>` : ''}
-        </div>
-        <div class="doc-card-info">
-          <div class="doc-card-customer">${custLabel}</div>
-          <div class="doc-card-meta">
-            <span>${fmtDate(docData.createdAt)}</span>
-            ${docData.businessId ? `<span class="doc-card-meta-dot">${docData.businessId}</span>` : ''}
-          </div>
-        </div>
-        <div class="doc-card-amount">${amount}</div>
+    const row = document.createElement('div');
+    row.className = 'doc-row';
+    row.innerHTML = `
+      <div class="doc-row-bar stripe-${docData.type || ''}"></div>
+      <div class="doc-row-type">
+        <span class="badge ${badgeClass}">${typeLbl}</span>
+        ${docData.docNumber ? `<span class="doc-row-num">${docData.docNumber}</span>` : ''}
       </div>
-      <div class="doc-card-actions">
+      <div class="doc-row-customer">${custLabel}</div>
+      <div class="doc-row-date">${fmtDate(docData.createdAt)}</div>
+      <div class="doc-row-amount">${amount}</div>
+      <div class="doc-row-actions">
         ${docData.htmlContent ? `<button class="btn-action" data-view>👁 View</button>` : ''}
         <button class="btn-action" data-edit>✏️ Edit</button>
-        <button class="btn-action" data-del style="color:#ef4444">🗑 Delete</button>
+        <button class="btn-action btn-action-del" data-del>🗑 Delete</button>
       </div>`;
 
     if (docData.htmlContent) {
-      card.querySelector('[data-view]')?.addEventListener('click', () => window._docViewDoc(docData.id));
+      row.querySelector('[data-view]')?.addEventListener('click', () => window._docViewDoc(docData.id));
     }
-    card.querySelector('[data-edit]')?.addEventListener('click', () => window._docEditDoc(docData.id));
-    card.querySelector('[data-del]')?.addEventListener('click',  () => window._docDeleteDoc(docData.id));
-    list.appendChild(card);
+    row.querySelector('[data-edit]')?.addEventListener('click', () => window._docEditDoc(docData.id));
+    row.querySelector('[data-del]')?.addEventListener('click',  () => window._docDeleteDoc(docData.id));
+    list.appendChild(row);
   });
 }
 
@@ -3000,9 +3008,6 @@ window._docItemSet = function(i, field, val) {
 function _docRenderItems() {
   const container = document.getElementById('docItemsList');
   if (!container) return;
-  const typeOpts = DOC_ITEM_TYPES.map(t =>
-    `<option value="${t.value}">${_docLang==='es'?t.labelEs:t.label}</option>`
-  ).join('');
   container.innerHTML = _docItems.map((item, i) => `
     <div class="doc-item-row">
       <select class="doc-item-type" onchange="window._docItemSet(${i},'type',this.value)">

@@ -2590,35 +2590,45 @@ textarea.doc-input { resize: vertical; }
 .btn-pm-success { background:#15803d; color:#fff; }
 .btn-pm-danger  { background:#dc2626; color:#fff; }
 
-/* ── Document list grid ───────────────────────────────────── */
+/* ── Document list — inline rows ──────────────────────────── */
 .docs-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 14px;
-  align-items: start;
-}
-.doc-card {
   display: flex;
   flex-direction: column;
-  background: #fff;
-  border-radius: 10px;
   border: 1px solid #e2e8f0;
+  border-radius: 10px;
   overflow: hidden;
-  transition: box-shadow .15s, transform .15s;
+  background: #fff;
 }
-.doc-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.08); transform: translateY(-2px); }
-.doc-card-stripe { width: 100%; height: 5px; flex-shrink: 0; }
-.doc-card-stripe.stripe-invoice  { background: #4f46e5; }
-.doc-card-stripe.stripe-estimate { background: #f59e0b; }
-.doc-card-stripe.stripe-contract { background: #7c3aed; }
-.doc-card-stripe.stripe-receipt  { background: #10b981; }
-.doc-card-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
-.doc-card-type { display: flex; align-items: center; gap: 8px; }
-.doc-card-num  { font-size: 0.7rem; color: #64748b; font-family: monospace; }
-.doc-card-info { flex: 1; min-width: 0; }
-.doc-card-customer { font-size: 0.88rem; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.doc-card-meta { font-size: 0.72rem; color: #94a3b8; display: flex; gap: 6px; margin-top: 2px; flex-wrap: wrap; }
-.doc-card-meta-dot::before { content: '·'; margin-right: 6px; }
-.doc-card-amount { font-size: 1rem; font-weight: 800; color: #1e293b; }
-.doc-card-actions { padding: 10px 16px 12px; border-top: 1px solid #f1f5f9; display: flex; gap: 6px; flex-wrap: wrap; }
-@media (max-width: 600px) { .docs-list { grid-template-columns: 1fr; } }
+.doc-row {
+  display: flex;
+  align-items: center;
+  min-height: 54px;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background .1s;
+}
+.doc-row:last-child { border-bottom: none; }
+.doc-row:hover { background: #f8fafc; }
+
+.doc-row-bar { width: 4px; min-height: 54px; flex-shrink: 0; }
+.doc-row-bar.stripe-invoice  { background: #4f46e5; }
+.doc-row-bar.stripe-estimate { background: #f59e0b; }
+.doc-row-bar.stripe-contract { background: #7c3aed; }
+.doc-row-bar.stripe-receipt  { background: #10b981; }
+
+.doc-row-type    { width: 170px; padding: 0 12px; display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+.doc-row-num     { font-size: 0.7rem; color: #64748b; font-family: monospace; }
+.doc-row-customer{ flex: 1; padding: 0 12px; font-size: 0.88rem; font-weight: 600; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.doc-row-date    { width: 110px; font-size: 0.78rem; color: #94a3b8; padding: 0 12px; flex-shrink: 0; }
+.doc-row-amount  { width: 100px; font-size: 0.9rem; font-weight: 700; color: #1e293b; padding: 0 12px; flex-shrink: 0; text-align: right; }
+.doc-row-actions { padding: 0 10px 0 4px; display: flex; gap: 4px; flex-shrink: 0; }
+.btn-action-del  { color: #ef4444; }
+
+@media (max-width: 640px) {
+  .doc-row          { flex-wrap: wrap; padding: 10px 0; min-height: auto; }
+  .doc-row-bar      { width: 100%; height: 3px; min-height: 0; }
+  .doc-row-type     { width: auto; flex: 1; }
+  .doc-row-date     { width: auto; }
+  .doc-row-amount   { width: auto; }
+  .doc-row-customer { width: 100%; padding: 4px 12px 0; white-space: normal; }
+  .doc-row-actions  { width: 100%; padding: 4px 12px 6px; }
+}
