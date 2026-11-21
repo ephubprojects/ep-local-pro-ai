@@ -385,11 +385,12 @@
                 <th>Sponsor</th>
                 <th>Plan</th>
                 <th>Joined</th>
+                <th>Add-ons</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody id="localBizTableBody">
-              <tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">🏪</div><p>Loading businesses…</p></div></td></tr>
+              <tr><td colspan="10"><div class="empty-state"><div class="empty-state-icon">🏪</div><p>Loading businesses…</p></div></td></tr>
             </tbody>
           </table>
         </div>
@@ -1319,6 +1320,28 @@
             <label class="doc-field-label" data-en="Reference Invoice #" data-es="Ref. Factura #">Reference Invoice #</label>
             <input type="text" id="docInvoiceRef" class="doc-input" placeholder="e.g. INV-4751 (optional)"
               oninput="window._docUpdatePreview()"/>
+          </div>
+        </div>
+
+        <!-- Market Rate Calculator -->
+        <div class="doc-form-section" id="marketRateSection">
+          <div class="doc-fsec-title" onclick="window._mrToggle()" style="cursor:pointer;user-select:none;display:flex;align-items:center;">
+            📊 <span style="margin-left:4px">Market Rate Calculator</span>
+            <span style="margin-left:auto;font-size:0.75rem;color:#4f46e5;font-weight:500" id="mrToggleHint">Check local rates ›</span>
+          </div>
+          <div id="marketRateBody" style="display:none;margin-top:10px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+              <div style="flex:2;min-width:140px">
+                <label class="doc-field-label">Service / Job Type</label>
+                <input type="text" id="mrService" class="doc-input" placeholder="e.g. Tankless water heater replacement"/>
+              </div>
+              <div style="flex:1;min-width:120px">
+                <label class="doc-field-label">City / County</label>
+                <input type="text" id="mrCity" class="doc-input" placeholder="e.g. Ventura County, CA"/>
+              </div>
+            </div>
+            <button class="btn-primary" onclick="window._mrGetRates()" id="mrBtn" style="width:100%;justify-content:center">📊 Get Market Rates</button>
+            <div id="mrResult" style="margin-top:10px"></div>
           </div>
         </div>
 

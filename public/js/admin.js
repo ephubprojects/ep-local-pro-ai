@@ -1234,6 +1234,7 @@ function renderLocalBizTable(list) {
   }
   tbody.innerHTML = list.map(u => {
     const cat = CAT_MAP[u.categoryId] || {};
+    const mrOn = u.addOns?.marketRate === true;
     return `
     <tr>
       <td>${escHTML(u.companyName || '—')}</td>
@@ -1244,6 +1245,13 @@ function renderLocalBizTable(list) {
       <td>${escHTML(u.sponsorUsername || '—')}</td>
       <td>${badgeHTML(u.plan || 'trial')}</td>
       <td>${escHTML(fmtDate(u.createdAt))}</td>
+      <td>
+        <label class="addon-toggle" title="Market Rate Calculator add-on">
+          <input type="checkbox" ${mrOn ? 'checked' : ''} onchange="window._adminToggleMarketRate('${escAttr(u.id)}', ${mrOn})"/>
+          <span class="toggle-track"></span>
+          <span class="toggle-label">📊 Market Rate</span>
+        </label>
+      </td>
       <td><button class="btn-action danger" onclick="window._adminCancelUser('${escAttr(u.id)}','${escAttr(((u.firstName||'')+' '+(u.lastName||'')).trim()||u.email||'this user')}')">Cancel</button></td>
     </tr>`;
   }).join('');
@@ -1256,6 +1264,22 @@ function filterLocalBiz() {
     `${u.companyName} ${u.email} ${u.categoryId}`.toLowerCase().includes(q)
   ));
 }
+
+window._adminToggleMarketRate = async function(uid, currentVal) {
+  const newVal = !currentVal;
+  try {
+    await updateDoc(doc(db, 'owners', uid), { 'addOns.marketRate': newVal, updatedAt: serverTimestamp() });
+    const idx = _allLocalBiz.findIndex(u => u.id === uid);
+    if (idx !== -1) {
+      _allLocalBiz[idx].addOns = { ...(_allLocalBiz[idx].addOns || {}), marketRate: newVal };
+      renderLocalBizTable(_allLocalBiz);
+    }
+    showToast(`Market Rate add-on ${newVal ? 'enabled ✓' : 'disabled'}`, newVal ? 'success' : 'info');
+  } catch (e) {
+    console.error('Toggle market rate error:', e);
+    showToast('Could not update add-on.', 'error');
+  }
+};
 
 // Toggle business detail row
 function toggleBizDetail(bizId) {
@@ -4146,6 +4170,111 @@ function _wireDocLogoUpload() {
     };
     reader.readAsDataURL(file);
   });
+}
+
+// ── Market Rate Calculator ────────────────────────────────────
+window._mrToggle = function() {
+  const body = document.getElementById('marketRateBody');
+  const hint = document.getElementById('mrToggleHint');
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (hint) hint.textContent = open ? 'Check local rates ›' : 'Collapse ‹';
+  if (!open) {
+    // Auto-fill from doc form
+    const svc  = document.getElementById('mrService');
+    const city = document.getElementById('mrCity');
+    if (svc && !svc.value) svc.value = document.getElementById('docProjectTitle')?.value || '';
+    if (city && !city.value) {
+      const addr = document.getElementById('docBizAddress')?.value || '';
+      const parts = addr.split(',').map(s => s.trim());
+      city.value = parts.length >= 2 ? parts.slice(-2).join(', ') : addr;
+    }
+  }
+};
+
+window._mrGetRates = async function() {
+  const service = (document.getElementById('mrService')?.value || '').trim();
+  const city    = (document.getElementById('mrCity')?.value    || '').trim();
+  const result  = document.getElementById('mrResult');
+  const btn     = document.getElementById('mrBtn');
+  if (!result || !btn) return;
+
+  if (!service || !city) {
+    showToast('Enter both a service type and a city.', 'error');
+    return;
+  }
+
+  // Check localStorage cache (24h)
+  const cacheKey = `mr_${service.toLowerCase()}_${city.toLowerCase()}`;
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) {
+    try {
+      const { data, ts } = JSON.parse(cached);
+      if (Date.now() - ts < 86_400_000) { _mrRenderResult(result, data, service, city, true); return; }
+    } catch {}
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Fetching market data…';
+  result.innerHTML = '';
+
+  try {
+    const resp = await fetch('/.netlify/functions/market-rate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ service, city })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Failed to get market rates');
+    localStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
+    _mrRenderResult(result, data, service, city, false);
+  } catch (e) {
+    result.innerHTML = `<div class="mr-error">⚠️ ${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📊 Get Market Rates';
+  }
+};
+
+function _mrFmt(n) {
+  if (!n && n !== 0) return '—';
+  return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function _mrRenderResult(container, d, service, city, fromCache) {
+  const refs = (d.references || []).map(r =>
+    `<li><span class="mr-ref-src">${r.source || ''}</span><span class="mr-ref-price">${r.range || ''}</span></li>`
+  ).join('');
+  const factors = (d.factors || []).map(f => `<span class="mr-factor">${f}</span>`).join('');
+  container.innerHTML = `
+    <div class="mr-card">
+      <div class="mr-card-header">
+        <div class="mr-card-title">${service} · <span class="mr-city">${city}</span></div>
+        ${fromCache ? '<span class="mr-cached">cached</span>' : ''}
+      </div>
+      <div class="mr-ranges">
+        <div class="mr-range-item">
+          <span class="mr-range-label">Low</span>
+          <span class="mr-range-val low">${_mrFmt(d.min)}</span>
+        </div>
+        <div class="mr-range-item highlight">
+          <span class="mr-range-label">Average</span>
+          <span class="mr-range-val avg">${_mrFmt(d.average)}</span>
+        </div>
+        <div class="mr-range-item">
+          <span class="mr-range-label">High</span>
+          <span class="mr-range-val high">${_mrFmt(d.max)}</span>
+        </div>
+      </div>
+      <div class="mr-suggestion">
+        💡 Suggested starting price: <strong>${_mrFmt(d.suggestion)}</strong> <em>${d.unit || 'per job'}</em>
+      </div>
+      ${d.breakdown ? `<div class="mr-breakdown">${d.breakdown}</div>` : ''}
+      ${factors ? `<div class="mr-factors">${factors}</div>` : ''}
+      ${refs ? `<ul class="mr-refs">${refs}</ul>` : ''}
+      <div class="mr-disclaimer">${d.disclaimer || ''}</div>
+    </div>`;
 }
 
 // ── Voice Input ───────────────────────────────────────────────

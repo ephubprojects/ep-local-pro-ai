@@ -27,6 +27,9 @@
 [functions."ls-scan-biz"]
   timeout = 20
 
+[functions."market-rate"]
+  timeout = 25
+
 # ── Admin ─────────────────────────────────────────────
 [[redirects]]
   from   = "/admin"
