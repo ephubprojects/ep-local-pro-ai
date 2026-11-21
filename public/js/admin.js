@@ -2108,6 +2108,7 @@ function renderAdminDocCards() {
     const amount    = amountNum ? `$${amountNum.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}` : '—';
     const custLabel = docData.customerName || docData.custName || '—';
 
+    const st = docData.status || 'pending';
     const row = document.createElement('div');
     row.className = 'doc-row';
     row.innerHTML = `
@@ -2119,6 +2120,10 @@ function renderAdminDocCards() {
       <div class="doc-row-customer">${custLabel}</div>
       <div class="doc-row-date">${fmtDate(docData.createdAt)}</div>
       <div class="doc-row-amount">${amount}</div>
+      <div class="doc-row-status">
+        <button class="status-btn status-approved ${st === 'approved' ? 'active' : ''}" data-status-approve title="Mark Approved">✓ Approved</button>
+        <button class="status-btn status-declined ${st === 'declined' ? 'active' : ''}" data-status-decline title="Mark Declined">✕ Declined</button>
+      </div>
       <div class="doc-row-actions">
         ${docData.htmlContent ? `<button class="btn-action" data-view>👁 View</button>` : ''}
         <button class="btn-action" data-edit>✏️ Edit</button>
@@ -2130,9 +2135,26 @@ function renderAdminDocCards() {
     }
     row.querySelector('[data-edit]')?.addEventListener('click', () => window._docEditDoc(docData.id));
     row.querySelector('[data-del]')?.addEventListener('click',  () => window._docDeleteDoc(docData.id));
+    row.querySelector('[data-status-approve]')?.addEventListener('click', () => window._docSetStatus(docData.id, st === 'approved' ? 'pending' : 'approved'));
+    row.querySelector('[data-status-decline]')?.addEventListener('click', () => window._docSetStatus(docData.id, st === 'declined' ? 'pending' : 'declined'));
     list.appendChild(row);
   });
 }
+
+window._docSetStatus = async function(docId, newStatus) {
+  if (!docId) return;
+  try {
+    await updateDoc(doc(db, 'documents', docId), { status: newStatus, updatedAt: serverTimestamp() });
+    const idx = adminAllDocs.findIndex(d => d.id === docId);
+    if (idx !== -1) {
+      adminAllDocs[idx].status = newStatus;
+      renderAdminDocCards();
+    }
+  } catch (e) {
+    console.error('Status update failed:', e);
+    showToast('Could not update status.', 'error');
+  }
+};
 
 // ============================================================
 // CALENDAR MANAGEMENT
