@@ -2522,3 +2522,77 @@
     max-height: 50vh;
   }
 }
+
+/* ── Market Rate Calculator ─────────────────────────────────── */
+.mr-standalone-form { margin-top: 16px; }
+.mr-standalone-inputs {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.mr-standalone-inputs > div { display: flex; flex-direction: column; gap: 4px; }
+
+.mr-card {
+  border: 1.5px solid #e0e7ff;
+  border-radius: 12px;
+  overflow: hidden;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+.mr-card-header {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #fff;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.mr-card-title { font-size: 0.82rem; font-weight: 700; }
+.mr-city { opacity: .85; }
+.mr-cached { font-size: 0.65rem; background: rgba(255,255,255,.25); padding: 2px 7px; border-radius: 10px; }
+.mr-ranges {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  background: #f8faff;
+  border-bottom: 1px solid #e0e7ff;
+}
+.mr-range-item { padding: 10px 8px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.mr-range-item.highlight { background: #eef2ff; border-left: 1px solid #e0e7ff; border-right: 1px solid #e0e7ff; }
+.mr-range-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: .04em; color: #94a3b8; font-weight: 600; }
+.mr-range-val   { font-size: 1.05rem; font-weight: 700; color: #1e293b; }
+.mr-range-val.avg { color: #4f46e5; font-size: 1.15rem; }
+.mr-suggestion  { padding: 8px 14px; font-size: 0.8rem; color: #1e293b; border-bottom: 1px solid #f1f5f9; background: #fff; }
+.mr-breakdown   { padding: 6px 14px; font-size: 0.75rem; color: #64748b; background: #fff; border-bottom: 1px solid #f1f5f9; }
+.mr-factors     { padding: 6px 14px; display: flex; flex-wrap: wrap; gap: 5px; background: #fff; border-bottom: 1px solid #f1f5f9; }
+.mr-factor      { font-size: 0.68rem; background: #f1f5f9; color: #475569; border-radius: 20px; padding: 2px 9px; }
+.mr-refs        { list-style: none; margin: 0; padding: 6px 14px; background: #fff; border-bottom: 1px solid #f1f5f9; }
+.mr-refs li     { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 0.75rem; color: #475569; border-bottom: 1px dashed #f1f5f9; }
+.mr-refs li:last-child { border-bottom: none; }
+.mr-ref-src     { flex: 1; }
+.mr-ref-price   { font-weight: 700; color: #1e293b; white-space: nowrap; margin-left: 10px; }
+.mr-disclaimer  { padding: 6px 14px; font-size: 0.65rem; color: #94a3b8; background: #f8faff; font-style: italic; }
+.mr-error       { padding: 10px 14px; background: #fef2f2; color: #dc2626; border-radius: 8px; font-size: 0.82rem; border: 1px solid #fecaca; }
+
+.mr-history-list { display: flex; flex-direction: column; gap: 6px; }
+.mr-history-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+.mr-history-item:hover { background: #eef2ff; border-color: #c7d2fe; }
+.mr-history-svc   { flex: 1; font-size: 0.84rem; font-weight: 600; color: #1e293b; }
+.mr-history-city  { width: 150px; font-size: 0.78rem; color: #64748b; flex-shrink: 0; }
+.mr-history-range { font-size: 0.82rem; font-weight: 700; color: #4f46e5; white-space: nowrap; flex-shrink: 0; }
+.mr-history-unit  { font-weight: 400; color: #94a3b8; font-size: 0.72rem; }
+
+@media (max-width: 600px) {
+  .mr-standalone-inputs { flex-direction: column; }
+  .mr-standalone-inputs > div { width: 100%; }
+  .mr-history-item { flex-wrap: wrap; gap: 4px; }
+  .mr-history-city { width: auto; }
+}

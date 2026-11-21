@@ -184,6 +184,12 @@ async function initDashboard() {
     // Walkie Talkie FAB — only when bizId available
     if (bizId) initWalkieTalkie();
 
+    // Show Market Rate nav if add-on is enabled
+    if (ownerDoc.addOns?.marketRate === true) {
+      const navMR = document.getElementById('navMarketRate');
+      if (navMR) navMR.style.display = '';
+    }
+
     hideLoading();
 
     // Load default section
@@ -233,7 +239,8 @@ function showSection(name) {
     'profile':     'Business Profile',
     'ai-settings': 'AI Settings',
     'team':        'Team',
-    'account':     'Account'
+    'account':     'Account',
+    'market-rate': 'Market Rate Calculator'
   };
   qs('#pageTitle').textContent = titles[name] || 'Dashboard';
 
@@ -246,6 +253,7 @@ function showSection(name) {
   if (name === 'ai-settings') { loadAiSettings(); }
   if (name === 'team')        { loadTeam(); }
   if (name === 'account')     { loadAccount(); }
+  if (name === 'market-rate') { _mrRenderHistoryDash(); }
 }
 
 // ── Wire nav + modals (called once after init) ───────────────
@@ -2337,4 +2345,125 @@ function resizeLogo(file, maxW, maxH) {
     reader.readAsDataURL(file);
   });
 }
+
+// ── Market Rate Calculator (dashboard) ───────────────────────
+function _mrFmtDash(n) {
+  if (!n && n !== 0) return '—';
+  return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function _mrRenderResultDash(container, d, service, city, fromCache) {
+  const refs = (d.references || []).map(r =>
+    `<li><span class="mr-ref-src">${r.source || ''}</span><span class="mr-ref-price">${r.range || ''}</span></li>`
+  ).join('');
+  const factors = (d.factors || []).map(f => `<span class="mr-factor">${f}</span>`).join('');
+  container.innerHTML = `
+    <div class="mr-card">
+      <div class="mr-card-header">
+        <div class="mr-card-title">${service} · <span class="mr-city">${city}</span></div>
+        ${fromCache ? '<span class="mr-cached">cached</span>' : ''}
+      </div>
+      <div class="mr-ranges">
+        <div class="mr-range-item">
+          <span class="mr-range-label">Low</span>
+          <span class="mr-range-val low">${_mrFmtDash(d.min)}</span>
+        </div>
+        <div class="mr-range-item highlight">
+          <span class="mr-range-label">Average</span>
+          <span class="mr-range-val avg">${_mrFmtDash(d.average)}</span>
+        </div>
+        <div class="mr-range-item">
+          <span class="mr-range-label">High</span>
+          <span class="mr-range-val high">${_mrFmtDash(d.max)}</span>
+        </div>
+      </div>
+      <div class="mr-suggestion">💡 Suggested starting price: <strong>${_mrFmtDash(d.suggestion)}</strong> <em>${d.unit || 'per job'}</em></div>
+      ${d.breakdown ? `<div class="mr-breakdown">${d.breakdown}</div>` : ''}
+      ${factors    ? `<div class="mr-factors">${factors}</div>`       : ''}
+      ${refs       ? `<ul class="mr-refs">${refs}</ul>`               : ''}
+      <div class="mr-disclaimer">${d.disclaimer || ''}</div>
+    </div>`;
+}
+
+function _mrSaveHistoryDash(service, city, data) {
+  try {
+    const hist = JSON.parse(localStorage.getItem('mr_history') || '[]');
+    const entry = { service, city, min: data.min, max: data.max, average: data.average, unit: data.unit, ts: Date.now() };
+    const filtered = hist.filter(h => !(h.service === service && h.city === city));
+    filtered.unshift(entry);
+    localStorage.setItem('mr_history', JSON.stringify(filtered.slice(0, 10)));
+  } catch {}
+}
+
+function _mrRenderHistoryDash() {
+  const container = document.getElementById('mrHistoryDash');
+  if (!container) return;
+  try {
+    const hist = JSON.parse(localStorage.getItem('mr_history') || '[]');
+    if (!hist.length) { container.innerHTML = ''; return; }
+    container.innerHTML = `
+      <h3 style="font-size:0.85rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Recent Lookups</h3>
+      <div class="mr-history-list">
+        ${hist.map((h, i) => `
+          <div class="mr-history-item" data-idx="${i}" style="cursor:pointer">
+            <div class="mr-history-svc">${h.service}</div>
+            <div class="mr-history-city">${h.city}</div>
+            <div class="mr-history-range">${_mrFmtDash(h.min)} – ${_mrFmtDash(h.max)} <span class="mr-history-unit">${h.unit || 'per job'}</span></div>
+          </div>`).join('')}
+      </div>`;
+    container.querySelectorAll('.mr-history-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const h = hist[+el.dataset.idx];
+        const s = document.getElementById('mrServiceDash');
+        const c = document.getElementById('mrCityDash');
+        if (s) s.value = h.service;
+        if (c) c.value = h.city;
+        window._mrGetRatesDash();
+      });
+    });
+  } catch {}
+}
+
+window._mrGetRatesDash = async function() {
+  const service  = (document.getElementById('mrServiceDash')?.value || '').trim();
+  const city     = (document.getElementById('mrCityDash')?.value    || '').trim();
+  const resultEl = document.getElementById('mrResultDash');
+  const btnEl    = document.getElementById('mrBtnDash');
+  if (!service || !city) { showToast('Enter both a service type and a city.', 'error'); return; }
+
+  const cacheKey = `mr_${service.toLowerCase().replace(/\s+/g,'-')}_${city.toLowerCase().replace(/\s+/g,'-')}`;
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) {
+    try {
+      const { data, ts } = JSON.parse(cached);
+      if (Date.now() - ts < 86_400_000) { _mrRenderResultDash(resultEl, data, service, city, true); return; }
+    } catch {}
+  }
+
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = '⏳ Fetching market data…'; }
+  if (resultEl) resultEl.innerHTML = '';
+
+  try {
+    const resp = await fetch('/.netlify/functions/market-rate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ service, city })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Failed to get market rates');
+    localStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
+    _mrSaveHistoryDash(service, city, data);
+    _mrRenderResultDash(resultEl, data, service, city, false);
+    _mrRenderHistoryDash();
+  } catch (e) {
+    if (resultEl) resultEl.innerHTML = `<div class="mr-error">⚠️ ${e.message}</div>`;
+  } finally {
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = '📊 Get Market Rates'; }
+  }
+};
+
+window._mrClearDash = function() {
+  const r = document.getElementById('mrResultDash');
+  if (r) r.innerHTML = '';
+};
 

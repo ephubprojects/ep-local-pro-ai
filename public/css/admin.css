@@ -2653,6 +2653,42 @@ textarea.doc-input { resize: vertical; }
   .doc-row-actions  { width: 100%; padding: 4px 12px 6px; }
 }
 
+/* ── Market Rate Standalone Form ───────────────────────────── */
+.mr-standalone-form { margin-top: 16px; }
+.mr-standalone-inputs {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.mr-standalone-inputs > div { display: flex; flex-direction: column; gap: 4px; }
+.form-label { font-size: 0.78rem; font-weight: 600; color: #475569; }
+
+/* ── Market Rate History List ───────────────────────────────── */
+.mr-history-list { display: flex; flex-direction: column; gap: 6px; }
+.mr-history-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+.mr-history-item:hover { background: #eef2ff; border-color: #c7d2fe; }
+.mr-history-svc  { flex: 1; font-size: 0.84rem; font-weight: 600; color: #1e293b; }
+.mr-history-city { width: 160px; font-size: 0.78rem; color: #64748b; flex-shrink: 0; }
+.mr-history-range { font-size: 0.82rem; font-weight: 700; color: #4f46e5; white-space: nowrap; flex-shrink: 0; }
+.mr-history-unit  { font-weight: 400; color: #94a3b8; font-size: 0.72rem; }
+
+@media (max-width: 600px) {
+  .mr-standalone-inputs { flex-direction: column; }
+  .mr-standalone-inputs > div { width: 100%; }
+  .mr-history-item { flex-wrap: wrap; gap: 4px; }
+  .mr-history-city { width: auto; }
+}
+
 /* ── Add-on Toggle Switch ──────────────────────────────────── */
 .addon-toggle {
   display: inline-flex;

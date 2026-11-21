@@ -428,6 +428,7 @@ function showSection(name) {
     localBusiness: 'Local Business Accounts',
     categories:    'Categories',
     calendar:      'Calendar',
+    'market-rate': 'Market Rate Calculator',
     profile:       'My Profile',
     settings:      'Settings'
   };
@@ -445,10 +446,17 @@ function showSection(name) {
   });
 
   // Load data for section on first visit
-  if (name === 'demos')      { loadDemos(); window._adminLoadDemoRequests(); }
-  if (name === 'businesses') loadBusinesses();
-  if (name === 'settings')   { loadSettings(); adminLoadFinancingUsers(); }
-  if (name === 'calendar')   { loadCalendarConfig(); window._adminLoadBookings(); }
+  if (name === 'demos')        { loadDemos(); window._adminLoadDemoRequests(); }
+  if (name === 'businesses')   loadBusinesses();
+  if (name === 'settings')     { loadSettings(); adminLoadFinancingUsers(); }
+  if (name === 'calendar')     { loadCalendarConfig(); window._adminLoadBookings(); }
+  if (name === 'market-rate')  _mrRenderHistory(document.getElementById('mrHistoryAdmin'), (svc, cty) => {
+    const s = document.getElementById('mrServiceAdmin');
+    const c = document.getElementById('mrCityAdmin');
+    if (s) s.value = svc;
+    if (c) c.value = cty;
+    window._mrGetRatesAdmin();
+  });
 }
 
 // ============================================================
@@ -4173,51 +4181,20 @@ function _wireDocLogoUpload() {
 }
 
 // ── Market Rate Calculator ────────────────────────────────────
-window._mrToggle = function() {
-  const body = document.getElementById('marketRateBody');
-  const hint = document.getElementById('mrToggleHint');
-  if (!body) return;
-  const open = body.style.display !== 'none';
-  body.style.display = open ? 'none' : 'block';
-  if (hint) hint.textContent = open ? 'Check local rates ›' : 'Collapse ‹';
-  if (!open) {
-    // Auto-fill from doc form
-    const svc  = document.getElementById('mrService');
-    const city = document.getElementById('mrCity');
-    if (svc && !svc.value) svc.value = document.getElementById('docProjectTitle')?.value || '';
-    if (city && !city.value) {
-      const addr = document.getElementById('docBizAddress')?.value || '';
-      const parts = addr.split(',').map(s => s.trim());
-      city.value = parts.length >= 2 ? parts.slice(-2).join(', ') : addr;
-    }
-  }
-};
+async function _mrFetch(service, city, resultEl, btnEl) {
+  if (!service || !city) { showToast('Enter both a service type and a city.', 'error'); return; }
 
-window._mrGetRates = async function() {
-  const service = (document.getElementById('mrService')?.value || '').trim();
-  const city    = (document.getElementById('mrCity')?.value    || '').trim();
-  const result  = document.getElementById('mrResult');
-  const btn     = document.getElementById('mrBtn');
-  if (!result || !btn) return;
-
-  if (!service || !city) {
-    showToast('Enter both a service type and a city.', 'error');
-    return;
-  }
-
-  // Check localStorage cache (24h)
-  const cacheKey = `mr_${service.toLowerCase()}_${city.toLowerCase()}`;
+  const cacheKey = `mr_${service.toLowerCase().replace(/\s+/g,'-')}_${city.toLowerCase().replace(/\s+/g,'-')}`;
   const cached = localStorage.getItem(cacheKey);
   if (cached) {
     try {
       const { data, ts } = JSON.parse(cached);
-      if (Date.now() - ts < 86_400_000) { _mrRenderResult(result, data, service, city, true); return; }
+      if (Date.now() - ts < 86_400_000) { _mrRenderResult(resultEl, data, service, city, true); return; }
     } catch {}
   }
 
-  btn.disabled = true;
-  btn.textContent = '⏳ Fetching market data…';
-  result.innerHTML = '';
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = '⏳ Fetching market data…'; }
+  if (resultEl) resultEl.innerHTML = '';
 
   try {
     const resp = await fetch('/.netlify/functions/market-rate', {
@@ -4228,13 +4205,68 @@ window._mrGetRates = async function() {
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || 'Failed to get market rates');
     localStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
-    _mrRenderResult(result, data, service, city, false);
+    _mrSaveHistory(service, city, data);
+    if (resultEl) _mrRenderResult(resultEl, data, service, city, false);
   } catch (e) {
-    result.innerHTML = `<div class="mr-error">⚠️ ${e.message}</div>`;
+    if (resultEl) resultEl.innerHTML = `<div class="mr-error">⚠️ ${e.message}</div>`;
   } finally {
-    btn.disabled = false;
-    btn.textContent = '📊 Get Market Rates';
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = '📊 Get Market Rates'; }
   }
+}
+
+function _mrSaveHistory(service, city, data) {
+  try {
+    const hist = JSON.parse(localStorage.getItem('mr_history') || '[]');
+    const entry = { service, city, min: data.min, max: data.max, average: data.average, unit: data.unit, ts: Date.now() };
+    const filtered = hist.filter(h => !(h.service === service && h.city === city));
+    filtered.unshift(entry);
+    localStorage.setItem('mr_history', JSON.stringify(filtered.slice(0, 10)));
+  } catch {}
+}
+
+function _mrRenderHistory(containerEl, onSelect) {
+  if (!containerEl) return;
+  try {
+    const hist = JSON.parse(localStorage.getItem('mr_history') || '[]');
+    if (!hist.length) { containerEl.innerHTML = ''; return; }
+    containerEl.innerHTML = `
+      <h3 style="font-size:0.85rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Recent Lookups</h3>
+      <div class="mr-history-list">
+        ${hist.map((h, i) => `
+          <div class="mr-history-item" data-idx="${i}" style="cursor:pointer">
+            <div class="mr-history-svc">${h.service}</div>
+            <div class="mr-history-city">${h.city}</div>
+            <div class="mr-history-range">${_mrFmt(h.min)} – ${_mrFmt(h.max)} <span class="mr-history-unit">${h.unit || 'per job'}</span></div>
+          </div>`).join('')}
+      </div>`;
+    containerEl.querySelectorAll('.mr-history-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const h = hist[+el.dataset.idx];
+        if (onSelect) onSelect(h.service, h.city);
+      });
+    });
+  } catch {}
+}
+
+window._mrGetRatesAdmin = async function() {
+  const service = (document.getElementById('mrServiceAdmin')?.value || '').trim();
+  const city    = (document.getElementById('mrCityAdmin')?.value    || '').trim();
+  await _mrFetch(service, city,
+    document.getElementById('mrResultAdmin'),
+    document.getElementById('mrBtnAdmin')
+  );
+  _mrRenderHistory(document.getElementById('mrHistoryAdmin'), (svc, cty) => {
+    const s = document.getElementById('mrServiceAdmin');
+    const c = document.getElementById('mrCityAdmin');
+    if (s) s.value = svc;
+    if (c) c.value = cty;
+    window._mrGetRatesAdmin();
+  });
+};
+
+window._mrClearAdmin = function() {
+  const r = document.getElementById('mrResultAdmin');
+  if (r) r.innerHTML = '';
 };
 
 function _mrFmt(n) {

@@ -44,6 +44,9 @@
     <a data-nav="calendar">
       <span class="nav-icon">📅</span> Calendar
     </a>
+    <a data-nav="market-rate">
+      <span class="nav-icon">📊</span> Market Rate
+    </a>
     <a data-nav="profile">
       <span class="nav-icon">👤</span> Profile
     </a>
@@ -879,6 +882,33 @@
 
     </div><!-- /profile -->
 
+    <!-- ════════════ SECTION: Market Rate ════════════ -->
+    <div data-section="market-rate" class="hidden">
+      <div class="section-card">
+        <div class="section-card-header">
+          <div>
+            <h2>📊 Market Rate Calculator</h2>
+            <p style="margin:4px 0 0;font-size:0.82rem;color:#64748b;">Research what local contractors charge for any service in any city — powered by AI.</p>
+          </div>
+        </div>
+        <div class="mr-standalone-form">
+          <div class="mr-standalone-inputs">
+            <div style="flex:2;min-width:180px">
+              <label class="form-label">Service / Job Type</label>
+              <input type="text" id="mrServiceAdmin" class="form-input" placeholder="e.g. Tankless water heater replacement, Roof repair, Lawn care…" oninput="window._mrClearAdmin()"/>
+            </div>
+            <div style="flex:1;min-width:140px">
+              <label class="form-label">City / County, State</label>
+              <input type="text" id="mrCityAdmin" class="form-input" placeholder="e.g. Ventura County, CA" oninput="window._mrClearAdmin()"/>
+            </div>
+            <button class="btn-primary" id="mrBtnAdmin" onclick="window._mrGetRatesAdmin()" style="align-self:flex-end;white-space:nowrap">📊 Get Market Rates</button>
+          </div>
+        </div>
+        <div id="mrResultAdmin" style="margin-top:16px"></div>
+        <div id="mrHistoryAdmin" style="margin-top:24px"></div>
+      </div>
+    </div><!-- /market-rate -->
+
     <!-- ════════════ SECTION: Settings ════════════ -->
     <div data-section="settings" class="hidden">
 
@@ -1320,28 +1350,6 @@
             <label class="doc-field-label" data-en="Reference Invoice #" data-es="Ref. Factura #">Reference Invoice #</label>
             <input type="text" id="docInvoiceRef" class="doc-input" placeholder="e.g. INV-4751 (optional)"
               oninput="window._docUpdatePreview()"/>
-          </div>
-        </div>
-
-        <!-- Market Rate Calculator -->
-        <div class="doc-form-section" id="marketRateSection">
-          <div class="doc-fsec-title" onclick="window._mrToggle()" style="cursor:pointer;user-select:none;display:flex;align-items:center;">
-            📊 <span style="margin-left:4px">Market Rate Calculator</span>
-            <span style="margin-left:auto;font-size:0.75rem;color:#4f46e5;font-weight:500" id="mrToggleHint">Check local rates ›</span>
-          </div>
-          <div id="marketRateBody" style="display:none;margin-top:10px">
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-              <div style="flex:2;min-width:140px">
-                <label class="doc-field-label">Service / Job Type</label>
-                <input type="text" id="mrService" class="doc-input" placeholder="e.g. Tankless water heater replacement"/>
-              </div>
-              <div style="flex:1;min-width:120px">
-                <label class="doc-field-label">City / County</label>
-                <input type="text" id="mrCity" class="doc-input" placeholder="e.g. Ventura County, CA"/>
-              </div>
-            </div>
-            <button class="btn-primary" onclick="window._mrGetRates()" id="mrBtn" style="width:100%;justify-content:center">📊 Get Market Rates</button>
-            <div id="mrResult" style="margin-top:10px"></div>
           </div>
         </div>
 

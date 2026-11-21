@@ -59,6 +59,9 @@
     <a data-nav="account">
       <span class="nav-icon">👤</span> Account
     </a>
+    <a data-nav="market-rate" id="navMarketRate" style="display:none">
+      <span class="nav-icon">📊</span> Market Rate
+    </a>
   </nav>
 
   <div class="sidebar-footer">
@@ -560,6 +563,33 @@
       </div>
 
     </div><!-- /account -->
+
+    <!-- ════════════ SECTION: Market Rate ════════════ -->
+    <div data-section="market-rate" class="hidden">
+      <div class="section-card">
+        <div class="section-card-header">
+          <div>
+            <h2>📊 Market Rate Calculator</h2>
+            <p style="margin:4px 0 0;font-size:0.82rem;color:#64748b;">See what local contractors charge for any service in your area — before you send a quote.</p>
+          </div>
+        </div>
+        <div class="mr-standalone-form">
+          <div class="mr-standalone-inputs">
+            <div style="flex:2;min-width:180px">
+              <label class="form-label">Service / Job Type</label>
+              <input type="text" id="mrServiceDash" class="form-input" placeholder="e.g. Roof replacement, AC installation, Lawn care…" oninput="window._mrClearDash()"/>
+            </div>
+            <div style="flex:1;min-width:140px">
+              <label class="form-label">City / County, State</label>
+              <input type="text" id="mrCityDash" class="form-input" placeholder="e.g. Houston, TX" oninput="window._mrClearDash()"/>
+            </div>
+            <button class="btn-primary" id="mrBtnDash" onclick="window._mrGetRatesDash()" style="align-self:flex-end;white-space:nowrap">📊 Get Market Rates</button>
+          </div>
+        </div>
+        <div id="mrResultDash" style="margin-top:16px"></div>
+        <div id="mrHistoryDash" style="margin-top:24px"></div>
+      </div>
+    </div><!-- /market-rate -->
 
     <!-- ════════════ SECTION: Team ════════════ -->
     <div data-section="team" class="hidden">
