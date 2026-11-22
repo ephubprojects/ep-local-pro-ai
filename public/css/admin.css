@@ -1883,8 +1883,14 @@ input[type="color"]#catColorPicker {
   gap: 10px;
 }
 
-/* Right column */
-.cal-right-col { display: flex; flex-direction: column; gap: 0; }
+/* Right column — sticky so booking link/calendar stay visible while scrolling the long left form */
+.cal-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: sticky;
+  top: 72px;
+}
 
 /* Booking link card */
 .cal-link-card {}
