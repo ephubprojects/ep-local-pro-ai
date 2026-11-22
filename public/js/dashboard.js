@@ -3523,9 +3523,22 @@ function openDocCreator(type = 'invoice') {
   const closeBtn = document.getElementById('dashCloseDocCreator');
   if (closeBtn && !closeBtn._dashWired) {
     closeBtn._dashWired = true;
-    closeBtn.addEventListener('click', () => {
-      modal.classList.add('hidden');
-      document.body.style.overflow = '';
+    closeBtn.addEventListener('click', _dashCloseCreator);
+  }
+
+  // Escape key closes creator
+  if (!window._dashCreatorEscWired) {
+    window._dashCreatorEscWired = true;
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !document.getElementById('docCreatorModal')?.classList.contains('hidden')) {
+        _dashCloseCreator();
+      }
     });
   }
+}
+
+function _dashCloseCreator() {
+  const modal = document.getElementById('docCreatorModal');
+  if (modal) modal.classList.add('hidden');
+  document.body.style.overflow = '';
 }

@@ -1423,6 +1423,28 @@
   background: var(--light, #f8fafc);
 }
 
+/* Doc creator — back to dashboard button */
+.dash-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  border: 1.5px solid rgba(255,255,255,0.25);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+.dash-back-btn:hover {
+  background: rgba(255,255,255,0.22);
+  border-color: rgba(255,255,255,0.45);
+  transform: translateX(-2px);
+}
+
 .modal-body {
   padding: 20px 24px;
   overflow-y: auto;
