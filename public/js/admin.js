@@ -113,13 +113,32 @@ function getAllCategories() {
 function catHTML(categoryId) {
   const cat = CAT_MAP[categoryId] || customCategories.find(c => c.id === categoryId);
   if (!cat) return categoryId || '—';
-  if (cat.emoji?.startsWith('data:image')) {
+  if (cat.emoji?.startsWith('http') || cat.emoji?.startsWith('data:')) {
     return `<img src="${cat.emoji}" style="width:18px;height:18px;vertical-align:middle;object-fit:contain;border-radius:3px;"> ${escHTML(cat.name)}`;
   }
   return `${cat.emoji} ${escHTML(cat.name)}`;
 }
 
-// ── Resize uploaded category icon ─────────────────────────────
+// ── Resize image file → Blob ──────────────────────────────────
+function resizeToBlob(file, w, h, mime = 'image/webp', q = 0.85) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = e => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), mime, q);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function resizeCatIcon(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -135,7 +154,7 @@ function resizeCatIcon(file) {
         const sx = (img.width  - size) / 2;
         const sy = (img.height - size) / 2;
         ctx.drawImage(img, sx, sy, size, size, 0, 0, 64, 64);
-        resolve(canvas.toDataURL('image/png', 0.9));
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/png', 0.9);
       };
       img.src = e.target.result;
     };
@@ -358,9 +377,11 @@ async function onAdminReady(user) {
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) { showToast('Image must be under 2MB', 'error'); return; }
     try {
-      const dataUrl = await resizeCatIcon(file);
-      setCatIcon(dataUrl);
-    } catch { showToast('Failed to load image', 'error'); }
+      const blob = await resizeCatIcon(file);
+      const snap = await uploadBytes(storageRef(storage, `categories/icons/${Date.now()}`), blob, { contentType: 'image/png' });
+      const url  = await getDownloadURL(snap.ref);
+      setCatIcon(url);
+    } catch (err) { showToast('Failed to upload icon: ' + (err.message || err), 'error'); }
     e.target.value = '';
   });
 
@@ -3974,31 +3995,7 @@ window._docSave = async function() {
   const btn = document.getElementById('docSaveBtn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving…'; }
   try {
-    // Upload logo to Firebase Storage if it's a base64 data URL (too large for Firestore)
-    let logoUrl = _docLogoDataUrl;
-    if (logoUrl && logoUrl.startsWith('data:')) {
-      if (btn) btn.textContent = '⏳ Uploading logo…';
-      const uid = auth.currentUser?.uid || 'shared';
-      const matches = logoUrl.match(/^data:([^;]+);base64,(.+)$/);
-      if (matches) {
-        const mimeType = matches[1];
-        const byteChars = atob(matches[2]);
-        const byteArr = new Uint8Array(byteChars.length);
-        for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
-        const blob = new Blob([byteArr], { type: mimeType });
-        const ext = mimeType.split('/')[1]?.split('+')[0] || 'png';
-        const logoRef = storageRef(storage, `logos/${uid}/logo.${ext}`);
-        await uploadBytes(logoRef, blob);
-        logoUrl = await getDownloadURL(logoRef);
-      }
-      if (btn) btn.textContent = '⏳ Saving…';
-    }
-
-    // Generate HTML with the Storage URL (not base64) so htmlContent stays under 1MB
-    const _origLogo = _docLogoDataUrl;
-    _docLogoDataUrl = logoUrl;
     const htmlContent = _docGenerateHTML();
-    _docLogoDataUrl = _origLogo;
 
     const data = {
       type:         _docType,
@@ -4028,7 +4025,7 @@ window._docSave = async function() {
       taxRate:        parseFloat(document.getElementById('docTaxRate')?.value || 0),
       paymentMethod:  document.getElementById('docPaymentMethod')?.value || '',
       items:          _docItems,
-      logoUrl:        logoUrl,
+      logoUrl:        _docLogoDataUrl,
       htmlContent:    htmlContent,
       designTemplate: _docDesignTemplate,
       ownerUid:     auth.currentUser?.uid || '',
@@ -4418,19 +4415,27 @@ function _wireDocLogoUpload() {
   const input = document.getElementById('docLogoInput');
   if (!input || input._wired) return;
   input._wired = true;
-  input.addEventListener('change', () => {
+  input.addEventListener('change', async () => {
     const file = input.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      _docLogoDataUrl = e.target.result;
-      const img = document.getElementById('docLogoImg');
-      const ph  = document.getElementById('docLogoPlaceholder');
-      if (img) { img.src = _docLogoDataUrl; img.style.display = 'block'; }
-      if (ph)  ph.style.display = 'none';
+    const img = document.getElementById('docLogoImg');
+    const ph  = document.getElementById('docLogoPlaceholder');
+    // Instant preview while upload runs
+    const preview = URL.createObjectURL(file);
+    if (img) { img.src = preview; img.style.display = 'block'; }
+    if (ph)  ph.style.display = 'none';
+    _docUpdatePreview();
+    try {
+      const uid  = currentUser?.uid || 'shared';
+      const blob = await resizeToBlob(file, 300, 120);
+      const snap = await uploadBytes(storageRef(storage, `logos/${uid}/logo`), blob, { contentType: 'image/webp' });
+      _docLogoDataUrl = await getDownloadURL(snap.ref);
+      if (img) img.src = _docLogoDataUrl;
       _docUpdatePreview();
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('logo upload failed:', err);
+      showToast('Logo upload failed', 'error');
+    }
   });
 }
 

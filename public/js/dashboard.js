@@ -299,12 +299,15 @@ function wireNavAndModals() {
     if (file.size > 2 * 1024 * 1024) { showToast('Image must be under 2MB.', 'error'); return; }
     if (!bizId) { showToast('Business not loaded yet. Please wait.', 'error'); return; }
     try {
-      const dataUrl = await resizeLogo(file, 300, 120);
-      qs('#profileLogoImg').src = dataUrl;
+      showToast('Uploading logo…');
+      const blob = await resizeLogo(file, 300, 120);
+      const snap = await uploadBytes(storageRef(storage, `businesses/${bizId}/logo`), blob, { contentType: 'image/webp' });
+      const url  = await getDownloadURL(snap.ref);
+      qs('#profileLogoImg').src = url;
       qs('#profileLogoImg').style.display = 'block';
       qs('#profileLogoPlaceholder').style.display = 'none';
-      await updateDoc(doc(db, 'businesses', bizId), { logoUrl: dataUrl });
-      if (bizDoc) bizDoc.logoUrl = dataUrl;
+      await updateDoc(doc(db, 'businesses', bizId), { logoUrl: url });
+      if (bizDoc) bizDoc.logoUrl = url;
       showToast('Logo saved!');
     } catch (err) {
       console.error('logo upload error:', err);
@@ -2334,7 +2337,7 @@ function resizeLogo(file, maxW, maxH) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = reject;
-    reader.onload = (e) => {
+    reader.onload = e => {
       const img = new Image();
       img.onerror = reject;
       img.onload = () => {
@@ -2345,7 +2348,7 @@ function resizeLogo(file, maxW, maxH) {
         const canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/png', 0.85));
+        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('toBlob failed')), 'image/webp', 0.85);
       };
       img.src = e.target.result;
     };
@@ -2821,19 +2824,25 @@ function _dWireLogoUpload() {
   const input = document.getElementById('docLogoInput');
   if (!input || input._dashWired) return;
   input._dashWired = true;
-  input.addEventListener('change', () => {
+  input.addEventListener('change', async () => {
     const file = input.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      _dLogoUrl = e.target.result;
-      const img = document.getElementById('docLogoImg');
-      const ph  = document.getElementById('docLogoPlaceholder');
-      if (img) { img.src = _dLogoUrl; img.style.display = 'block'; }
-      if (ph)  ph.style.display = 'none';
+    const img = document.getElementById('docLogoImg');
+    const ph  = document.getElementById('docLogoPlaceholder');
+    // Instant preview while upload runs
+    const preview = URL.createObjectURL(file);
+    if (img) { img.src = preview; img.style.display = 'block'; }
+    if (ph)  ph.style.display = 'none';
+    try {
+      const blob = await resizeLogo(file, 300, 120);
+      const snap = await uploadBytes(storageRef(storage, `businesses/${bizId}/doc_logo`), blob, { contentType: 'image/webp' });
+      _dLogoUrl = await getDownloadURL(snap.ref);
+      if (img) img.src = _dLogoUrl;
       window._dashDocUpdatePreview();
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('doc logo upload:', err);
+      showToast('Logo upload failed', 'error');
+    }
   });
 }
 
