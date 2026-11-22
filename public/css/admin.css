@@ -2622,8 +2622,10 @@ textarea.doc-input { resize: vertical; }
 .doc-row-amount  { width: 100px; font-size: 0.9rem; font-weight: 700; color: #1e293b; padding: 0 12px; flex-shrink: 0; text-align: right; }
 .doc-row-status  { display: flex; gap: 4px; padding: 0 8px; flex-shrink: 0; }
 .doc-row-actions { padding: 0 10px 0 4px; display: flex; gap: 4px; flex-shrink: 0; }
-.btn-action-del  { color: #ef4444; }
-.btn-action-sign { color: #15803d; }
+.btn-action-del   { color: #ef4444; }
+.btn-action-sign  { color: #15803d; }
+.btn-action-share { color: #2563eb; }
+.btn-action-copy  { color: #7c3aed; }
 
 .status-btn {
   font-size: 0.7rem;

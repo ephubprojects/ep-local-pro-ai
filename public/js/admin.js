@@ -2159,6 +2159,8 @@ function renderAdminDocCards() {
       <div class="doc-row-actions">
         ${docData.htmlContent ? `<button class="btn-action" data-view>👁 View</button>` : ''}
         <button class="btn-action" data-edit>✏️ Edit</button>
+        ${docData.id ? `<button class="btn-action btn-action-share" data-share>📤 Share</button>` : ''}
+        ${docData.id ? `<button class="btn-action btn-action-copy" data-copy>🔗 Copy Link</button>` : ''}
         ${(docData.type==='estimate'||docData.type==='contract') ? `<button class="btn-action btn-action-sign" data-sign title="${docData.ownerSig ? 'Re-sign / View Signature' : 'Owner: Sign Document'}">✍️ Sign</button>` : ''}
         <button class="btn-action btn-action-del" data-del>🗑 Delete</button>
       </div>`;
@@ -2167,6 +2169,18 @@ function renderAdminDocCards() {
       row.querySelector('[data-view]')?.addEventListener('click', () => window._docViewDoc(docData.id));
     }
     row.querySelector('[data-edit]')?.addEventListener('click', () => window._docEditDoc(docData.id));
+    row.querySelector('[data-share]')?.addEventListener('click', () => {
+      const viewUrl = `${window.location.origin}/view.html?id=${docData.id}`;
+      _docShowShareModal(viewUrl, docData.docNumber, docData.type);
+    });
+    row.querySelector('[data-copy]')?.addEventListener('click', (e) => {
+      const url = `${window.location.origin}/view.html?id=${docData.id}`;
+      navigator.clipboard.writeText(url).then(() => {
+        const btn = e.currentTarget;
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => { btn.textContent = '🔗 Copy Link'; }, 2000);
+      });
+    });
     row.querySelector('[data-sign]')?.addEventListener('click', () => window._docOwnerSign(docData.id));
     row.querySelector('[data-del]')?.addEventListener('click',  () => window._docDeleteDoc(docData.id));
     row.querySelector('[data-status-approve]')?.addEventListener('click', () => window._docSetStatus(docData.id, st === 'approved' ? 'pending' : 'approved'));
