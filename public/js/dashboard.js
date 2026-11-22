@@ -716,7 +716,7 @@ async function loadDocuments() {
 
   // Wire create cards
   document.querySelectorAll('[data-doc-type]').forEach(btn => {
-    btn.onclick = () => openGenerateDocModal(btn.dataset.docType);
+    btn.onclick = () => openDocCreator(btn.dataset.docType);
   });
 
   // Wire filter tabs
@@ -961,145 +961,7 @@ function downloadDocument(htmlContent, label) {
   setTimeout(() => qs('#docPreviewFrame')?.contentWindow?.print(), 700);
 }
 
-function openGenerateDocModal(type) {
-  const configs = {
-    invoice:  { title: 'New Invoice',  label: 'INVOICE',  cls: 'label-invoice'  },
-    estimate: { title: 'New Estimate', label: 'ESTIMATE', cls: 'label-estimate' },
-    contract: { title: 'New Contract', label: 'CONTRACT', cls: 'label-contract' },
-    receipt:  { title: 'New Receipt',  label: 'RECEIPT',  cls: 'label-receipt'  },
-  };
-  const cfg = configs[type] || configs.invoice;
-  qs('#genDocModalTitle').textContent = cfg.title;
-  const labelEl = qs('#genDocLabel');
-  labelEl.textContent = cfg.label;
-  labelEl.className = `gen-doc-label ${cfg.cls}`;
-  qs('#genDocType').value = type;
-
-  const isContract = type === 'contract';
-  const isReceipt  = type === 'receipt';
-  qs('#genDocContractFields').classList.toggle('hidden', !isContract);
-  qs('#genDocLineItemsSection').classList.toggle('hidden', isContract);
-  qs('#genDocTaxGroup').classList.toggle('hidden', isContract);
-  qs('#genDocTermsGroup').classList.toggle('hidden', !isContract);
-  qs('#genDocPayMethodGroup').classList.toggle('hidden', !isReceipt);
-
-  // Populate business profile banner
-  const biz = bizDoc || {};
-  const logoEl = qs('#docBizLogoPreview');
-  if (biz.logoUrl) { logoEl.src = biz.logoUrl; logoEl.style.display = 'block'; }
-  else logoEl.style.display = 'none';
-  qs('#docBizNamePreview').textContent = biz.companyName || biz.name || '—';
-  const details = [biz.address, biz.phone, biz.email].filter(Boolean).join(' · ');
-  qs('#docBizDetailPreview').textContent = details || 'Complete your Business Profile to personalize documents.';
-
-  const editLink = qs('#docBizBanner [data-nav="profile"]');
-  if (editLink) editLink.onclick = () => { qs('#generateDocModal').classList.add('hidden'); showSection('profile'); };
-
-  // Reset all fields
-  ['#genDocCustomer','#genDocCustEmail','#genDocCustAddress','#genDocNotes','#genDocTerms',
-   '#genDocJobDesc','#genDocPaymentTerms','#genDocContractTotal','#genDocStartDate','#genDocEndDate']
-    .forEach(sel => { const el = qs(sel); if (el) el.value = ''; });
-  qs('#genDocDate').value = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  qs('#genDocTaxRate').value = '0';
-
-  if (!isContract) {
-    qs('#genDocItemsList').innerHTML = '';
-    addDocLineItem();
-    updateDocTotals();
-  }
-
-  qs('#addDocItemBtn').onclick   = addDocLineItem;
-  qs('#genDocTaxRate').oninput   = updateDocTotals;
-  qs('#confirmGenDocBtn').onclick = () => generateDocument(type);
-  qs('#generateDocModal').classList.remove('hidden');
-}
-
-async function generateDocument(type) {
-  const customer = qs('#genDocCustomer').value.trim();
-  if (!customer) { showToast('Customer name is required.', 'error'); return; }
-
-  const biz        = bizDoc || {};
-  const isContract = type === 'contract';
-
-  let items, taxRate, totalAmount;
-
-  if (isContract) {
-    const contractTotal = parseFloat(qs('#genDocContractTotal').value) || 0;
-    const jobDesc       = qs('#genDocJobDesc').value.trim() || 'Professional Services';
-    items       = [{ name: jobDesc, qty: 1, price: contractTotal, desc: '' }];
-    taxRate     = 0;
-    totalAmount = contractTotal;
-  } else {
-    items = [];
-    document.querySelectorAll('#genDocItemsList .doc-line-item-row').forEach(row => {
-      const name  = row.querySelector('.dli-name').value.trim();
-      const qty   = parseFloat(row.querySelector('.dli-qty').value)   || 1;
-      const price = parseFloat(row.querySelector('.dli-price').value) || 0;
-      const desc  = row.querySelector('.dli-desc').value.trim();
-      if (name) items.push({ name, qty, price, desc });
-    });
-    if (!items.length) { showToast('Add at least one item.', 'error'); return; }
-    taxRate     = parseFloat(qs('#genDocTaxRate').value) || 0;
-    const sub   = items.reduce((s, i) => s + i.qty * i.price, 0);
-    totalAmount = sub + sub * taxRate / 100;
-  }
-
-  const payload = {
-    type,
-    bizName:        biz.companyName || biz.name || '',
-    bizAddress:     biz.address     || '',
-    bizPhone:       biz.phone       || '',
-    bizEmail:       biz.email       || '',
-    bizLogo:        biz.logoUrl     || '',
-    customerName:    customer,
-    customerEmail:   qs('#genDocCustEmail').value.trim(),
-    customerAddress: qs('#genDocCustAddress').value.trim(),
-    items,
-    taxRate,
-    notes:          qs('#genDocNotes').value.trim(),
-    jobDescription: isContract ? qs('#genDocJobDesc').value.trim()       : '',
-    contractTerms:  isContract ? qs('#genDocTerms').value.trim()         : '',
-    paymentTerms:   isContract ? qs('#genDocPaymentTerms').value.trim()  : '',
-    paymentMethod:  type === 'receipt' ? qs('#genDocPayMethod').value    : '',
-  };
-
-  const btn = qs('#confirmGenDocBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Generating…';
-
-  try {
-    const res = await fetch('/.netlify/functions/invoice-generate', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (!res.ok) throw new Error(result.error || 'Server error');
-
-    await addDoc(collection(db, 'documents'), {
-      businessId:   bizId,
-      type,
-      docNumber:    result.docNumber    || null,
-      customerName: customer,
-      amount:       result.total        || totalAmount || 0,
-      status:       'generated',
-      htmlContent:  result.htmlContent  || null,
-      createdAt:    serverTimestamp()
-    });
-
-    qs('#generateDocModal').classList.add('hidden');
-    const typeCap = type.charAt(0).toUpperCase() + type.slice(1);
-    showToast(`${typeCap} ${result.docNumber || ''} generated!`);
-    loadDocuments();
-
-  } catch (err) {
-    console.error('generateDocument error:', err);
-    showToast('Failed to generate document. Check your connection.', 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '✨ Generate';
-  }
-}
+// openGenerateDocModal replaced by openDocCreator — see bottom of file
 
 // ── AI Settings ──────────────────────────────────────────────
 
@@ -2350,45 +2212,7 @@ async function wtSendPush(fromName, to) {
   } catch {}
 }
 
-// ── Doc Line Item helpers ────────────────────────────────────
-function addDocLineItem(item = {}) {
-  const list = qs('#genDocItemsList');
-  if (!list) return;
-  const row = document.createElement('div');
-  row.className = 'doc-line-item-row';
-  row.innerHTML = `
-    <input class="dli-name"  type="text"   placeholder="Service / Item"  value="${escDocAttr(item.name  || '')}" />
-    <input class="dli-qty"   type="number" placeholder="Qty" value="${item.qty != null ? item.qty : 1}" min="0.01" step="any" style="width:60px;" />
-    <input class="dli-price" type="number" placeholder="Price" value="${item.price != null ? item.price : ''}" min="0" step="0.01" style="width:90px;" />
-    <input class="dli-desc"  type="text"   placeholder="Notes (optional)" value="${escDocAttr(item.desc || '')}" />
-    <button class="btn-remove-item" type="button" title="Remove">✕</button>`;
-  row.querySelector('.btn-remove-item').onclick = () => { row.remove(); updateDocTotals(); };
-  row.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateDocTotals));
-  list.appendChild(row);
-  updateDocTotals();
-}
-
-function updateDocTotals() {
-  let subtotal = 0;
-  document.querySelectorAll('#genDocItemsList .doc-line-item-row').forEach(row => {
-    const qty   = parseFloat(row.querySelector('.dli-qty').value)   || 0;
-    const price = parseFloat(row.querySelector('.dli-price').value) || 0;
-    subtotal += qty * price;
-  });
-  const taxRate = parseFloat(qs('#genDocTaxRate')?.value) || 0;
-  const tax   = subtotal * taxRate / 100;
-  const total = subtotal + tax;
-
-  const taxRow = qs('#genDocTaxRow');
-  if (taxRow) taxRow.style.display = taxRate > 0 ? '' : 'none';
-  const sub = qs('#genDocSubtotal'); if (sub) sub.textContent = '$' + subtotal.toFixed(2);
-  const taxEl = qs('#genDocTaxAmt');   if (taxEl) taxEl.textContent = '$' + tax.toFixed(2);
-  const tot = qs('#genDocTotal');     if (tot) tot.textContent = '$' + total.toFixed(2);
-}
-
-function escDocAttr(s) {
-  return String(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
+// addDocLineItem / updateDocTotals / escDocAttr removed — replaced by _dashDoc* functions below
 
 // ── Business Profile ─────────────────────────────────────────
 async function loadProfile() {
@@ -2679,3 +2503,1029 @@ window._mrClearDash = function() {
   if (r) r.innerHTML = '';
 };
 
+
+// ══════════════════════════════════════════════════════════════
+// DASHBOARD DOCUMENT CREATOR — Full-screen, 5 templates
+// ══════════════════════════════════════════════════════════════
+
+let _dLang        = 'en';
+let _dType        = 'invoice';
+let _dDesign      = 'classic';
+let _dItems       = [];
+let _dLogoUrl     = '';
+let _dCurrentDocId = null;
+let _dShowPricing  = true;
+let _dAllCustomers = [];
+let _dBizPaymentMethods = {};
+let _dVoiceRecognizer   = null;
+
+const _DASH_DOC_LABELS = {
+  en: {
+    invoice:'Invoice', estimate:'Estimate', contract:'Contract', receipt:'Receipt',
+    billTo:'Bill To', date:'Date', due:'Due Date', docNum:'Document #',
+    desc:'Description', qty:'Qty', price:'Price', total:'Total',
+    subtotal:'Subtotal', tax:'Tax', grandTotal:'TOTAL',
+    advance:'Advance Payment', balance:'Remaining Balance',
+    notes:'Notes', terms:'Terms & Conditions', tcTitle:'TERMS AND CONDITIONS',
+    thankYou:'Thank you for your business!',
+    page:'Page'
+  },
+  es: {
+    invoice:'Factura', estimate:'Presupuesto', contract:'Contrato', receipt:'Recibo',
+    billTo:'Facturar a', date:'Fecha', due:'Vencimiento', docNum:'Numero',
+    desc:'Descripcion', qty:'Cant.', price:'Precio', total:'Total',
+    subtotal:'Subtotal', tax:'Impuesto', grandTotal:'TOTAL',
+    advance:'Anticipo Recibido', balance:'Saldo Pendiente',
+    notes:'Notas', terms:'Terminos y Condiciones', tcTitle:'TERMINOS Y CONDICIONES',
+    thankYou:'Gracias por su preferencia!',
+    page:'Pagina'
+  }
+};
+
+const _DASH_ITEM_TYPES = [
+  { value:'labor',     label:'Laborar',     labelEs:'Mano de Obra' },
+  { value:'parts',     label:'Parts',       labelEs:'Partes'       },
+  { value:'material',  label:'Material',    labelEs:'Material'     },
+  { value:'equipment', label:'Equipment',   labelEs:'Equipo'       },
+  { value:'permit',    label:'Permit',      labelEs:'Permiso'      },
+  { value:'service',   label:'Service',     labelEs:'Servicio'     },
+  { value:'other',     label:'Other',       labelEs:'Otro'         }
+];
+
+const _DASH_TC_DEFAULT = {
+  en: `TERMS AND CONDITIONS\n\n1. Payment: Full payment is due upon completion of work unless a written payment plan is agreed upon. A finance charge of 1.5% per month (18% per annum) will be applied to all past-due balances.\n\n2. Advance Payment: Any deposit or advance payment applied to this estimate/invoice is non-refundable once materials have been ordered or work has commenced.\n\n3. Scope of Work: Work is limited to items described herein. Additional work or materials discovered during service will be quoted and approved separately before proceeding.\n\n4. Warranty: Workmanship is guaranteed for 90 days from the date of completion. Parts and materials carry only the manufacturer's warranty.\n\n5. Right of Access: Customer shall provide safe and unobstructed access to the work area. Delays caused by lack of access may result in additional charges at our standard hourly rate.\n\n6. Cancellation Policy: Cancellations must be made at least 24 hours in advance. Late cancellations or no-shows may be subject to a service call fee.\n\n7. Limitation of Liability: Our liability is limited to the value of services rendered. We are not responsible for pre-existing conditions, concealed defects, or consequential damages.\n\n8. Governing Law: This agreement is governed by the laws of the state where services are rendered.`,
+  es: `TERMINOS Y CONDICIONES\n\n1. Pago: El pago total vence al completar el trabajo, salvo acuerdo escrito de plan de pagos. Se aplicara un cargo financiero del 1.5% mensual a todos los saldos vencidos.\n\n2. Anticipo: Cualquier deposito o anticipo no es reembolsable una vez que los materiales han sido ordenados o el trabajo ha comenzado.\n\n3. Alcance: El trabajo se limita a los elementos descritos. El trabajo adicional sera cotizado y aprobado por separado.\n\n4. Garantia: La mano de obra tiene garantia de 90 dias. Las piezas tienen unicamente la garantia del fabricante.\n\n5. Acceso: El cliente proporcionara acceso seguro al area de trabajo. Los retrasos por falta de acceso pueden resultar en cargos adicionales.\n\n6. Cancelacion: Las cancelaciones deben realizarse con al menos 24 horas de anticipacion.\n\n7. Responsabilidad: Nuestra responsabilidad se limita al costo de los servicios prestados.\n\n8. Ley Aplicable: Este acuerdo se rige por las leyes del estado donde se prestan los servicios.`
+};
+
+function _dEsc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function _dSetVal(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.value = val;
+}
+
+// ── Set Type ──────────────────────────────────────────────────
+window._dashDocSetType = function(type) {
+  _dType = type;
+  document.querySelectorAll('#docCreatorModal .doc-type-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.doctype === type);
+  });
+  const numEl = document.getElementById('docNumber');
+  if (numEl && /^(INV|EST|CON|REC)-\d+$/i.test(numEl.value)) {
+    const suffix = numEl.value.split('-')[1];
+    numEl.value = type.slice(0,3).toUpperCase() + '-' + suffix;
+  }
+  _dApplyTypeLayout();
+  window._dashDocUpdatePreview();
+};
+
+// ── Set Lang ──────────────────────────────────────────────────
+window._dashDocSetLang = function(lang) {
+  _dLang = lang;
+  document.getElementById('dashDocLangEn')?.classList.toggle('active', lang === 'en');
+  document.getElementById('dashDocLangEs')?.classList.toggle('active', lang === 'es');
+  const modal = document.getElementById('docCreatorModal');
+  if (!modal) return;
+  modal.querySelectorAll('[data-en]').forEach(el => {
+    el.textContent = el.getAttribute('data-' + lang) || el.getAttribute('data-en');
+  });
+  _dApplyTypeLayout();
+  window._dashDocUpdatePreview();
+};
+
+// ── Set Design ────────────────────────────────────────────────
+window._dashDocSetDesign = function(name) {
+  _dDesign = name;
+  document.querySelectorAll('#dashDocDesignPicker .doc-design-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('dashDocDesign-' + name)?.classList.add('active');
+  window._dashDocUpdatePreview();
+};
+
+// ── Type Layout ───────────────────────────────────────────────
+function _dApplyTypeLayout() {
+  const show = (id, v) => { const el = document.getElementById(id); if (el) el.style.display = v ? '' : 'none'; };
+  const setTxt = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  const isInvoice  = _dType === 'invoice';
+  const isEstimate = _dType === 'estimate';
+  const isContract = _dType === 'contract';
+  const isReceipt  = _dType === 'receipt';
+  const es = _dLang === 'es';
+
+  const BANNER = {
+    invoice:  { icon:'document', color:'#4f46e5', title: es?'Factura':'Invoice',       desc: es?'Solicitar pago por trabajo completado':'Request payment for completed work' },
+    estimate: { icon:'clipboard',color:'#059669', title: es?'Estimacion':'Estimate',   desc: es?'Proponer un precio antes de comenzar':'Propose a price before starting the job' },
+    contract: { icon:'pencil',   color:'#7c3aed', title: es?'Contrato':'Contract',     desc: es?'Acuerdo legal con su cliente':'Legal agreement between you and your client' },
+    receipt:  { icon:'receipt',  color:'#0891b2', title: es?'Recibo':'Receipt',         desc: es?'Confirmar que se recibio el pago':'Confirm payment has been received in full' },
+  };
+  const bd = BANNER[_dType] || BANNER.invoice;
+  setTxt('docTypeBannerTitle', bd.title);
+  setTxt('docTypeBannerDesc',  bd.desc);
+  const bannerEl = document.getElementById('docTypeBanner');
+  if (bannerEl) bannerEl.style.borderLeftColor = bd.color;
+
+  show('docInvoiceRefRow',   isReceipt);
+  show('docPayInstructRow',  isInvoice);
+  show('docProjectTitleRow', isEstimate || isContract);
+  show('docDueDateWrap',     !isReceipt);
+  if (isEstimate)      setTxt('docDueDateLabel', es ? 'Valido Hasta' : 'Valid Until');
+  else if (isContract) setTxt('docDueDateLabel', es ? 'Fecha de Fin' : 'End Date');
+  else                 setTxt('docDueDateLabel', es ? 'Vencimiento' : 'Due Date');
+
+  show('docPaymentMethodRow', isReceipt);
+  show('docJobDetailsSection', isEstimate || isContract);
+  show('docOrderedByRow', isEstimate);
+  show('docDurationRow',  isEstimate);
+  setTxt('docJobDetailsTitle', isContract ? (es ? 'Detalles del Proyecto' : 'Project Details') : (es ? 'Detalles del Trabajo' : 'Job Details'));
+  show('docScopeSection', isEstimate || isContract);
+
+  const liSec = document.getElementById('docLineItemsSection');
+  if (liSec) liSec.classList.toggle('hidden', isContract);
+
+  if (isReceipt)       setTxt('docLineItemsTitle', es ? 'Articulos / Servicios Pagados' : 'Items / Services Paid');
+  else if (isEstimate) setTxt('docLineItemsTitle', es ? 'Partidas del Proyecto' : 'Project Items & Costs');
+  else                 setTxt('docLineItemsTitle', es ? 'Partidas y Precios' : 'Line Items & Pricing');
+
+  show('docTaxRow',     !isReceipt);
+  show('docAdvanceRow', !isReceipt && !isContract);
+  show('docBalanceRow', !isReceipt && !isContract);
+
+  if (isReceipt) setTxt('docGrandTotalLabelSpan', es ? 'Total Recibido' : 'Amount Received');
+  else           setTxt('docGrandTotalLabelSpan', es ? 'Total' : 'Total');
+
+  const conSec = document.getElementById('docContractSection');
+  if (conSec) conSec.classList.toggle('hidden', !isContract);
+
+  show('docTCFormSection', !isReceipt);
+  if (isContract) {
+    const cb = document.getElementById('docIncludeTC');
+    if (cb && !cb.checked) { cb.checked = true; document.getElementById('docTCSection')?.classList.remove('hidden'); }
+  }
+
+  if (isReceipt)       setTxt('docBillToLabel', es ? 'Recibido De' : 'Received From');
+  else if (isContract) setTxt('docBillToLabel', es ? 'Cliente' : 'Client');
+  else if (isEstimate) setTxt('docBillToLabel', es ? 'Preparado Para' : 'Prepared For');
+  else                 setTxt('docBillToLabel', es ? 'Facturar a' : 'Bill To');
+
+  const notesEl = document.getElementById('docNotes');
+  if (notesEl) {
+    const ph = notesEl.dataset['ph' + _dType.charAt(0).toUpperCase() + _dType.slice(1)];
+    if (ph) notesEl.placeholder = ph;
+  }
+}
+
+// ── Pricing & TC toggles ──────────────────────────────────────
+window._dashDocTogglePricing = function() {
+  _dShowPricing = document.getElementById('docShowPricing')?.checked ?? true;
+  document.getElementById('docPricingContent')?.classList.toggle('hidden', !_dShowPricing);
+  window._dashDocUpdatePreview();
+};
+
+window._dashDocToggleTC = function() {
+  const checked = document.getElementById('docIncludeTC')?.checked;
+  document.getElementById('docTCSection')?.classList.toggle('hidden', !checked);
+  if (checked) {
+    const ta = document.getElementById('docTermsText');
+    if (ta && !ta.value.trim()) ta.value = _DASH_TC_DEFAULT[_dLang] || _DASH_TC_DEFAULT.en;
+  }
+  window._dashDocUpdatePreview();
+};
+
+window._dashDocResetTC = function() {
+  const ta = document.getElementById('docTermsText');
+  if (ta) ta.value = _DASH_TC_DEFAULT[_dLang] || _DASH_TC_DEFAULT.en;
+  window._dashDocUpdatePreview();
+};
+
+// ── Line Items ────────────────────────────────────────────────
+window._dashDocAddItem = function() {
+  _dItems.push({ desc:'', price:0, type:'labor' });
+  window._dashDocRenderItems();
+  window._dashDocUpdateTotals();
+  window._dashDocUpdatePreview();
+};
+
+window._dashDocRemoveItem = function(idx) {
+  _dItems.splice(idx, 1);
+  if (_dItems.length === 0) _dItems.push({ desc:'', price:0, type:'labor' });
+  window._dashDocRenderItems();
+  window._dashDocUpdateTotals();
+  window._dashDocUpdatePreview();
+};
+
+window._dashDocItemSet = function(i, field, val) {
+  if (!_dItems[i]) return;
+  _dItems[i][field] = (field === 'desc' || field === 'type') ? val : (parseFloat(val) || 0);
+  window._dashDocUpdateTotals();
+  window._dashDocUpdatePreview();
+};
+
+window._dashDocRenderItems = function() {
+  const container = document.getElementById('docItemsList');
+  if (!container) return;
+  container.innerHTML = _dItems.map((item, i) => `
+    <div class="doc-item-row">
+      <select class="doc-item-type" onchange="window._dashDocItemSet(${i},'type',this.value)">
+        ${_DASH_ITEM_TYPES.map(t => `<option value="${t.value}"${item.type===t.value?' selected':''}>${_dLang==='es'?t.labelEs:t.label}</option>`).join('')}
+      </select>
+      <input type="text" value="${_dEsc(item.desc)}" placeholder="Description / Notes"
+        oninput="window._dashDocItemSet(${i},'desc',this.value)" />
+      <input type="number" value="${item.price}" min="0" step="0.01" placeholder="0.00"
+        oninput="window._dashDocItemSet(${i},'price',this.value)" />
+      <button class="doc-item-del" onclick="window._dashDocRemoveItem(${i})">x</button>
+    </div>`).join('');
+};
+
+// ── Totals ────────────────────────────────────────────────────
+window._dashDocUpdateTotals = function() {
+  const subtotal = _dItems.reduce((s, it) => s + (it.price||0), 0);
+  const taxRate  = parseFloat(document.getElementById('docTaxRate')?.value || 0);
+  const taxAmt   = subtotal * taxRate / 100;
+  const grand    = subtotal + taxAmt;
+  const sub = document.getElementById('docSubtotal');   if (sub)  sub.textContent  = '$' + subtotal.toFixed(2);
+  const tax = document.getElementById('docTaxAmt');     if (tax)  tax.textContent  = '$' + taxAmt.toFixed(2);
+  const tot = document.getElementById('docGrandTotal'); if (tot)  tot.textContent  = '$' + grand.toFixed(2);
+  const advance = parseFloat(document.getElementById('docAdvancePayment')?.value || 0);
+  const balance = Math.max(0, grand - advance);
+  const balEl = document.getElementById('docBalanceDue');
+  if (balEl) {
+    if (advance > 0 && advance >= grand) { balEl.textContent = 'Paid in Full'; balEl.style.color = '#15803d'; }
+    else { balEl.textContent = '$' + balance.toFixed(2); balEl.style.color = ''; }
+  }
+};
+
+// ── Preview ───────────────────────────────────────────────────
+window._dashDocUpdatePreview = function() {
+  const frame = document.getElementById('dashDocPreviewFrame');
+  if (!frame) return;
+  frame.srcdoc = window._dashDocGenerateHTML();
+};
+
+// ── Logo upload ───────────────────────────────────────────────
+function _dWireLogoUpload() {
+  const input = document.getElementById('docLogoInput');
+  if (!input || input._dashWired) return;
+  input._dashWired = true;
+  input.addEventListener('change', () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      _dLogoUrl = e.target.result;
+      const img = document.getElementById('docLogoImg');
+      const ph  = document.getElementById('docLogoPlaceholder');
+      if (img) { img.src = _dLogoUrl; img.style.display = 'block'; }
+      if (ph)  ph.style.display = 'none';
+      window._dashDocUpdatePreview();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ── Payment block HTML (from business profile payment methods) ─
+function _dPaymentBlock() {
+  const methods = _dBizPaymentMethods;
+  if (!methods) return '';
+  const PM_CFG = {
+    cashapp:   { icon:'', label:'Pay with CashApp', bg:'#00c244', color:'#000', href: v => v.startsWith('http') ? v : `https://cash.app/${v.startsWith('$')?v:'$'+v}` },
+    zelle:     { icon:'', label:'Send via Zelle',   bg:'#6b1fbf', color:'#fff', href: v => v.startsWith('http') ? v : null },
+    card:      { icon:'', label:'Pay by Card',      bg:'#1a56db', color:'#fff', href: v => v.startsWith('http') ? v : null },
+    financing: { icon:'', label:'Apply Financing',  bg:'#ea580c', color:'#fff', href: v => v.startsWith('http') ? v : null }
+  };
+  const btns = [];
+  for (const [key, cfg] of Object.entries(PM_CFG)) {
+    const m = methods[key];
+    if (!m?.enabled || !m?.value) continue;
+    if (key === 'financing' && !m.adminEnabled) continue;
+    const link = cfg.href(m.value);
+    const style = `display:inline-flex;align-items:center;gap:7px;padding:10px 20px;background:${cfg.bg};color:${cfg.color};border-radius:8px;font-size:0.82rem;font-weight:700;text-decoration:none;letter-spacing:.01em;`;
+    btns.push(link
+      ? `<a href="${_dEsc(link)}" target="_blank" rel="noopener" style="${style}">${cfg.icon} ${cfg.label}</a>`
+      : `<span style="${style}">${cfg.icon} ${cfg.label}: ${_dEsc(m.value)}</span>`);
+  }
+  return btns.join('');
+}
+
+// ── Signature section ─────────────────────────────────────────
+function _dSigSection(custName, bizName) {
+  const es = _dLang === 'es';
+  return `<div style="margin-top:36px;padding-top:20px;border-top:2px solid #e2e8f0;">
+  <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:20px;">${es?'Firmas Autorizadas':'Authorized Signatures'}</div>
+  <div style="display:flex;gap:40px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:200px;">
+      <div style="font-size:0.62rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:8px;">${es?'Negocio / Propietario':'Business / Owner'}</div>
+      <div style="min-height:40px;border-bottom:1px dashed #cbd5e1;margin-bottom:6px;"></div>
+      <div style="font-size:0.72rem;font-weight:600;color:#1e293b;">${_dEsc(bizName)||'--'}</div>
+    </div>
+    <div style="flex:1;min-width:200px;">
+      <div style="font-size:0.62rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:8px;">${es?'Cliente / Firmante':'Customer / Client'}</div>
+      <div style="min-height:40px;border-bottom:1px dashed #cbd5e1;margin-bottom:6px;"></div>
+      <div style="font-size:0.72rem;font-weight:600;color:#1e293b;">${_dEsc(custName)||'--'}</div>
+    </div>
+  </div>
+</div>`;
+}
+
+// ── Shared data extractor ─────────────────────────────────────
+function _dGetData() {
+  const L = _DASH_DOC_LABELS[_dLang];
+  const bizName    = document.getElementById('docBizName')?.value    || '';
+  const bizAddress = document.getElementById('docBizAddress')?.value || '';
+  const bizPhone   = document.getElementById('docBizPhone')?.value   || '';
+  const bizEmail   = document.getElementById('docBizEmail')?.value   || '';
+  const custName   = document.getElementById('docCustName')?.value   || '';
+  const custEmail  = document.getElementById('docCustEmail')?.value  || '';
+  const custPhone  = document.getElementById('docCustPhone')?.value  || '';
+  const custAddr   = document.getElementById('docCustAddress')?.value|| '';
+  const docNumber  = document.getElementById('docNumber')?.value     || '';
+  const docDate    = document.getElementById('docDate')?.value       || '';
+  const docDueDate = document.getElementById('docDueDate')?.value    || '';
+  const notes      = document.getElementById('docNotes')?.value        || '';
+  const contractTxt= document.getElementById('docContractText')?.value || '';
+  const projectTitle=document.getElementById('docProjectTitle')?.value || '';
+  const jobOrderedBy=document.getElementById('docJobOrderedBy')?.value || '';
+  const jobLocation= document.getElementById('docJobLocation')?.value  || '';
+  const duration   = document.getElementById('docDuration')?.value     || '';
+  const jobScope   = document.getElementById('docJobScope')?.value     || '';
+  const taxRate    = parseFloat(document.getElementById('docTaxRate')?.value || 0);
+  const advance    = parseFloat(document.getElementById('docAdvancePayment')?.value || 0);
+  const includeTC  = document.getElementById('docIncludeTC')?.checked || false;
+  const termsText  = document.getElementById('docTermsText')?.value || '';
+  const subtotal   = _dItems.reduce((s, it) => s + (it.price||0), 0);
+  const taxAmt     = subtotal * taxRate / 100;
+  const grand      = subtotal + taxAmt;
+  const balance    = Math.max(0, grand - advance);
+  const grandTotalLabel = _dType === 'estimate'
+    ? (_dLang === 'es' ? 'COSTO ESTIMADO DEL PROYECTO' : 'ESTIMATED PROJECT COST')
+    : L.grandTotal;
+  const typeLabel  = L[_dType] || _dType;
+  const fmtDate    = d => { if (!d) return ''; const [y,m,day] = d.split('-'); return `${m}/${day}/${y}`; };
+  const TYPE_COLORS   = { labor:'#4f46e5', parts:'#0891b2', material:'#059669', equipment:'#d97706', permit:'#7c3aed', service:'#db2777', other:'#64748b' };
+  const TYPE_LABELS_ES= { labor:'Mano de Obra', parts:'Partes', material:'Material', equipment:'Equipo', permit:'Permiso', service:'Servicio', other:'Otro' };
+  const scopeHtml = (() => {
+    if (!jobScope) return '';
+    const lines = jobScope.split('\n'); let html = ''; let inList = false;
+    for (const line of lines) {
+      const t = line.trim();
+      if (t.startsWith('- ') || t.startsWith('- ') || t.startsWith('* ')) {
+        if (!inList) { html += '<ul style="margin:6px 0 8px 18px;padding:0">'; inList = true; }
+        html += `<li style="margin:3px 0;font-size:0.82rem;color:#475569">${_dEsc(t.slice(2))}</li>`;
+      } else { if (inList) { html += '</ul>'; inList = false; } if (t) html += `<p style="margin:0 0 6px;font-size:0.82rem;color:#475569">${_dEsc(t)}</p>`; }
+    }
+    if (inList) html += '</ul>'; return html;
+  })();
+  const logoHtml = _dLogoUrl ? `<img src="${_dLogoUrl}" alt="Logo" style="max-height:70px;max-width:150px;object-fit:contain;"/>` : '';
+  const paymentMethod = document.getElementById('docPaymentMethod')?.value || '';
+  const PM_LABELS = { cash:'Cash', check:'Check', card:'Card / Debit', zelle:'Zelle', venmo:'Venmo', cashapp:'Cash App', transfer:'Bank Transfer', other:'Other' };
+  const PM_LABELS_ES = { cash:'Efectivo', check:'Cheque', card:'Tarjeta / Debito', zelle:'Zelle', venmo:'Venmo', cashapp:'Cash App', transfer:'Transferencia', other:'Otro' };
+  const paymentMethodLabel = (_dLang === 'es' ? PM_LABELS_ES[paymentMethod] : PM_LABELS[paymentMethod]) || paymentMethod;
+  const pmRowLabel = _dLang === 'es' ? 'Metodo de Pago' : 'Payment Method';
+  const receiptPaymentHtml = (_dType === 'receipt' && paymentMethod)
+    ? `<tr><td style="padding:6px 10px;font-size:0.82rem;color:#475569;">${pmRowLabel}</td><td style="padding:6px 10px;text-align:right;font-weight:700;color:#15803d;">${_dEsc(paymentMethodLabel)}</td></tr>`
+    : '';
+  const invoiceRef = document.getElementById('docInvoiceRef')?.value || '';
+  const paidInFullHtml = (_dType === 'receipt')
+    ? `<div style="margin:16px 0;padding:12px 20px;background:linear-gradient(135deg,#15803d,#166534);color:#fff;border-radius:10px;text-align:center;font-size:1.05rem;font-weight:800;letter-spacing:.06em;">${_dLang==='es'?'PAGO RECIBIDO EN SU TOTALIDAD':'PAID IN FULL'}</div>`
+    : '';
+  const payInstructions = document.getElementById('docPayInstructions')?.value || '';
+  const payInstructionsHtml = (_dType === 'invoice' && payInstructions)
+    ? `<div style="margin-top:12px;padding:12px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #4f46e5;border-radius:6px;"><div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:5px;">${_dLang==='es'?'Instrucciones de Pago':'Payment Instructions'}</div><div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;">${_dEsc(payInstructions)}</div></div>`
+    : '';
+  return { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
+    docNumber, docDate, docDueDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
+    duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
+    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_COLORS, TYPE_LABELS_ES, scopeHtml,
+    paymentMethod, paymentMethodLabel, receiptPaymentHtml, invoiceRef, paidInFullHtml,
+    payInstructions, payInstructionsHtml, paymentBlockHtml: _dPaymentBlock() };
+}
+
+// ── HTML Generator dispatcher ─────────────────────────────────
+window._dashDocGenerateHTML = function() {
+  switch (_dDesign) {
+    case 'bold':      return _dTplBold();
+    case 'executive': return _dTplExecutive();
+    case 'modern':    return _dTplModern();
+    case 'minimal':   return _dTplMinimal();
+    default:          return _dTplClassic();
+  }
+};
+
+// ── Template 1: Classic ───────────────────────────────────────
+function _dTplClassic() {
+  const L = _DASH_DOC_LABELS[_dLang];
+  const bizName    = document.getElementById('docBizName')?.value    || '';
+  const bizAddress = document.getElementById('docBizAddress')?.value || '';
+  const bizPhone   = document.getElementById('docBizPhone')?.value   || '';
+  const bizEmail   = document.getElementById('docBizEmail')?.value   || '';
+  const custName   = document.getElementById('docCustName')?.value   || '';
+  const custEmail  = document.getElementById('docCustEmail')?.value  || '';
+  const custPhone  = document.getElementById('docCustPhone')?.value  || '';
+  const custAddr   = document.getElementById('docCustAddress')?.value|| '';
+  const docNumber  = document.getElementById('docNumber')?.value     || '';
+  const docDate    = document.getElementById('docDate')?.value       || '';
+  const docDueDate = document.getElementById('docDueDate')?.value    || '';
+  const notes       = document.getElementById('docNotes')?.value        || '';
+  const contractTxt = document.getElementById('docContractText')?.value || '';
+  const projectTitle = document.getElementById('docProjectTitle')?.value || '';
+  const jobOrderedBy= document.getElementById('docJobOrderedBy')?.value || '';
+  const jobLocation = document.getElementById('docJobLocation')?.value  || '';
+  const duration    = document.getElementById('docDuration')?.value     || '';
+  const jobScope    = document.getElementById('docJobScope')?.value     || '';
+  const taxRate     = parseFloat(document.getElementById('docTaxRate')?.value || 0);
+  const advance     = parseFloat(document.getElementById('docAdvancePayment')?.value || 0);
+  const includeTC   = document.getElementById('docIncludeTC')?.checked || false;
+  const termsText   = document.getElementById('docTermsText')?.value || '';
+  const subtotal   = _dItems.reduce((s, it) => s + (it.price||0), 0);
+  const taxAmt     = subtotal * taxRate / 100;
+  const grand      = subtotal + taxAmt;
+  const balance    = Math.max(0, grand - advance);
+  const grandTotalLabel = _dType === 'estimate'
+    ? (_dLang === 'es' ? 'COSTO ESTIMADO DEL PROYECTO' : 'ESTIMATED PROJECT COST') : L.grandTotal;
+  const ptLabel = _dLang === 'es' ? 'Terminos de Pago' : 'Payment Terms';
+  const ptLine1 = _dLang === 'es'
+    ? 'Un anticipo de <strong>$' + advance.toFixed(2) + '</strong> se aplica al costo total de <strong>$' + grand.toFixed(2) + '</strong>.'
+    : 'A <strong>$' + advance.toFixed(2) + '</strong> advance payment is applied toward the total of <strong>$' + grand.toFixed(2) + '</strong>.';
+  const ptLine2 = _dLang === 'es'
+    ? 'El saldo restante de <strong>$' + balance.toFixed(2) + '</strong> vence al completar el trabajo.'
+    : 'The remaining <strong>$' + balance.toFixed(2) + '</strong> balance is due upon completion of the work.';
+  const durationLabel = _dLang === 'es' ? 'Duracion Estimada' : 'Estimated Duration';
+  const durationApprox = _dLang === 'es' ? 'Aproximadamente' : 'Approximately';
+  const durationNote   = _dLang === 'es' ? ', sujeto a las condiciones del sitio.' : ', subject to actual site conditions.';
+  const scopeHtml = (() => {
+    if (!jobScope) return '';
+    const lines = jobScope.split('\n'); let html = ''; let inList = false;
+    for (const line of lines) {
+      const t = line.trim();
+      if (t.startsWith('- ') || t.startsWith('* ')) {
+        if (!inList) { html += '<ul style="margin:6px 0 8px 18px;padding:0">'; inList = true; }
+        html += `<li style="margin:3px 0;font-size:0.82rem;color:#475569">${_dEsc(t.slice(2))}</li>`;
+      } else { if (inList) { html += '</ul>'; inList = false; } if (t) html += `<p style="margin:0 0 6px;font-size:0.82rem;color:#475569">${_dEsc(t)}</p>`; }
+    }
+    if (inList) html += '</ul>'; return html;
+  })();
+  const logoHtml = _dLogoUrl ? `<img src="${_dLogoUrl}" alt="Logo" style="max-height:70px;max-width:150px;object-fit:contain;"/>` : '';
+  const paymentMethod = document.getElementById('docPaymentMethod')?.value || '';
+  const PM_LABELS = { cash:'Cash', check:'Check', card:'Card / Debit', zelle:'Zelle', venmo:'Venmo', cashapp:'Cash App', transfer:'Bank Transfer', other:'Other' };
+  const PM_LABELS_ES = { cash:'Efectivo', check:'Cheque', card:'Tarjeta / Debito', zelle:'Zelle', venmo:'Venmo', cashapp:'Cash App', transfer:'Transferencia', other:'Otro' };
+  const paymentMethodLabel = (_dLang === 'es' ? PM_LABELS_ES[paymentMethod] : PM_LABELS[paymentMethod]) || paymentMethod;
+  const pmRowLabel = _dLang === 'es' ? 'Metodo de Pago' : 'Payment Method';
+  const receiptPaymentHtml = (_dType === 'receipt' && paymentMethod)
+    ? `<tr><td style="padding:6px 10px;font-size:0.82rem;color:#475569;">${pmRowLabel}</td><td style="padding:6px 10px;text-align:right;font-weight:700;color:#15803d;">${_dEsc(paymentMethodLabel)}</td></tr>` : '';
+  const invoiceRef = document.getElementById('docInvoiceRef')?.value || '';
+  const paidInFullHtml = (_dType === 'receipt')
+    ? `<div style="margin:16px 0;padding:12px 20px;background:linear-gradient(135deg,#15803d,#166534);color:#fff;border-radius:10px;text-align:center;font-size:1.05rem;font-weight:800;letter-spacing:.06em;">${_dLang==='es'?'PAGO RECIBIDO EN SU TOTALIDAD':'PAID IN FULL'}</div>` : '';
+  const payInstructions = document.getElementById('docPayInstructions')?.value || '';
+  const payInstructionsHtml = (_dType === 'invoice' && payInstructions)
+    ? `<div style="margin-top:12px;padding:12px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #4f46e5;border-radius:6px;"><div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:5px;">${_dLang==='es'?'Instrucciones de Pago':'Payment Instructions'}</div><div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;">${_dEsc(payInstructions)}</div></div>` : '';
+  const paymentBlockHtml = _dPaymentBlock();
+  const typeLabel = L[_dType] || _dType;
+  const fmtDate = d => { if (!d) return ''; const [y,m,day] = d.split('-'); return `${m}/${day}/${y}`; };
+  const TYPE_COLORS = { labor:'#4f46e5', parts:'#0891b2', material:'#059669', equipment:'#d97706', permit:'#7c3aed', service:'#db2777', other:'#64748b' };
+  const TYPE_LABELS_ES = { labor:'Mano de Obra', parts:'Partes', material:'Material', equipment:'Equipo', permit:'Permiso', service:'Servicio', other:'Otro' };
+  const itemsRowsHtml = _dType !== 'contract' ? _dItems.map(it => {
+    const typeKey = it.type || 'other';
+    const typeColor = TYPE_COLORS[typeKey] || '#64748b';
+    const tLabel = _dLang === 'es' ? (TYPE_LABELS_ES[typeKey] || typeKey) : typeKey.charAt(0).toUpperCase() + typeKey.slice(1);
+    const typeBadge = `<span style="display:inline-block;padding:2px 7px;border-radius:12px;font-size:0.65rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:${typeColor}18;color:${typeColor};border:1px solid ${typeColor}44;">${_dEsc(tLabel)}</span>`;
+    return `<tr><td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;">${typeBadge}<br><span style="font-size:0.82rem">${_dEsc(it.desc)}</span></td><td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;">$${(it.price||0).toFixed(2)}</td></tr>`;
+  }).join('') : '';
+
+  return `<!DOCTYPE html><html lang="${_dLang==='es'?'es':'en'}"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${typeLabel} ${docNumber}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1e293b;background:#fff;padding:32px;font-size:13px;line-height:1.5}.doc-wrap{max-width:760px;margin:0 auto}.doc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;gap:16px;flex-wrap:wrap}.doc-top-left{flex:1;min-width:200px}.doc-top-right{text-align:right;min-width:160px}.doc-type-title{font-size:2rem;font-weight:800;color:#4f46e5;letter-spacing:-0.02em;text-transform:uppercase}.biz-name{font-size:1rem;font-weight:700;color:#1e293b;margin-top:6px}.biz-detail{font-size:0.78rem;color:#64748b;margin-top:2px}.doc-meta{font-size:0.82rem;color:#475569;margin-top:4px}.doc-meta strong{color:#1e293b}.doc-parties{display:flex;gap:24px;margin-bottom:24px;flex-wrap:wrap}.doc-party{flex:1;min-width:180px;background:#f8fafc;border-radius:8px;padding:12px 16px;border:1px solid #e2e8f0}.party-label{font-size:0.68rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}.party-name{font-size:0.95rem;font-weight:700;color:#1e293b;margin-bottom:2px}.party-detail{font-size:0.78rem;color:#64748b;line-height:1.4}table{width:100%;border-collapse:collapse;margin-bottom:20px}thead tr{background:#4f46e5;color:#fff}thead th{padding:10px;text-align:left;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}thead th:not(:first-child){text-align:right}tbody tr:nth-child(even){background:#f8fafc}.totals-table{margin-left:auto;width:auto;min-width:220px}.totals-table td{padding:5px 10px;font-size:0.85rem;color:#475569}.totals-table .grand td{font-size:1rem;font-weight:800;color:#1e293b;border-top:2px solid #4f46e5;padding-top:8px}.doc-contract{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:20px;white-space:pre-wrap;font-size:0.82rem;color:#475569;line-height:1.6}.doc-notes{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;font-size:0.82rem;color:#78350f}.doc-footer{margin-top:32px;padding-top:16px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;font-size:0.72rem;color:#94a3b8}.accent-bar{height:4px;background:linear-gradient(90deg,#4f46e5,#7c3aed);border-radius:2px;margin-bottom:24px}@media print{body{padding:16px}.doc-wrap{max-width:100%}}</style>
+</head><body><div class="doc-wrap">
+  <div class="accent-bar"></div>
+  <div class="doc-top">
+    <div class="doc-top-left">${logoHtml}${bizName?`<div class="biz-name">${_dEsc(bizName)}</div>`:''}${bizAddress?`<div class="biz-detail">${_dEsc(bizAddress)}</div>`:''}${bizPhone?`<div class="biz-detail">${_dEsc(bizPhone)}</div>`:''}${bizEmail?`<div class="biz-detail">${_dEsc(bizEmail)}</div>`:''}</div>
+    <div class="doc-top-right"><div class="doc-type-title">${typeLabel}</div>${docNumber?`<div class="doc-meta">#&nbsp;<strong>${_dEsc(docNumber)}</strong></div>`:''}${docDate?`<div class="doc-meta">${L.date}:&nbsp;<strong>${fmtDate(docDate)}</strong></div>`:''}${docDueDate&&_dType!=='receipt'&&_dType!=='contract'?`<div class="doc-meta">${L.due}:&nbsp;<strong>${fmtDate(docDueDate)}</strong></div>`:''}${invoiceRef&&_dType==='receipt'?`<div class="doc-meta">${_dLang==='es'?'Factura Ref':'Ref Invoice'}:&nbsp;<strong>${_dEsc(invoiceRef)}</strong></div>`:''}</div>
+  </div>
+  <div class="doc-parties">
+    <div class="doc-party"><div class="party-label">${_dEsc(bizName)||'From'}</div><div class="party-name">${_dEsc(bizName)}</div>${bizAddress?`<div class="party-detail">${_dEsc(bizAddress)}</div>`:''}${bizPhone?`<div class="party-detail">${_dEsc(bizPhone)}</div>`:''}${bizEmail?`<div class="party-detail">${_dEsc(bizEmail)}</div>`:''}</div>
+    <div class="doc-party"><div class="party-label">${L.billTo}</div><div class="party-name">${_dEsc(custName)||'--'}</div>${custAddr?`<div class="party-detail">${_dEsc(custAddr)}</div>`:''}${custPhone?`<div class="party-detail">${_dEsc(custPhone)}</div>`:''}${custEmail?`<div class="party-detail">${_dEsc(custEmail)}</div>`:''}</div>
+  </div>
+  ${(jobOrderedBy||jobLocation)?`<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">${jobOrderedBy?`<div style="flex:1;min-width:160px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;"><div style="font-size:0.68rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">${_dLang==='es'?'Ordenado Por':'Ordered By'}</div><div style="font-size:0.9rem;font-weight:600;color:#1e293b;">${_dEsc(jobOrderedBy)}</div></div>`:''}${jobLocation?`<div style="flex:1;min-width:160px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;"><div style="font-size:0.68rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">${_dLang==='es'?'Ubicacion del Trabajo':'Job Location'}</div><div style="font-size:0.9rem;font-weight:600;color:#1e293b;">${_dEsc(jobLocation)}</div></div>`:''}</div>`:''}
+  ${projectTitle?`<div style="margin-bottom:20px;border-left:4px solid #4f46e5;padding-left:14px;"><div style="font-size:1.05rem;font-weight:800;color:#1e293b;line-height:1.3;">${_dEsc(projectTitle)}</div></div>`:''}
+  ${jobScope?`<div style="margin-bottom:20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;"><div style="font-size:0.68rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">${_dLang==='es'?'Alcance del Trabajo':'Scope of Work'}</div>${scopeHtml}</div>`:''}
+  ${(_dShowPricing&&_dType!=='contract')?`<table><thead><tr><th>${L.desc}</th><th style="text-align:right">${L.total}</th></tr></thead><tbody>${itemsRowsHtml}</tbody></table>
+  <table class="totals-table"><tr><td>${L.subtotal}</td><td style="text-align:right">$${subtotal.toFixed(2)}</td></tr>${taxRate>0?`<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right">$${taxAmt.toFixed(2)}</td></tr>`:''}<tr class="grand"><td><strong>${grandTotalLabel}</strong></td><td style="text-align:right"><strong>$${grand.toFixed(2)}</strong></td></tr>${receiptPaymentHtml}${advance>0?`<tr><td style="color:#15803d;">${L.advance}</td><td style="text-align:right;color:#15803d;">- $${advance.toFixed(2)}</td></tr>`:''} ${advance>0?`<tr><td><strong style="color:#dc2626;">${L.balance}</strong></td><td style="text-align:right;color:#dc2626;font-weight:800;font-size:1.1rem;">$${balance.toFixed(2)}</td></tr>`:''}</table>
+  ${paidInFullHtml}${payInstructionsHtml}`:''}
+  ${_dType==='estimate'&&advance>0?`<div style="margin-bottom:20px;padding:14px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;"><div style="font-size:0.68rem;font-weight:800;color:#1d4ed8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">${ptLabel}</div><p style="font-size:0.82rem;color:#1e3a5f;margin:0 0 6px;">${ptLine1}</p><p style="font-size:0.82rem;color:#1e3a5f;margin:0;">${ptLine2}</p></div>`:''}
+  ${duration?`<div style="margin-bottom:20px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;"><div style="font-size:0.68rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">${durationLabel}</div><p style="font-size:0.85rem;color:#1e293b;margin:0;">${durationApprox} <strong>${_dEsc(duration)}</strong>${durationNote}</p></div>`:''}
+  ${_dType==='contract'&&contractTxt?`<div style="font-size:0.75rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${L.terms}</div><div class="doc-contract">${_dEsc(contractTxt)}</div>`:''}
+  ${notes?`<div class="doc-notes">${_dEsc(notes)}</div>`:''}
+  ${includeTC&&termsText?`<div style="margin-top:28px;padding-top:16px;border-top:2px solid #e2e8f0;"><div style="font-size:0.68rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;">${L.tcTitle}</div><div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;">${_dEsc(termsText)}</div></div>`:''}
+  ${paymentBlockHtml?`<div style="margin-top:28px;padding:18px 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;text-align:center;"><div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:12px;">${_dLang==='es'?'Opciones de Pago':'Payment Options'}</div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">${paymentBlockHtml}</div></div>`:''}
+  ${(_dType==='estimate'||_dType==='contract')?_dSigSection(custName,bizName):''}
+  <div class="doc-footer"><span>${L.thankYou}</span><span>${typeLabel} ${_dEsc(docNumber)}</span></div>
+</div></body></html>`;
+}
+
+// ── Template 2: Bold Contractor ───────────────────────────────
+function _dTplBold() {
+  const { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
+    docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
+    duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
+    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
+    receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef, paymentBlockHtml } = _dGetData();
+  const itemsHtml = _dType !== 'contract' ? _dItems.map(it => {
+    const k = it.type || 'other'; const tl = _dLang==='es'?(TYPE_LABELS_ES[k]||k):k.charAt(0).toUpperCase()+k.slice(1);
+    return `<tr><td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;"><span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;color:#dc2626;">${_dEsc(tl)}</span><br><span style="font-size:0.82rem;">${_dEsc(it.desc)}</span></td><td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;">$${(it.price||0).toFixed(2)}</td></tr>`;
+  }).join('') : '';
+  return `<!DOCTYPE html><html lang="${_dLang==='es'?'es':'en'}"><head><meta charset="utf-8"/><title>${typeLabel} ${docNumber}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1e293b;background:#fff;padding:0;font-size:13px;line-height:1.5}.wrap{max-width:760px;margin:0 auto}.hdr{background:#111;display:flex;align-items:stretch;min-height:100px}.hdr-logo{background:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:center;min-width:120px}.hdr-mid{flex:1;padding:16px 20px;display:flex;flex-direction:column;justify-content:center}.hdr-biz{font-size:1rem;font-weight:800;color:#fff}.hdr-det{font-size:0.72rem;color:#94a3b8;margin-top:2px}.hdr-right{background:#dc2626;padding:14px 20px;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center;min-width:140px}.hdr-type{font-size:1.3rem;font-weight:900;color:#fff;text-transform:uppercase}.hdr-num{font-size:0.75rem;color:#fecaca;margin-top:4px}.red-bar{height:5px;background:#dc2626}.info-row{display:flex}.info-box{flex:1;padding:14px 16px;border:1px solid #e2e8f0;border-top:3px solid #111}.info-box.red{border-top-color:#dc2626}.info-lbl{font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px}.info-name{font-size:0.9rem;font-weight:700;color:#1e293b}.info-det{font-size:0.75rem;color:#64748b;line-height:1.5;margin-top:2px}.body{padding:20px}table{width:100%;border-collapse:collapse;margin-bottom:16px}thead tr{background:#111;color:#fff}thead th{padding:9px 12px;text-align:left;font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}thead th:not(:first-child){text-align:right}tbody tr:nth-child(even){background:#fafafa}.totals{margin-left:auto;width:280px;border-top:3px solid #dc2626;border:1px solid #e2e8f0}.totals td{padding:7px 12px;font-size:0.85rem;color:#475569;border-bottom:1px solid #f1f5f9}.totals .grand td{font-size:1rem;font-weight:900;color:#111;background:#f8f8f8}.totals .balance td{font-size:1.05rem;font-weight:900;color:#dc2626;background:#fff5f5}.scope-box{padding:12px 16px;border:1px solid #e2e8f0;border-left:4px solid #dc2626;background:#fafafa;margin-bottom:16px}.scope-lbl{font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:8px}.notes{background:#fffbeb;border-left:4px solid #d97706;padding:10px 14px;font-size:0.82rem;color:#78350f;margin-bottom:14px}.foot{background:#111;color:#94a3b8;padding:10px 20px;display:flex;justify-content:space-between;font-size:0.7rem;margin-top:20px}@media print{body{padding:0}.wrap{max-width:100%}}</style></head>
+<body><div class="wrap">
+  <div class="hdr">
+    <div class="hdr-logo">${logoHtml||`<div style="width:80px;height:60px;background:#f1f5f9;border-radius:4px;"></div>`}</div>
+    <div class="hdr-mid"><div class="hdr-biz">${_dEsc(bizName)}</div>${bizAddress?`<div class="hdr-det">${_dEsc(bizAddress)}</div>`:''}${bizPhone?`<div class="hdr-det">${_dEsc(bizPhone)}</div>`:''}${bizEmail?`<div class="hdr-det">${_dEsc(bizEmail)}</div>`:''}</div>
+    <div class="hdr-right"><div class="hdr-type">${typeLabel}</div>${docNumber?`<div class="hdr-num">#${_dEsc(docNumber)}</div>`:''}${docDate?`<div class="hdr-num">${fmtDate(docDate)}</div>`:''}${invoiceRef&&_dType==='receipt'?`<div class="hdr-num">Ref: ${_dEsc(invoiceRef)}</div>`:''}</div>
+  </div>
+  <div class="red-bar"></div>
+  <div class="info-row">
+    <div class="info-box"><div class="info-lbl">${_dLang==='es'?'Empresa':'Company'}</div><div class="info-name">${_dEsc(bizName)||'--'}</div><div class="info-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
+    <div class="info-box red"><div class="info-lbl">${L.billTo}</div><div class="info-name">${_dEsc(custName)||'--'}</div><div class="info-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
+  </div>
+  <div class="body">
+    ${(projectTitle||jobOrderedBy||jobLocation||duration)?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">${projectTitle?`<div><div style="font-size:0.62rem;font-weight:800;text-transform:uppercase;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Proyecto':'Project'}</div><div style="font-size:0.85rem;font-weight:600;border-bottom:1px solid #e2e8f0;padding-bottom:3px;">${_dEsc(projectTitle)}</div></div>`:''}${jobOrderedBy?`<div><div style="font-size:0.62rem;font-weight:800;text-transform:uppercase;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Ordenado Por':'Ordered By'}</div><div style="font-size:0.85rem;font-weight:600;border-bottom:1px solid #e2e8f0;padding-bottom:3px;">${_dEsc(jobOrderedBy)}</div></div>`:''}${jobLocation?`<div><div style="font-size:0.62rem;font-weight:800;text-transform:uppercase;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Ubicacion':'Location'}</div><div style="font-size:0.85rem;font-weight:600;border-bottom:1px solid #e2e8f0;padding-bottom:3px;">${_dEsc(jobLocation)}</div></div>`:''}${duration?`<div><div style="font-size:0.62rem;font-weight:800;text-transform:uppercase;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Duracion':'Duration'}</div><div style="font-size:0.85rem;font-weight:600;border-bottom:1px solid #e2e8f0;padding-bottom:3px;">${_dEsc(duration)}</div></div>`:''}</div>`:''}
+    ${jobScope?`<div class="scope-box"><div class="scope-lbl">${_dLang==='es'?'Alcance del Trabajo':'Scope of Work'}</div>${scopeHtml}</div>`:''}
+    ${(_dShowPricing&&_dType!=='contract')?`<table><thead><tr><th>${L.desc}</th><th style="text-align:right;">${L.total}</th></tr></thead><tbody>${itemsHtml}</tbody></table>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:20px;"><table class="totals"><tr><td>${L.subtotal}</td><td style="text-align:right;">$${subtotal.toFixed(2)}</td></tr>${taxRate>0?`<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right;">$${taxAmt.toFixed(2)}</td></tr>`:''}<tr class="grand"><td><strong>${grandTotalLabel}</strong></td><td style="text-align:right;"><strong>$${grand.toFixed(2)}</strong></td></tr>${receiptPaymentHtml}${advance>0?`<tr><td>${L.advance}</td><td style="text-align:right;color:#15803d;">-$${advance.toFixed(2)}</td></tr>`:''}${advance>0?`<tr class="balance"><td><strong>${L.balance}</strong></td><td style="text-align:right;"><strong>$${balance.toFixed(2)}</strong></td></tr>`:''}</table></div>${paidInFullHtml}${payInstructionsHtml}`:''}
+    ${_dType==='contract'&&contractTxt?`<div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;line-height:1.6;border:1px solid #e2e8f0;padding:14px;margin-bottom:16px;">${_dEsc(contractTxt)}</div>`:''}
+    ${notes?`<div class="notes">${_dEsc(notes)}</div>`:''}
+    ${includeTC&&termsText?`<div style="margin-top:20px;padding-top:14px;border-top:2px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">${L.tcTitle}</div><div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;padding:12px;">${_dEsc(termsText)}</div></div>`:''}
+    ${paymentBlockHtml?`<div style="margin-top:20px;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;text-align:center;"><div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:10px;">${_dLang==='es'?'Opciones de Pago':'Payment Options'}</div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">${paymentBlockHtml}</div></div>`:''}
+    ${(_dType==='estimate'||_dType==='contract')?_dSigSection(custName,bizName):''}
+  </div>
+  <div class="foot"><span>${L.thankYou}</span><span>${typeLabel} ${_dEsc(docNumber)}</span></div>
+</div></body></html>`;
+}
+
+// ── Template 3: Executive Dark ────────────────────────────────
+function _dTplExecutive() {
+  const { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
+    docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
+    duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
+    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
+    receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef, paymentBlockHtml } = _dGetData();
+  const gold = '#c9972b'; const navy = '#0f172a';
+  const itemsHtml = _dType !== 'contract' ? _dItems.map(it => {
+    const k = it.type || 'other'; const tl = _dLang==='es'?(TYPE_LABELS_ES[k]||k):k.charAt(0).toUpperCase()+k.slice(1);
+    return `<tr><td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;"><span style="font-size:0.65rem;font-weight:700;color:${gold};text-transform:uppercase;letter-spacing:.04em;">${_dEsc(tl)}</span><br><span style="font-size:0.82rem;">${_dEsc(it.desc)}</span></td><td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;">$${(it.price||0).toFixed(2)}</td></tr>`;
+  }).join('') : '';
+  return `<!DOCTYPE html><html lang="${_dLang==='es'?'es':'en'}"><head><meta charset="utf-8"/><title>${typeLabel} ${docNumber}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Georgia',serif;color:#1e293b;background:#fff;padding:0;font-size:13px;line-height:1.6}.wrap{max-width:760px;margin:0 auto}.hdr{background:${navy};padding:28px 32px;display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap}.hdr-left{display:flex;align-items:center;gap:16px}.logo-box{background:rgba(255,255,255,.1);padding:8px;border-radius:4px;min-width:60px;text-align:center}.biz-name{font-size:1.1rem;font-weight:700;color:#fff}.biz-det{font-size:0.75rem;color:#94a3b8;margin-top:2px}.hdr-right{text-align:right}.doc-type{font-size:1.8rem;font-weight:400;color:${gold};letter-spacing:.06em;text-transform:uppercase;font-style:italic}.doc-num{font-size:0.8rem;color:#94a3b8;margin-top:4px}.gold-bar{height:3px;background:linear-gradient(90deg,${gold},#f5d87a,${gold})}.party-row{display:flex;gap:1px;background:#e2e8f0}.party{flex:1;background:#fff;padding:16px 20px;border-bottom:3px solid ${gold}}.party.client{border-bottom-color:${navy}}.plbl{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${gold};margin-bottom:6px}.pname{font-size:0.95rem;font-weight:700;color:${navy}}.pdet{font-size:0.75rem;color:#64748b;margin-top:3px;line-height:1.5}.body{padding:24px}table{width:100%;border-collapse:collapse;margin-bottom:16px}thead tr{background:${navy};color:#fff}thead th{padding:10px 14px;text-align:left;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em}thead th:not(:first-child){text-align:right}tbody tr:nth-child(even){background:#fafaf8}.totals{margin-left:auto;width:300px;border-top:3px solid ${gold};border:1px solid #e2e8f0}.totals td{padding:8px 14px;font-size:0.85rem;color:#475569;border-bottom:1px solid #f1f5f9}.totals .grand td{font-weight:800;color:${navy};background:#fdf8ef;border-bottom:none}.totals .balance td{font-weight:800;color:#dc2626;background:#fff5f5}.scope-box{padding:16px 20px;background:#fafaf8;border-left:4px solid ${gold};margin-bottom:20px}.scope-lbl{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:8px}.notes{background:#fdf8ef;border:1px solid #fde68a;padding:12px 16px;font-size:0.82rem;color:#78350f;margin-bottom:16px}.foot{background:${navy};color:#94a3b8;padding:12px 24px;display:flex;justify-content:space-between;font-size:0.7rem;margin-top:24px}@media print{body{padding:0}.wrap{max-width:100%}}</style></head>
+<body><div class="wrap">
+  <div class="hdr">
+    <div class="hdr-left"><div class="logo-box">${logoHtml||`<div style="width:60px;height:50px;background:rgba(255,255,255,.1);border-radius:4px;"></div>`}</div><div><div class="biz-name">${_dEsc(bizName)}</div>${bizAddress?`<div class="biz-det">${_dEsc(bizAddress)}</div>`:''}${bizPhone?`<div class="biz-det">${_dEsc(bizPhone)}</div>`:''}${bizEmail?`<div class="biz-det">${_dEsc(bizEmail)}</div>`:''}</div></div>
+    <div class="hdr-right"><div class="doc-type">${typeLabel}</div>${docNumber?`<div class="doc-num"># ${_dEsc(docNumber)}</div>`:''}${docDate?`<div class="doc-num">${fmtDate(docDate)}</div>`:''}${invoiceRef&&_dType==='receipt'?`<div class="doc-num">Ref: ${_dEsc(invoiceRef)}</div>`:''}</div>
+  </div>
+  <div class="gold-bar"></div>
+  <div class="party-row">
+    <div class="party"><div class="plbl">${_dEsc(bizName)||'From'}</div><div class="pname">${_dEsc(bizName)}</div><div class="pdet">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
+    <div class="party client"><div class="plbl" style="color:${navy}">${L.billTo}</div><div class="pname">${_dEsc(custName)||'--'}</div><div class="pdet">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
+  </div>
+  <div class="body">
+    ${(projectTitle||jobOrderedBy||jobLocation||duration)?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">${projectTitle?`<div style="padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;border-left:3px solid ${gold};"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Proyecto':'Project'}</div><div style="font-size:0.9rem;font-weight:700;color:${navy};">${_dEsc(projectTitle)}</div></div>`:''}${jobOrderedBy?`<div style="padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Ordenado Por':'Ordered By'}</div><div style="font-size:0.85rem;font-weight:600;">${_dEsc(jobOrderedBy)}</div></div>`:''}${jobLocation?`<div style="padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Ubicacion':'Location'}</div><div style="font-size:0.85rem;font-weight:600;">${_dEsc(jobLocation)}</div></div>`:''}${duration?`<div style="padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Duracion':'Duration'}</div><div style="font-size:0.85rem;font-weight:600;">${_dEsc(duration)}</div></div>`:''}</div>`:''}
+    ${jobScope?`<div class="scope-box"><div class="scope-lbl">${_dLang==='es'?'Alcance del Trabajo':'Scope of Work'}</div>${scopeHtml}</div>`:''}
+    ${(_dShowPricing&&_dType!=='contract')?`<table><thead><tr><th>${L.desc}</th><th style="text-align:right;">${L.total}</th></tr></thead><tbody>${itemsHtml}</tbody></table>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:20px;"><table class="totals"><tr><td>${L.subtotal}</td><td style="text-align:right;">$${subtotal.toFixed(2)}</td></tr>${taxRate>0?`<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right;">$${taxAmt.toFixed(2)}</td></tr>`:''}<tr class="grand"><td><strong>${grandTotalLabel}</strong></td><td style="text-align:right;"><strong>$${grand.toFixed(2)}</strong></td></tr>${receiptPaymentHtml}${advance>0?`<tr><td style="color:#15803d;">${L.advance}</td><td style="text-align:right;color:#15803d;">-$${advance.toFixed(2)}</td></tr>`:''}${advance>0?`<tr class="balance"><td><strong>${L.balance}</strong></td><td style="text-align:right;"><strong>$${balance.toFixed(2)}</strong></td></tr>`:''}</table></div>${paidInFullHtml}${payInstructionsHtml}`:''}
+    ${_dType==='contract'&&contractTxt?`<div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;line-height:1.7;border:1px solid #e2e8f0;padding:16px;background:#fafaf8;margin-bottom:16px;">${_dEsc(contractTxt)}</div>`:''}
+    ${notes?`<div class="notes">${_dEsc(notes)}</div>`:''}
+    ${includeTC&&termsText?`<div style="margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">${L.tcTitle}</div><div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;background:#fafaf8;border:1px solid #e2e8f0;padding:14px;">${_dEsc(termsText)}</div></div>`:''}
+    ${paymentBlockHtml?`<div style="margin-top:20px;padding:16px;background:#fdf8ef;border:1px solid #fde68a;border-radius:10px;text-align:center;"><div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#92400e;margin-bottom:10px;">${_dLang==='es'?'Opciones de Pago':'Payment Options'}</div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">${paymentBlockHtml}</div></div>`:''}
+    ${(_dType==='estimate'||_dType==='contract')?_dSigSection(custName,bizName):''}
+  </div>
+  <div class="foot"><span>${L.thankYou}</span><span>${typeLabel} ${_dEsc(docNumber)}</span></div>
+</div></body></html>`;
+}
+
+// ── Template 4: Modern Gradient ───────────────────────────────
+function _dTplModern() {
+  const { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
+    docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
+    duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
+    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_COLORS, TYPE_LABELS_ES, scopeHtml,
+    receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef, paymentBlockHtml } = _dGetData();
+  const itemsHtml = _dType !== 'contract' ? _dItems.map(it => {
+    const k = it.type || 'other'; const tc = TYPE_COLORS[k]||'#64748b'; const tl = _dLang==='es'?(TYPE_LABELS_ES[k]||k):k.charAt(0).toUpperCase()+k.slice(1);
+    return `<tr><td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:0.6rem;font-weight:800;text-transform:uppercase;background:${tc};color:#fff;margin-bottom:3px;">${_dEsc(tl)}</span><br><span style="font-size:0.82rem;">${_dEsc(it.desc)}</span></td><td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:700;">$${(it.price||0).toFixed(2)}</td></tr>`;
+  }).join('') : '';
+  return `<!DOCTYPE html><html lang="${_dLang==='es'?'es':'en'}"><head><meta charset="utf-8"/><title>${typeLabel} ${docNumber}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1e293b;background:#f1f5f9;padding:20px;font-size:13px;line-height:1.5}.wrap{max-width:760px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.1)}.hdr{background:linear-gradient(135deg,#7c3aed 0%,#0891b2 100%);padding:28px 32px;color:#fff;display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}.logo-wrap{background:rgba(255,255,255,.2);border-radius:12px;padding:8px;display:inline-flex;align-items:center;justify-content:center}.hdr-biz{font-size:1rem;font-weight:800}.hdr-det{font-size:0.72rem;color:rgba(255,255,255,.75);margin-top:2px}.doc-type{font-size:2rem;font-weight:900;letter-spacing:-0.02em;text-transform:uppercase}.doc-num{font-size:0.75rem;color:rgba(255,255,255,.75);margin-top:4px}.party-cards{display:flex;gap:16px;padding:20px 24px;flex-wrap:wrap}.card{flex:1;min-width:200px;background:#f8fafc;border-radius:12px;padding:14px 18px;border:1px solid #e2e8f0}.card-lbl{font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px}.card-name{font-size:0.95rem;font-weight:700;color:#1e293b}.card-det{font-size:0.75rem;color:#64748b;line-height:1.5;margin-top:3px}.body{padding:0 24px 24px}table{width:100%;border-collapse:collapse;margin-bottom:16px;border-radius:12px;overflow:hidden}thead tr{background:linear-gradient(90deg,#7c3aed,#0891b2);color:#fff}thead th{padding:10px 14px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}thead th:not(:first-child){text-align:right}tbody tr:nth-child(even){background:#f8fafc}.totals-wrap{display:flex;justify-content:flex-end;margin-bottom:20px}.totals{width:300px;background:#f8fafc;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0}.totals td{padding:8px 16px;font-size:0.85rem;color:#475569;border-bottom:1px solid #f1f5f9}.totals .grand td{font-size:1.05rem;font-weight:800;color:#1e293b;background:linear-gradient(90deg,#f0f0ff,#e8f9ff);border-bottom:none}.totals .balance td{font-size:1.05rem;font-weight:800;color:#dc2626;background:#fff5f5}.scope-card{background:#f8fafc;border-radius:12px;padding:16px;margin-bottom:20px;border:1px solid #e2e8f0;border-left:4px solid #7c3aed}.scope-lbl{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:8px}.notes{background:#fffbeb;border-radius:10px;border:1px solid #fde68a;padding:12px 16px;font-size:0.82rem;color:#78350f;margin-bottom:16px}.foot{background:linear-gradient(135deg,#7c3aed,#0891b2);color:rgba(255,255,255,.8);padding:12px 24px;display:flex;justify-content:space-between;font-size:0.72rem}@media print{body{padding:0;background:#fff}.wrap{box-shadow:none;border-radius:0;max-width:100%}}</style></head>
+<body><div class="wrap">
+  <div class="hdr">
+    <div style="display:flex;align-items:center;gap:14px;"><div class="logo-wrap">${logoHtml||`<div style="width:52px;height:44px;background:rgba(255,255,255,.2);border-radius:8px;"></div>`}</div><div><div class="hdr-biz">${_dEsc(bizName)}</div>${bizAddress?`<div class="hdr-det">${_dEsc(bizAddress)}</div>`:''}${bizPhone?`<div class="hdr-det">${_dEsc(bizPhone)}</div>`:''}${bizEmail?`<div class="hdr-det">${_dEsc(bizEmail)}</div>`:''}</div></div>
+    <div style="text-align:right;"><div class="doc-type">${typeLabel}</div>${docNumber?`<div class="doc-num">#${_dEsc(docNumber)}</div>`:''}${docDate?`<div class="doc-num">${fmtDate(docDate)}</div>`:''}${invoiceRef&&_dType==='receipt'?`<div class="doc-num">Ref: ${_dEsc(invoiceRef)}</div>`:''}</div>
+  </div>
+  <div class="party-cards">
+    <div class="card"><div class="card-lbl">${_dEsc(bizName)||'From'}</div><div class="card-name">${_dEsc(bizName)}</div><div class="card-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
+    <div class="card"><div class="card-lbl">${L.billTo}</div><div class="card-name">${_dEsc(custName)||'--'}</div><div class="card-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
+  </div>
+  <div class="body">
+    ${(projectTitle||jobOrderedBy||jobLocation||duration)?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">${projectTitle?`<div style="background:#f8fafc;border-radius:10px;padding:12px 14px;border:1px solid #e2e8f0;border-left:3px solid #7c3aed;"><div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Proyecto':'Project'}</div><div style="font-size:0.85rem;font-weight:600;color:#1e293b;">${_dEsc(projectTitle)}</div></div>`:''}${jobOrderedBy?`<div style="background:#f8fafc;border-radius:10px;padding:12px 14px;border:1px solid #e2e8f0;"><div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Ordenado Por':'Ordered By'}</div><div style="font-size:0.85rem;font-weight:600;color:#1e293b;">${_dEsc(jobOrderedBy)}</div></div>`:''}${jobLocation?`<div style="background:#f8fafc;border-radius:10px;padding:12px 14px;border:1px solid #e2e8f0;"><div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Ubicacion':'Location'}</div><div style="font-size:0.85rem;font-weight:600;color:#1e293b;">${_dEsc(jobLocation)}</div></div>`:''}${duration?`<div style="background:#f8fafc;border-radius:10px;padding:12px 14px;border:1px solid #e2e8f0;"><div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Duracion':'Duration'}</div><div style="font-size:0.85rem;font-weight:600;color:#1e293b;">${_dEsc(duration)}</div></div>`:''}</div>`:''}
+    ${jobScope?`<div class="scope-card"><div class="scope-lbl">${_dLang==='es'?'Alcance del Trabajo':'Scope of Work'}</div>${scopeHtml}</div>`:''}
+    ${(_dShowPricing&&_dType!=='contract')?`<table><thead><tr><th>${L.desc}</th><th style="text-align:right;">${L.total}</th></tr></thead><tbody>${itemsHtml}</tbody></table>
+    <div class="totals-wrap"><table class="totals"><tr><td>${L.subtotal}</td><td style="text-align:right;">$${subtotal.toFixed(2)}</td></tr>${taxRate>0?`<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right;">$${taxAmt.toFixed(2)}</td></tr>`:''}<tr class="grand"><td><strong>${grandTotalLabel}</strong></td><td style="text-align:right;"><strong>$${grand.toFixed(2)}</strong></td></tr>${receiptPaymentHtml}${advance>0?`<tr><td style="color:#15803d;">${L.advance}</td><td style="text-align:right;color:#15803d;">-$${advance.toFixed(2)}</td></tr>`:''}${advance>0?`<tr class="balance"><td><strong>${L.balance}</strong></td><td style="text-align:right;"><strong>$${balance.toFixed(2)}</strong></td></tr>`:''}</table></div>${paidInFullHtml}${payInstructionsHtml}`:''}
+    ${_dType==='contract'&&contractTxt?`<div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;line-height:1.7;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;">${_dEsc(contractTxt)}</div>`:''}
+    ${notes?`<div class="notes">${_dEsc(notes)}</div>`:''}
+    ${includeTC&&termsText?`<div style="margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">${L.tcTitle}</div><div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;padding:14px;">${_dEsc(termsText)}</div></div>`:''}
+    ${paymentBlockHtml?`<div style="margin-top:20px;padding:16px;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:12px;text-align:center;"><div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#4338ca;margin-bottom:10px;">${_dLang==='es'?'Opciones de Pago':'Payment Options'}</div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">${paymentBlockHtml}</div></div>`:''}
+    ${(_dType==='estimate'||_dType==='contract')?_dSigSection(custName,bizName):''}
+  </div>
+  <div class="foot"><span>${L.thankYou}</span><span>${typeLabel} ${_dEsc(docNumber)}</span></div>
+</div></body></html>`;
+}
+
+// ── Template 5: Minimal Pro ───────────────────────────────────
+function _dTplMinimal() {
+  const { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
+    docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
+    duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
+    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
+    receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef, paymentBlockHtml } = _dGetData();
+  const itemsHtml = _dType !== 'contract' ? _dItems.map(it => {
+    const k = it.type || 'other'; const tl = _dLang==='es'?(TYPE_LABELS_ES[k]||k):k.charAt(0).toUpperCase()+k.slice(1);
+    return `<tr><td style="padding:10px 0;border-bottom:1px solid #e2e8f0;"><span style="font-size:0.65rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;">${_dEsc(tl)}</span><br><span style="font-size:0.85rem;">${_dEsc(it.desc)}</span></td><td style="padding:10px 0;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;">$${(it.price||0).toFixed(2)}</td></tr>`;
+  }).join('') : '';
+  return `<!DOCTYPE html><html lang="${_dLang==='es'?'es':'en'}"><head><meta charset="utf-8"/><title>${typeLabel} ${docNumber}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1e293b;background:#fff;padding:40px;font-size:13px;line-height:1.6}.wrap{max-width:720px;margin:0 auto}.top{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:2px solid #1e293b;margin-bottom:28px;gap:16px;flex-wrap:wrap}.biz-name{font-size:0.9rem;font-weight:700;margin-top:8px}.biz-det{font-size:0.75rem;color:#64748b;margin-top:1px}.doc-type{font-size:2rem;font-weight:300;text-transform:uppercase;letter-spacing:.08em}.doc-num{font-size:0.78rem;color:#94a3b8;margin-top:6px}.parties{display:flex;gap:40px;margin-bottom:28px;padding-bottom:28px;border-bottom:1px solid #e2e8f0;flex-wrap:wrap}.party{flex:1;min-width:160px}.party-lbl{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;border-bottom:1px solid #e2e8f0;padding-bottom:4px;margin-bottom:6px}.party-name{font-size:0.9rem;font-weight:600}.party-det{font-size:0.75rem;color:#64748b;margin-top:3px;line-height:1.5}table{width:100%;border-collapse:collapse;margin-bottom:16px}thead th{padding:8px 0;text-align:left;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;border-bottom:2px solid #1e293b}thead th:not(:first-child){text-align:right}.totals{margin-left:auto;width:260px}.totals td{padding:5px 0;font-size:0.85rem;color:#475569;border-bottom:1px solid #f1f5f9}.totals .grand td{font-size:1rem;font-weight:700;color:#1e293b;border-top:2px solid #1e293b;border-bottom:none;padding-top:8px}.totals .balance td{font-size:1.05rem;font-weight:800}.section-head{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;border-bottom:1px solid #e2e8f0;padding-bottom:4px;margin-bottom:8px}.notes{border-left:3px solid #1e293b;padding:8px 14px;font-size:0.82rem;color:#475569;margin-bottom:16px}.foot{margin-top:40px;padding-top:16px;border-top:2px solid #1e293b;display:flex;justify-content:space-between;font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8}@media print{body{padding:24px}.wrap{max-width:100%}}</style></head>
+<body><div class="wrap">
+  <div class="top">
+    <div>${logoHtml}<div class="biz-name">${_dEsc(bizName)}</div>${bizAddress?`<div class="biz-det">${_dEsc(bizAddress)}</div>`:''}${bizPhone?`<div class="biz-det">${_dEsc(bizPhone)}</div>`:''}${bizEmail?`<div class="biz-det">${_dEsc(bizEmail)}</div>`:''}</div>
+    <div style="text-align:right;"><div class="doc-type">${typeLabel}</div>${docNumber?`<div class="doc-num"># ${_dEsc(docNumber)}</div>`:''}${docDate?`<div class="doc-num">${fmtDate(docDate)}</div>`:''}${invoiceRef&&_dType==='receipt'?`<div class="doc-num">Ref: ${_dEsc(invoiceRef)}</div>`:''}</div>
+  </div>
+  <div class="parties">
+    <div class="party"><div class="party-lbl">${_dLang==='es'?'De':'From'}</div><div class="party-name">${_dEsc(bizName)||'--'}</div><div class="party-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
+    <div class="party"><div class="party-lbl">${L.billTo}</div><div class="party-name">${_dEsc(custName)||'--'}</div><div class="party-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
+    ${jobOrderedBy||jobLocation?`<div class="party">${jobOrderedBy?`<div class="party-lbl">${_dLang==='es'?'Ordenado Por':'Ordered By'}</div><div class="party-name">${_dEsc(jobOrderedBy)}</div>`:''} ${jobLocation?`<div class="party-lbl" style="margin-top:8px;">${_dLang==='es'?'Ubicacion':'Location'}</div><div class="party-det">${_dEsc(jobLocation)}</div>`:''}</div>`:''}
+  </div>
+  ${projectTitle?`<div style="margin-bottom:20px;"><div class="section-head">${_dLang==='es'?'Proyecto':'Project'}</div><div style="font-size:1rem;font-weight:600;">${_dEsc(projectTitle)}</div></div>`:''}
+  ${jobScope?`<div style="margin-bottom:24px;"><div class="section-head">${_dLang==='es'?'Alcance del Trabajo':'Scope of Work'}</div>${scopeHtml}</div>`:''}
+  ${(_dShowPricing&&_dType!=='contract')?`<table><thead><tr><th>${L.desc}</th><th style="text-align:right;">${L.total}</th></tr></thead><tbody>${itemsHtml}</tbody></table>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:24px;"><table class="totals"><tr><td>${L.subtotal}</td><td style="text-align:right;">$${subtotal.toFixed(2)}</td></tr>${taxRate>0?`<tr><td>${L.tax} (${taxRate}%)</td><td style="text-align:right;">$${taxAmt.toFixed(2)}</td></tr>`:''}<tr class="grand"><td><strong>${grandTotalLabel}</strong></td><td style="text-align:right;"><strong>$${grand.toFixed(2)}</strong></td></tr>${receiptPaymentHtml}${advance>0?`<tr><td>${L.advance}</td><td style="text-align:right;">-$${advance.toFixed(2)}</td></tr>`:''}${advance>0?`<tr class="balance"><td><strong>${L.balance}</strong></td><td style="text-align:right;"><strong>$${balance.toFixed(2)}</strong></td></tr>`:''}</table></div>${paidInFullHtml}${payInstructionsHtml}`:''}
+  ${duration?`<div style="margin-bottom:20px;"><div class="section-head">${_dLang==='es'?'Duracion Estimada':'Est. Duration'}</div><div style="font-size:0.85rem;">${_dEsc(duration)}</div></div>`:''}
+  ${_dType==='contract'&&contractTxt?`<div style="margin-bottom:20px;"><div class="section-head">${L.terms}</div><div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;line-height:1.7;">${_dEsc(contractTxt)}</div></div>`:''}
+  ${notes?`<div class="notes">Note: ${_dEsc(notes)}</div>`:''}
+  ${includeTC&&termsText?`<div style="margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;"><div class="section-head">${L.tcTitle}</div><div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;">${_dEsc(termsText)}</div></div>`:''}
+  ${paymentBlockHtml?`<div style="margin-top:28px;padding:16px;border:1px solid #e2e8f0;border-left:3px solid #1e293b;text-align:center;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:10px;">${_dLang==='es'?'Opciones de Pago':'Payment Options'}</div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">${paymentBlockHtml}</div></div>`:''}
+  ${(_dType==='estimate'||_dType==='contract')?_dSigSection(custName,bizName):''}
+  <div class="foot"><span>${L.thankYou}</span><span>${typeLabel} ${_dEsc(docNumber)}</span></div>
+</div></body></html>`;
+}
+
+// ── Customer search ───────────────────────────────────────────
+window._dashDocSearchCustomers = function(query) {
+  const dropdown = document.getElementById('docCustDropdown');
+  if (!dropdown) return;
+  if (!query.trim()) { dropdown.classList.add('hidden'); dropdown.innerHTML = ''; return; }
+  const q = query.toLowerCase();
+  const matches = _dAllCustomers.filter(c =>
+    (c.name||'').toLowerCase().includes(q) ||
+    (c.email||'').toLowerCase().includes(q) ||
+    (c.phone||'').includes(q)
+  ).slice(0, 8);
+  if (!matches.length) { dropdown.classList.add('hidden'); dropdown.innerHTML = ''; return; }
+  dropdown.innerHTML = matches.map(c => `
+    <div class="doc-cust-item" onclick="window._dashDocSelectCustomer(${JSON.stringify(JSON.stringify(c))})">
+      <div class="cust-name">${_dEsc(c.name)}</div>
+      <div class="cust-sub">${[c.email, c.phone].filter(Boolean).join(' · ')}</div>
+    </div>`).join('');
+  dropdown.classList.remove('hidden');
+};
+
+window._dashDocSelectCustomer = function(cJson) {
+  const c = JSON.parse(cJson);
+  _dSetVal('docCustName',    c.name    || '');
+  _dSetVal('docCustEmail',   c.email   || '');
+  _dSetVal('docCustPhone',   c.phone   || '');
+  _dSetVal('docCustAddress', c.address || '');
+  const dd = document.getElementById('docCustDropdown');
+  if (dd) { dd.classList.add('hidden'); dd.innerHTML = ''; }
+  const inp = document.getElementById('docCustSearch');
+  if (inp) inp.value = c.name || '';
+  window._dashDocUpdatePreview();
+};
+
+async function _dLoadCustomers() {
+  if (!bizId) return;
+  try {
+    const snap = await getDocs(query(collection(db, 'customers'), where('businessId', '==', bizId), orderBy('createdAt', 'desc')));
+    _dAllCustomers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) { _dAllCustomers = []; }
+}
+
+async function _dAutoSaveCustomer(custData) {
+  try {
+    const existing = _dAllCustomers.find(c => c.name?.toLowerCase() === custData.custName?.toLowerCase());
+    if (!existing) {
+      const ref = await addDoc(collection(db, 'customers'), {
+        businessId: bizId,
+        name:    custData.custName,
+        email:   custData.custEmail   || '',
+        phone:   custData.custPhone   || '',
+        address: custData.custAddress || '',
+        createdAt: serverTimestamp()
+      });
+      _dAllCustomers.push({ id: ref.id, name: custData.custName, email: custData.custEmail || '', phone: custData.custPhone || '', address: custData.custAddress || '' });
+    }
+  } catch(e) { console.warn('_dAutoSaveCustomer:', e); }
+}
+
+// ── Voice input ───────────────────────────────────────────────
+window._dashDocVoiceField = function(fieldId) {
+  const SR = window.SpeechRecognition || (window).webkitSpeechRecognition;
+  if (!SR) { showToast('Voice input not supported in this browser.', 'error'); return; }
+  const btn = document.querySelector(`[onclick="window._dashDocVoiceField('${fieldId}')"]`);
+  if (btn) btn.classList.add('listening');
+  const rec = new SR();
+  rec.lang = _dLang === 'es' ? 'es-US' : 'en-US';
+  rec.interimResults = false;
+  rec.onresult = e => {
+    const text = e.results[0]?.[0]?.transcript || '';
+    const el = document.getElementById(fieldId);
+    if (el) { el.value = (el.value ? el.value + ' ' : '') + text; }
+    window._dashDocUpdatePreview();
+    if (btn) btn.classList.remove('listening');
+  };
+  rec.onerror = () => { if (btn) btn.classList.remove('listening'); };
+  rec.onend   = () => { if (btn) btn.classList.remove('listening'); };
+  rec.start();
+};
+
+window._dashDocVoiceSearch = function() {
+  const SR = window.SpeechRecognition || (window).webkitSpeechRecognition;
+  if (!SR) { showToast('Voice input not supported.', 'error'); return; }
+  const btn = document.getElementById('docCustVoiceBtn');
+  if (btn) btn.classList.add('listening');
+  const rec = new SR();
+  rec.lang = _dLang === 'es' ? 'es-US' : 'en-US';
+  rec.interimResults = false;
+  rec.onresult = e => {
+    const text = e.results[0]?.[0]?.transcript || '';
+    const inp = document.getElementById('docCustSearch');
+    if (inp) { inp.value = text; window._dashDocSearchCustomers(text); }
+    if (btn) btn.classList.remove('listening');
+  };
+  rec.onerror = () => { if (btn) btn.classList.remove('listening'); };
+  rec.onend   = () => { if (btn) btn.classList.remove('listening'); };
+  rec.start();
+};
+
+// ── Share & Copy ──────────────────────────────────────────────
+function _dNeedsSave() { showToast('Save the document first to get a shareable link.', 'error'); }
+
+window._dashDocShareWA = function() {
+  if (!_dCurrentDocId) { _dNeedsSave(); return; }
+  const L = _DASH_DOC_LABELS[_dLang];
+  const typeLabel = L[_dType] || _dType;
+  const viewUrl   = `${window.location.origin}/view.html?id=${_dCurrentDocId}`;
+  const msg = (_dLang === 'es' ? `Revisa tu ${typeLabel} aqui` : `Review your ${typeLabel} here`) + ':\n' + viewUrl;
+  window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+};
+
+window._dashDocShareEmail = function() {
+  if (!_dCurrentDocId) { _dNeedsSave(); return; }
+  const L = _DASH_DOC_LABELS[_dLang];
+  const typeLabel = L[_dType] || _dType;
+  const docNum    = document.getElementById('docNumber')?.value || '';
+  const custEmail = document.getElementById('docCustEmail')?.value || '';
+  const viewUrl   = `${window.location.origin}/view.html?id=${_dCurrentDocId}`;
+  const msg = (_dLang === 'es' ? `Revisa tu ${typeLabel} aqui` : `Review your ${typeLabel} here`) + ':\n' + viewUrl + '\n\nThis link always shows the latest version.';
+  const subject = encodeURIComponent(`${typeLabel}${docNum ? ' #' + docNum : ''}`);
+  window.open(`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(custEmail)}&su=${subject}&body=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+};
+
+window._dashDocCopy = function() {
+  if (!_dCurrentDocId) { _dNeedsSave(); return; }
+  const btn = document.getElementById('dashDocCopyBtn');
+  const url = `${window.location.origin}/view.html?id=${_dCurrentDocId}`;
+  navigator.clipboard.writeText(url).then(() => {
+    if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy'; }, 2000); }
+  }).catch(() => alert('Could not copy to clipboard.'));
+};
+
+window._dashDocPrint = function() {
+  const frame = document.getElementById('dashDocPreviewFrame');
+  if (frame?.contentWindow) frame.contentWindow.print();
+};
+
+// ── Save to Firestore ─────────────────────────────────────────
+window._dashDocSave = async function() {
+  const btn = document.getElementById('dashDocSaveBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+  try {
+    // If logo is a data-URL, keep inline (dashboard user, Storage not needed for personal doc)
+    const htmlContent = window._dashDocGenerateHTML();
+    const taxRate = parseFloat(document.getElementById('docTaxRate')?.value || 0);
+    const subtotal = _dItems.reduce((s, it) => s + (it.price||0), 0);
+    const grand    = subtotal + subtotal * taxRate / 100;
+    const custName    = document.getElementById('docCustName')?.value    || '';
+    const custEmail   = document.getElementById('docCustEmail')?.value   || '';
+    const custPhone   = document.getElementById('docCustPhone')?.value   || '';
+    const custAddress = document.getElementById('docCustAddress')?.value || '';
+
+    const data = {
+      businessId:   bizId,
+      type:         _dType,
+      lang:         _dLang,
+      template:     _dDesign,
+      docNumber:    document.getElementById('docNumber')?.value     || '',
+      docDate:      document.getElementById('docDate')?.value       || '',
+      docDueDate:   document.getElementById('docDueDate')?.value    || '',
+      bizName:      document.getElementById('docBizName')?.value    || '',
+      bizAddress:   document.getElementById('docBizAddress')?.value || '',
+      bizPhone:     document.getElementById('docBizPhone')?.value   || '',
+      bizEmail:     document.getElementById('docBizEmail')?.value   || '',
+      custName,
+      customerName: custName,
+      custEmail,
+      custPhone,
+      custAddress,
+      projectTitle: document.getElementById('docProjectTitle')?.value  || '',
+      jobOrderedBy: document.getElementById('docJobOrderedBy')?.value  || '',
+      jobLocation:  document.getElementById('docJobLocation')?.value   || '',
+      duration:     document.getElementById('docDuration')?.value      || '',
+      jobScope:     document.getElementById('docJobScope')?.value      || '',
+      contractText: document.getElementById('docContractText')?.value  || '',
+      notes:        document.getElementById('docNotes')?.value         || '',
+      taxRate,
+      advance:      parseFloat(document.getElementById('docAdvancePayment')?.value || 0),
+      items:        _dItems,
+      showPricing:  _dShowPricing,
+      includeTC:    document.getElementById('docIncludeTC')?.checked || false,
+      termsText:    document.getElementById('docTermsText')?.value || '',
+      paymentMethod: document.getElementById('docPaymentMethod')?.value || '',
+      logoUrl:      _dLogoUrl,
+      htmlContent,
+      amount:       grand.toFixed(2),
+      status:       'pending',
+      createdAt:    serverTimestamp()
+    };
+
+    if (document.getElementById('docSaveCust')?.checked && custName) {
+      await _dAutoSaveCustomer(data);
+    }
+
+    let savedId = _dCurrentDocId;
+    if (_dCurrentDocId) {
+      await updateDoc(doc(db, 'documents', _dCurrentDocId), { ...data, updatedAt: serverTimestamp() });
+    } else {
+      const ref = await addDoc(collection(db, 'documents'), data);
+      savedId = ref.id;
+      _dCurrentDocId = savedId;
+    }
+
+    // Show share modal
+    const viewUrl  = `${window.location.origin}/view.html?id=${savedId}`;
+    const L        = _DASH_DOC_LABELS[_dLang];
+    const typeLabel = L[_dType] || _dType;
+    const docNum   = data.docNumber;
+    _dShowShareModal(viewUrl, typeLabel, docNum, _dType);
+
+    // Refresh doc list in background
+    loadDocuments();
+  } catch(e) {
+    console.error('_dashDocSave error:', e);
+    alert('Error saving document: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Save Document'; }
+  }
+};
+
+function _dShowShareModal(viewUrl, typeLabel, docNumber, type) {
+  const existing = document.getElementById('dashDocShareModal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'dashDocShareModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:28px;max-width:460px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:2.5rem;margin-bottom:8px;"></div>
+        <div style="font-size:1.1rem;font-weight:800;color:#1e293b;">Document Saved!</div>
+        <div style="font-size:0.82rem;color:#64748b;margin-top:4px;">${typeLabel}${docNumber?' #'+docNumber:''} is ready to share</div>
+      </div>
+      <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px;">Shareable Link</div>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:0.78rem;color:#475569;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${viewUrl}</span>
+        <button id="dsmCopyBtn" style="background:#4f46e5;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;">Copy Link</button>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button id="dsmWA"    style="flex:1;background:#22c55e;color:#fff;border:none;border-radius:9px;padding:10px;font-size:0.82rem;font-weight:700;cursor:pointer;">WhatsApp</button>
+        <button id="dsmEmail" style="flex:1;background:#4f46e5;color:#fff;border:none;border-radius:9px;padding:10px;font-size:0.82rem;font-weight:700;cursor:pointer;">Email</button>
+        <button id="dsmDone"  style="flex:1;background:#f1f5f9;color:#1e293b;border:none;border-radius:9px;padding:10px;font-size:0.82rem;font-weight:700;cursor:pointer;">Done</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  document.getElementById('dsmCopyBtn')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(viewUrl).then(() => {
+      const b = document.getElementById('dsmCopyBtn'); if (b) { b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy Link', 2000); }
+    });
+  });
+  document.getElementById('dsmWA')?.addEventListener('click', () => {
+    const L = _DASH_DOC_LABELS[_dLang];
+    const tl = L[type] || type;
+    window.open('https://wa.me/?text=' + encodeURIComponent((_dLang==='es'?`Revisa tu ${tl} aqui`:`Review your ${tl} here`) + ':\n' + viewUrl), '_blank');
+  });
+  document.getElementById('dsmEmail')?.addEventListener('click', () => {
+    const L = _DASH_DOC_LABELS[_dLang];
+    const tl = L[type] || type;
+    const sub = encodeURIComponent(`${tl}${docNumber?' #'+docNumber:''}`);
+    const body = encodeURIComponent((_dLang==='es'?`Revisa tu ${tl} aqui`:`Review your ${tl} here`) + ':\n' + viewUrl);
+    window.open(`https://mail.google.com/mail/?view=cm&su=${sub}&body=${body}`, '_blank', 'noopener');
+  });
+  document.getElementById('dsmDone')?.addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+// ── Open Doc Creator ──────────────────────────────────────────
+function openDocCreator(type = 'invoice') {
+  _dType        = type;
+  _dDesign      = 'classic';
+  _dItems       = [{ desc:'', price:0, type:'labor' }];
+  _dLogoUrl     = '';
+  _dCurrentDocId = null;
+  _dShowPricing  = true;
+  _dLang         = 'en';
+
+  const modal = document.getElementById('docCreatorModal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+
+  // Reset form fields
+  ['docBizName','docBizAddress','docBizPhone','docBizEmail',
+   'docCustName','docCustEmail','docCustPhone','docCustAddress',
+   'docCustSearch','docNumber','docDate','docDueDate','docNotes','docContractText',
+   'docProjectTitle','docJobOrderedBy','docJobLocation','docDuration','docJobScope',
+   'docPayInstructions','docInvoiceRef'].forEach(id => _dSetVal(id, ''));
+  _dSetVal('docTaxRate', '0');
+  _dSetVal('docAdvancePayment', '0');
+
+  // Reset toggles
+  const pChk = document.getElementById('docShowPricing');
+  if (pChk) pChk.checked = true;
+  document.getElementById('docPricingContent')?.classList.remove('hidden');
+  const tcChk = document.getElementById('docIncludeTC');
+  if (tcChk) tcChk.checked = false;
+  document.getElementById('docTCSection')?.classList.add('hidden');
+  _dSetVal('docTermsText', '');
+  const saveCust = document.getElementById('docSaveCust');
+  if (saveCust) saveCust.checked = false;
+
+  // Reset logo
+  const img = document.getElementById('docLogoImg');
+  const ph  = document.getElementById('docLogoPlaceholder');
+  if (img) { img.src = ''; img.style.display = 'none'; }
+  if (ph)  ph.style.display = '';
+  const logoInput = document.getElementById('docLogoInput');
+  if (logoInput) { logoInput.value = ''; logoInput._dashWired = false; }
+
+  // Pre-fill from business profile
+  const biz = bizDoc || {};
+  _dSetVal('docBizName',    biz.companyName || biz.name    || biz.bizName    || '');
+  _dSetVal('docBizAddress', biz.address     || biz.bizAddress || '');
+  _dSetVal('docBizPhone',   biz.phone       || biz.bizPhone   || '');
+  _dSetVal('docBizEmail',   biz.email       || biz.bizEmail   || '');
+
+  if (biz.logoUrl) {
+    _dLogoUrl = biz.logoUrl;
+    if (img) { img.src = _dLogoUrl; img.style.display = 'block'; }
+    if (ph)  ph.style.display = 'none';
+  }
+
+  // Set date + doc number
+  _dSetVal('docDate', new Date().toISOString().slice(0,10));
+  _dSetVal('docNumber', type.slice(0,3).toUpperCase() + '-' + String(Date.now()).slice(-4));
+
+  // Set type, lang, design
+  window._dashDocSetType(type);
+  window._dashDocSetLang('en');
+  window._dashDocSetDesign('classic');
+
+  // Render items & preview
+  window._dashDocRenderItems();
+  window._dashDocUpdateTotals();
+  window._dashDocUpdatePreview();
+  _dWireLogoUpload();
+
+  // Load customers in background
+  _dLoadCustomers();
+
+  // Load payment methods
+  if (bizId) {
+    getDoc(doc(db, 'businesses', bizId)).then(snap => {
+      const data = snap.data() || {};
+      _dBizPaymentMethods = data.paymentMethods || {};
+    }).catch(() => {});
+  }
+
+  // Wire close button
+  const closeBtn = document.getElementById('dashCloseDocCreator');
+  if (closeBtn && !closeBtn._dashWired) {
+    closeBtn._dashWired = true;
+    closeBtn.addEventListener('click', () => {
+      modal.classList.add('hidden');
+      document.body.style.overflow = '';
+    });
+  }
+}

@@ -782,147 +782,332 @@
 </div>
 
 
-<!-- ══════════════ MODAL: Generate Document ══════════════ -->
-<div class="modal-overlay hidden" id="generateDocModal">
-  <div class="modal-card modal-lg">
-    <div class="modal-header">
-      <div>
-        <span class="gen-doc-label label-invoice" id="genDocLabel">INVOICE</span>
-        <h3 id="genDocModalTitle">New Invoice</h3>
+<!-- ══════════════ MODAL: Document Creator (full-screen) ══════════════ -->
+<div class="modal-overlay hidden doc-creator-overlay" id="docCreatorModal">
+  <div class="doc-creator-wrap">
+
+    <!-- Header -->
+    <div class="doc-creator-header">
+      <div class="doc-type-tabs">
+        <button class="doc-type-tab active" data-doctype="invoice"  onclick="window._dashDocSetType('invoice')">🧾 Invoice</button>
+        <button class="doc-type-tab"         data-doctype="estimate" onclick="window._dashDocSetType('estimate')">📋 Estimate</button>
+        <button class="doc-type-tab"         data-doctype="contract" onclick="window._dashDocSetType('contract')">📝 Contract</button>
+        <button class="doc-type-tab"         data-doctype="receipt"  onclick="window._dashDocSetType('receipt')">🧾 Receipt</button>
       </div>
-      <button class="modal-close" data-close="generateDocModal">✕</button>
+      <div class="doc-creator-controls">
+        <div class="doc-lang-toggle">
+          <button class="doc-lang-btn active" id="dashDocLangEn" onclick="window._dashDocSetLang('en')">EN</button>
+          <button class="doc-lang-btn"         id="dashDocLangEs" onclick="window._dashDocSetLang('es')">ES</button>
+        </div>
+        <button class="modal-close" id="dashCloseDocCreator" data-close="docCreatorModal">✕</button>
+      </div>
     </div>
-    <div class="modal-body">
-      <input type="hidden" id="genDocType" value="invoice" />
 
-      <!-- Business profile banner (auto-filled) -->
-      <div class="doc-biz-banner" id="docBizBanner">
-        <img class="doc-biz-logo" id="docBizLogoPreview" alt="" />
-        <div>
-          <div class="doc-biz-name" id="docBizNamePreview">—</div>
-          <div class="doc-biz-detail" id="docBizDetailPreview">—</div>
-        </div>
-        <a class="doc-biz-edit-link" data-nav="profile" style="margin-left:auto;font-size:0.75rem;color:var(--indigo);cursor:pointer;white-space:nowrap;">Edit Profile →</a>
-      </div>
+    <!-- Body: Form + Preview -->
+    <div class="doc-creator-body">
 
-      <!-- Customer / client info -->
-      <div class="form-row">
-        <div class="form-group">
-          <label>Customer / Client Name <span style="color:var(--red)">*</span></label>
-          <input type="text" id="genDocCustomer" placeholder="John Smith" />
-        </div>
-        <div class="form-group">
-          <label>Customer Email</label>
-          <input type="email" id="genDocCustEmail" placeholder="john@email.com" />
-        </div>
-      </div>
+      <!-- LEFT: Form -->
+      <div class="doc-form-col">
 
-      <div class="form-row">
-        <div class="form-group">
-          <label>Customer Address</label>
-          <input type="text" id="genDocCustAddress" placeholder="456 Oak Ave, City, State" />
-        </div>
-        <div class="form-group">
-          <label>Date</label>
-          <input type="text" id="genDocDate" />
-        </div>
-      </div>
-
-      <!-- Contract-specific fields -->
-      <div id="genDocContractFields" class="hidden">
-        <hr class="form-divider" />
-        <p class="form-section-label">Contract Details</p>
-        <div class="form-group">
-          <label>Scope of Work</label>
-          <textarea id="genDocJobDesc" placeholder="Describe the work to be performed…" style="min-height:80px;"></textarea>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Start Date</label>
-            <input type="date" id="genDocStartDate" />
-          </div>
-          <div class="form-group">
-            <label>Completion Date</label>
-            <input type="date" id="genDocEndDate" />
+        <!-- Type Purpose Banner -->
+        <div id="docTypeBanner" class="doc-type-banner">
+          <span id="docTypeBannerIcon" class="doc-banner-icon">📄</span>
+          <div>
+            <div id="docTypeBannerTitle" class="doc-banner-title">Invoice</div>
+            <div id="docTypeBannerDesc" class="doc-banner-desc">Request payment for completed work</div>
           </div>
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Contract Total ($)</label>
-            <input type="number" id="genDocContractTotal" placeholder="0.00" min="0" step="0.01" />
-          </div>
-          <div class="form-group">
-            <label>Payment Terms</label>
-            <input type="text" id="genDocPaymentTerms" placeholder="50% upfront, 50% on completion" />
-          </div>
-        </div>
-      </div>
 
-      <!-- Receipt-specific: payment method -->
-      <div class="form-group hidden" id="genDocPayMethodGroup">
-        <label>Payment Method</label>
-        <select id="genDocPayMethod" class="form-select">
-          <option value="Cash">Cash</option>
-          <option value="Credit Card">Credit Card</option>
-          <option value="Debit Card">Debit Card</option>
-          <option value="Check">Check</option>
-          <option value="Zelle">Zelle</option>
-          <option value="Venmo">Venmo</option>
-          <option value="CashApp">CashApp</option>
-          <option value="PayPal">PayPal</option>
-          <option value="Bank Transfer">Bank Transfer</option>
-          <option value="Other">Other</option>
-        </select>
-      </div>
-
-      <!-- Line items (hidden for contract) -->
-      <div id="genDocLineItemsSection">
-        <div class="form-group">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-            <label style="margin:0;">Items / Services <span style="color:var(--red)">*</span></label>
-            <button class="btn-add-item" id="addDocItemBtn" type="button">＋ Add Item</button>
+        <!-- Business Info -->
+        <div class="doc-form-section">
+          <div class="doc-fsec-title">🏢 <span data-en="Business Info" data-es="Info del Negocio">Business Info</span>
+            <span style="font-size:0.65rem;font-weight:400;color:#94a3b8;text-transform:none;margin-left:6px;">(auto-filled from your profile)</span>
           </div>
-          <div class="doc-line-items" id="genDocItemsList"></div>
-          <div class="doc-totals" id="genDocTotals">
-            <div class="doc-totals-row">
-              <span>Subtotal</span>
-              <span id="genDocSubtotal">$0.00</span>
+          <div class="doc-biz-row">
+            <div class="doc-logo-box" id="docLogoBox" onclick="document.getElementById('docLogoInput').click()" title="Click to upload logo">
+              <img id="docLogoImg" src="" alt="" style="display:none;width:100%;height:100%;object-fit:contain;border-radius:4px"/>
+              <span id="docLogoPlaceholder">+ Logo</span>
+              <input type="file" id="docLogoInput" accept="image/*" style="display:none"/>
             </div>
-            <div class="doc-totals-row" id="genDocTaxRow" style="display:none;">
-              <span>Tax</span>
-              <span id="genDocTaxAmt">$0.00</span>
-            </div>
-            <div class="doc-totals-row total">
-              <span>Total</span>
-              <span id="genDocTotal">$0.00</span>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">
+              <input type="text"  id="docBizName"    class="doc-input" placeholder="Business Name" oninput="window._dashDocUpdatePreview()"/>
+              <input type="text"  id="docBizAddress" class="doc-input" placeholder="Address"       oninput="window._dashDocUpdatePreview()"/>
+              <div style="display:flex;gap:5px">
+                <input type="text"  id="docBizPhone" class="doc-input" placeholder="Phone"  oninput="window._dashDocUpdatePreview()" style="flex:1"/>
+                <input type="email" id="docBizEmail" class="doc-input" placeholder="Email"  oninput="window._dashDocUpdatePreview()" style="flex:1"/>
+              </div>
             </div>
           </div>
         </div>
+
+        <!-- Customer -->
+        <div class="doc-form-section">
+          <div class="doc-fsec-title">👤 <span id="docBillToLabel" data-en="Bill To" data-es="Facturar a">Bill To</span></div>
+          <div class="doc-search-row">
+            <input type="text" id="docCustSearch" class="doc-input" placeholder="🔍 Search saved customers…"
+              oninput="window._dashDocSearchCustomers(this.value)" style="flex:1"/>
+            <button class="doc-voice-btn" id="docCustVoiceBtn" onclick="window._dashDocVoiceSearch()" title="Voice search">🎤</button>
+          </div>
+          <div id="docCustDropdown" class="doc-cust-dropdown hidden"></div>
+          <div style="display:flex;gap:5px;margin-top:5px">
+            <input type="text" id="docCustName"    class="doc-input" placeholder="Full Name *" oninput="window._dashDocUpdatePreview()" style="flex:1"/>
+            <button class="doc-voice-btn" onclick="window._dashDocVoiceField('docCustName')" title="Voice input">🎤</button>
+          </div>
+          <div style="display:flex;gap:5px;margin-top:5px">
+            <input type="email" id="docCustEmail"   class="doc-input" placeholder="Email"    oninput="window._dashDocUpdatePreview()" style="flex:1"/>
+            <input type="tel"   id="docCustPhone"   class="doc-input" placeholder="Phone"    oninput="window._dashDocUpdatePreview()" style="flex:1"/>
+          </div>
+          <div style="display:flex;gap:5px;margin-top:5px">
+            <input type="text"  id="docCustAddress" class="doc-input" placeholder="Address"  oninput="window._dashDocUpdatePreview()" style="flex:1"/>
+            <button class="doc-voice-btn" onclick="window._dashDocVoiceField('docCustAddress')" title="Voice input">🎤</button>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:0.78rem;cursor:pointer;color:var(--muted)">
+            <input type="checkbox" id="docSaveCust" style="width:auto;accent-color:var(--indigo)"/>
+            <span data-en="Save to customer list" data-es="Guardar en lista de clientes">Save to customer list</span>
+          </label>
+        </div>
+
+        <!-- Document Details -->
+        <div class="doc-form-section">
+          <div class="doc-fsec-title">📋 <span data-en="Document Details" data-es="Detalles">Document Details</span></div>
+          <div style="display:flex;gap:5px;align-items:center;margin-bottom:8px" id="docProjectTitleRow">
+            <div style="flex:1;min-width:0">
+              <label class="doc-field-label" data-en="Project Title" data-es="Título del Proyecto">Project Title</label>
+              <input type="text" id="docProjectTitle" class="doc-input"
+                placeholder="e.g. Kitchen Sink Drain Reroute & ABS Installation"
+                oninput="window._dashDocUpdatePreview()"/>
+            </div>
+            <button class="doc-voice-btn" style="margin-top:16px" onclick="window._dashDocVoiceField('docProjectTitle')" title="Voice input">🎤</button>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <div style="flex:1;min-width:90px">
+              <label class="doc-field-label" data-en="Doc #" data-es="Núm.">Doc #</label>
+              <input type="text" id="docNumber" class="doc-input" placeholder="INV-001" oninput="window._dashDocUpdatePreview()"/>
+            </div>
+            <div style="flex:1;min-width:110px">
+              <label class="doc-field-label" data-en="Date" data-es="Fecha">Date</label>
+              <input type="date" id="docDate" class="doc-input" oninput="window._dashDocUpdatePreview()"/>
+            </div>
+            <div style="flex:1;min-width:110px" id="docDueDateWrap">
+              <label class="doc-field-label" id="docDueDateLabel" data-en="Due Date" data-es="Vencimiento">Due Date</label>
+              <input type="date" id="docDueDate" class="doc-input" oninput="window._dashDocUpdatePreview()"/>
+            </div>
+          </div>
+          <!-- Payment Method (receipt only) -->
+          <div id="docPaymentMethodRow" style="display:none;margin-top:6px">
+            <label class="doc-field-label" data-en="Payment Method" data-es="Método de Pago">Payment Method</label>
+            <select id="docPaymentMethod" class="doc-input" onchange="window._dashDocUpdatePreview()">
+              <option value="cash">💵 Cash</option>
+              <option value="check">📝 Check</option>
+              <option value="card">💳 Card / Debit</option>
+              <option value="zelle">📱 Zelle</option>
+              <option value="venmo">📱 Venmo</option>
+              <option value="cashapp">📱 Cash App</option>
+              <option value="transfer">🏦 Bank Transfer</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <!-- Invoice Reference # (receipt only) -->
+          <div id="docInvoiceRefRow" style="display:none;margin-top:6px">
+            <label class="doc-field-label" data-en="Reference Invoice #" data-es="Ref. Factura #">Reference Invoice #</label>
+            <input type="text" id="docInvoiceRef" class="doc-input" placeholder="e.g. INV-4751 (optional)"
+              oninput="window._dashDocUpdatePreview()"/>
+          </div>
+        </div>
+
+        <!-- Job Details -->
+        <div class="doc-form-section" id="docJobDetailsSection">
+          <div class="doc-fsec-title">🔧 <span id="docJobDetailsTitle" data-en="Job Details" data-es="Detalles del Trabajo">Job Details</span></div>
+          <div style="display:flex;gap:5px;align-items:center;margin-bottom:5px" id="docOrderedByRow">
+            <div style="flex:1;min-width:0">
+              <label class="doc-field-label" data-en="Ordered By" data-es="Ordenado Por">Ordered By</label>
+              <input type="text" id="docJobOrderedBy" class="doc-input" placeholder="Name of person who ordered"
+                oninput="window._dashDocUpdatePreview()"/>
+            </div>
+            <button class="doc-voice-btn" style="margin-top:16px" onclick="window._dashDocVoiceField('docJobOrderedBy')" title="Voice input">🎤</button>
+          </div>
+          <div style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
+            <div style="flex:1;min-width:0">
+              <label class="doc-field-label" data-en="Job Location" data-es="Ubicación del Trabajo">Job Location</label>
+              <input type="text" id="docJobLocation" class="doc-input" placeholder="Job site address"
+                oninput="window._dashDocUpdatePreview()"/>
+            </div>
+            <button class="doc-voice-btn" style="margin-top:16px" onclick="window._dashDocVoiceField('docJobLocation')" title="Voice input">🎤</button>
+          </div>
+          <div style="display:flex;gap:5px;align-items:center" id="docDurationRow">
+            <div style="flex:1;min-width:0">
+              <label class="doc-field-label" data-en="Estimated Duration" data-es="Duración Estimada">Estimated Duration</label>
+              <input type="text" id="docDuration" class="doc-input" placeholder="e.g. 2–3 days"
+                oninput="window._dashDocUpdatePreview()"/>
+            </div>
+            <button class="doc-voice-btn" style="margin-top:16px" onclick="window._dashDocVoiceField('docDuration')" title="Voice input">🎤</button>
+          </div>
+        </div>
+
+        <!-- Scope of Work -->
+        <div class="doc-form-section" id="docScopeSection">
+          <div class="doc-fsec-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span>📋 <span data-en="Scope of Work" data-es="Alcance del Trabajo">Scope of Work</span></span>
+            <button class="doc-voice-btn" onclick="window._dashDocVoiceField('docJobScope')" title="Voice input">🎤</button>
+          </div>
+          <textarea id="docJobScope" class="doc-input" rows="3"
+            placeholder="Describe the work to be performed, materials included, and any special conditions…"
+            oninput="window._dashDocUpdatePreview()" style="resize:vertical;width:100%"></textarea>
+        </div>
+
+        <!-- Line Items -->
+        <div class="doc-form-section" id="docLineItemsSection">
+          <div class="doc-fsec-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span>🧾 <span id="docLineItemsTitle" data-en="Line Items &amp; Pricing" data-es="Partidas y Precios">Line Items &amp; Pricing</span></span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <label class="doc-pricing-toggle" title="Enable / Disable pricing details">
+                <input type="checkbox" id="docShowPricing" checked onchange="window._dashDocTogglePricing()">
+                <span class="doc-toggle-track"></span>
+                <span class="doc-toggle-label-txt" data-en="Pricing" data-es="Precios">Pricing</span>
+              </label>
+              <button class="btn-action" onclick="window._dashDocAddItem()" style="font-size:0.72rem;padding:3px 10px">+ Add Line</button>
+            </div>
+          </div>
+          <div id="docPricingContent">
+            <div class="doc-items-header">
+              <span data-en="Type" data-es="Tipo">Type</span>
+              <span data-en="Description" data-es="Descripción">Description</span>
+              <span data-en="Amount" data-es="Monto">Amount</span>
+              <span></span>
+            </div>
+            <div id="docItemsList"></div>
+            <div class="doc-totals">
+              <div class="doc-totals-row">
+                <span data-en="Subtotal" data-es="Subtotal">Subtotal</span>
+                <strong id="docSubtotal">$0.00</strong>
+              </div>
+              <div class="doc-totals-row" id="docTaxRow">
+                <span data-en="Tax" data-es="Impuesto">Tax</span>
+                <span style="display:flex;align-items:center;gap:4px">
+                  <input type="number" id="docTaxRate" value="0" min="0" max="100" step="0.5"
+                    style="width:44px;border:1px solid #e2e8f0;border-radius:4px;padding:2px 4px;font-size:0.78rem;text-align:center"
+                    oninput="window._dashDocUpdateTotals();window._dashDocUpdatePreview();"> %
+                  <strong id="docTaxAmt">$0.00</strong>
+                </span>
+              </div>
+              <div class="doc-totals-row doc-totals-grand">
+                <span id="docGrandTotalLabelSpan" data-en="Total" data-es="Total">Total</span>
+                <strong id="docGrandTotal">$0.00</strong>
+              </div>
+              <div class="doc-totals-row" id="docAdvanceRow">
+                <span data-en="Advance Payment" data-es="Anticipo Recibido">Advance Payment</span>
+                <span style="display:flex;align-items:center;gap:3px;font-size:0.82rem;color:#15803d">
+                  - $<input type="number" id="docAdvancePayment" value="0" min="0" step="0.01"
+                    style="width:68px;border:1px solid #bbf7d0;border-radius:4px;padding:2px 5px;font-size:0.82rem;text-align:right;color:#15803d;background:#f0fdf4;outline:none"
+                    oninput="window._dashDocUpdateTotals();window._dashDocUpdatePreview();">
+                </span>
+              </div>
+              <div class="doc-totals-row doc-totals-balance" id="docBalanceRow">
+                <span data-en="Remaining Balance" data-es="Saldo Pendiente">Remaining Balance</span>
+                <strong id="docBalanceDue">$0.00</strong>
+              </div>
+            </div>
+          </div>
+          <!-- Payment Instructions (invoice only) -->
+          <div id="docPayInstructRow" style="display:none;margin-top:8px">
+            <label class="doc-field-label" data-en="Payment Instructions" data-es="Instrucciones de Pago">Payment Instructions</label>
+            <textarea id="docPayInstructions" class="doc-input" rows="2"
+              placeholder="e.g. Zelle: (805) 707-3720 · Check payable to: Partida's Plumbing"
+              oninput="window._dashDocUpdatePreview()" style="resize:vertical;width:100%"></textarea>
+          </div>
+        </div>
+
+        <!-- Contract Text -->
+        <div class="doc-form-section hidden" id="docContractSection">
+          <div class="doc-fsec-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span>📝 <span data-en="Contract Terms" data-es="Términos">Contract Terms</span></span>
+            <button class="doc-voice-btn" onclick="window._dashDocVoiceField('docContractText')" title="Voice input">🎤</button>
+          </div>
+          <textarea id="docContractText" class="doc-input" rows="7"
+            placeholder="Enter contract terms and conditions…"
+            oninput="window._dashDocUpdatePreview()" style="resize:vertical;width:100%"></textarea>
+        </div>
+
+        <!-- Notes -->
+        <div class="doc-form-section">
+          <div class="doc-fsec-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span>📌 <span data-en="Notes" data-es="Notas">Notes</span></span>
+            <button class="doc-voice-btn" onclick="window._dashDocVoiceField('docNotes')" title="Voice input">🎤</button>
+          </div>
+          <textarea id="docNotes" class="doc-input" rows="2"
+            placeholder="Thank you for your business!" data-ph-invoice="Thank you for your business!" data-ph-estimate="Thank you for considering our services!" data-ph-contract="Additional terms or special conditions…" data-ph-receipt="Thank you for your payment!"
+            oninput="window._dashDocUpdatePreview()" style="resize:vertical;width:100%"></textarea>
+        </div>
+
+        <!-- Terms & Conditions -->
+        <div class="doc-form-section" id="docTCFormSection">
+          <div class="doc-fsec-title" style="display:flex;justify-content:space-between;align-items:center">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0">
+              <input type="checkbox" id="docIncludeTC" style="width:auto;accent-color:var(--indigo)" onchange="window._dashDocToggleTC()"/>
+              ⚖️ <span data-en="Terms &amp; Conditions" data-es="Términos y Condiciones">Terms &amp; Conditions</span>
+            </label>
+            <div style="display:flex;gap:4px">
+              <button class="doc-voice-btn" onclick="window._dashDocVoiceField('docTermsText')" title="Voice input">🎤</button>
+            </div>
+          </div>
+          <div id="docTCSection" class="hidden">
+            <textarea id="docTermsText" class="doc-input" rows="6"
+              placeholder="Terms and conditions…"
+              oninput="window._dashDocUpdatePreview()" style="resize:vertical;width:100%;margin-top:6px"></textarea>
+            <button class="doc-tc-reset" onclick="window._dashDocResetTC()">↺ Reset to Default T&amp;C</button>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="doc-form-actions">
+          <button class="btn-save" id="dashDocSaveBtn" onclick="window._dashDocSave()" style="flex:1">
+            💾 <span data-en="Save Document" data-es="Guardar">Save Document</span>
+          </button>
+        </div>
+
+      </div><!-- /doc-form-col -->
+
+      <!-- RIGHT: Preview -->
+      <div class="doc-preview-col">
+        <div class="doc-preview-toolbar">
+          <span style="font-size:0.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">
+            <span data-en="Preview" data-es="Vista Previa">Preview</span>
+          </span>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <button class="doc-share-btn wa"    onclick="window._dashDocShareWA()">💬 WhatsApp</button>
+            <button class="doc-share-btn email" onclick="window._dashDocShareEmail()">📧 Email</button>
+            <button class="doc-share-btn copy"  id="dashDocCopyBtn" onclick="window._dashDocCopy()">🔗 Copy</button>
+            <button class="btn-action"          onclick="window._dashDocPrint()">🖨️ Print / PDF</button>
+          </div>
+        </div>
+        <!-- Template Design Picker -->
+        <div class="doc-design-picker" id="dashDocDesignPicker">
+          <button class="doc-design-btn active" id="dashDocDesign-classic" onclick="window._dashDocSetDesign('classic')" title="Classic">
+            <div class="dd-swatch" style="background:linear-gradient(135deg,#4f46e5 50%,#7c3aed 100%)"></div>
+            <span>Classic</span>
+          </button>
+          <button class="doc-design-btn" id="dashDocDesign-bold" onclick="window._dashDocSetDesign('bold')" title="Bold Contractor">
+            <div class="dd-swatch" style="background:linear-gradient(135deg,#111 50%,#dc2626 100%)"></div>
+            <span>Bold</span>
+          </button>
+          <button class="doc-design-btn" id="dashDocDesign-executive" onclick="window._dashDocSetDesign('executive')" title="Executive Dark">
+            <div class="dd-swatch" style="background:linear-gradient(135deg,#0f172a 50%,#b8862b 100%)"></div>
+            <span>Executive</span>
+          </button>
+          <button class="doc-design-btn" id="dashDocDesign-modern" onclick="window._dashDocSetDesign('modern')" title="Modern Gradient">
+            <div class="dd-swatch" style="background:linear-gradient(135deg,#7c3aed 0%,#0891b2 100%)"></div>
+            <span>Modern</span>
+          </button>
+          <button class="doc-design-btn" id="dashDocDesign-minimal" onclick="window._dashDocSetDesign('minimal')" title="Minimal Pro">
+            <div class="dd-swatch" style="background:linear-gradient(135deg,#1e293b 50%,#64748b 100%)"></div>
+            <span>Minimal</span>
+          </button>
+        </div>
+        <iframe id="dashDocPreviewFrame" class="doc-preview-frame" title="Document Preview"></iframe>
       </div>
 
-      <!-- Tax rate (hidden for contract) -->
-      <div class="form-group" style="max-width:180px;" id="genDocTaxGroup">
-        <label>Tax Rate (%)</label>
-        <input type="number" id="genDocTaxRate" placeholder="0" min="0" max="100" step="0.5" value="0" />
-      </div>
-
-      <!-- Notes -->
-      <div class="form-group">
-        <label>Notes</label>
-        <textarea id="genDocNotes" placeholder="Payment due within 30 days…"></textarea>
-      </div>
-
-      <!-- Contract terms -->
-      <div class="form-group hidden" id="genDocTermsGroup">
-        <label>Terms &amp; Conditions</label>
-        <textarea id="genDocTerms" placeholder="Enter your contract terms and conditions…" style="min-height:100px;"></textarea>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-secondary" data-close="generateDocModal">Cancel</button>
-      <button class="btn-primary" id="confirmGenDocBtn">✨ Generate</button>
-    </div>
-  </div>
+    </div><!-- /doc-creator-body -->
+  </div><!-- /doc-creator-wrap -->
 </div>
 
 <!-- ══════════════ MODAL: Document Preview ══════════════ -->
