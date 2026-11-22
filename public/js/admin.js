@@ -2174,12 +2174,13 @@ function renderAdminDocCards() {
       _docShowShareModal(viewUrl, docData.docNumber, docData.type);
     });
     row.querySelector('[data-copy]')?.addEventListener('click', (e) => {
+      const btn = e.currentTarget;
       const url = `${window.location.origin}/view.html?id=${docData.id}`;
       navigator.clipboard.writeText(url).then(() => {
-        const btn = e.currentTarget;
         btn.textContent = '✓ Copied!';
-        setTimeout(() => { btn.textContent = '🔗 Copy Link'; }, 2000);
-      });
+        btn.style.color = '#16a34a';
+        setTimeout(() => { btn.textContent = '🔗 Copy Link'; btn.style.color = ''; }, 2000);
+      }).catch(() => alert('Could not copy to clipboard.'));
     });
     row.querySelector('[data-sign]')?.addEventListener('click', () => window._docOwnerSign(docData.id));
     row.querySelector('[data-del]')?.addEventListener('click',  () => window._docDeleteDoc(docData.id));
