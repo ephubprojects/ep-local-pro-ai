@@ -2664,6 +2664,60 @@ textarea.doc-input { resize: vertical; }
 .mr-standalone-inputs > div { display: flex; flex-direction: column; gap: 4px; }
 .form-label { font-size: 0.78rem; font-weight: 600; color: #475569; }
 
+.mr-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mr-input-wrap .form-input { flex: 1; min-width: 0; }
+
+.mr-voice-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.mr-voice-btn:hover  { background: #eef2ff; border-color: #a5b4fc; }
+.mr-voice-btn:disabled { opacity: 0.6; cursor: default; }
+
+.mr-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  align-self: flex-end;
+}
+
+.mr-lang-toggle {
+  display: flex;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.mr-lang-btn {
+  padding: 0 12px;
+  height: 36px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #f8fafc;
+  color: #94a3b8;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  letter-spacing: .03em;
+}
+.mr-lang-btn + .mr-lang-btn { border-left: 1.5px solid #e2e8f0; }
+.mr-lang-btn.active { background: #4f46e5; color: #fff; }
+.mr-lang-btn:not(.active):hover { background: #eef2ff; color: #4f46e5; }
+
 /* ── Market Rate History List ───────────────────────────────── */
 .mr-history-list { display: flex; flex-direction: column; gap: 6px; }
 .mr-history-item {

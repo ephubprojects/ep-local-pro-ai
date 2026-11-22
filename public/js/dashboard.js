@@ -2424,6 +2424,36 @@ function _mrRenderHistoryDash() {
   } catch {}
 }
 
+let _mrLangDash = 'en-US';
+
+window._mrSetLangDash = function(lang) {
+  _mrLangDash = lang;
+  document.getElementById('mrLangDashEN')?.classList.toggle('active', lang === 'en-US');
+  document.getElementById('mrLangDashES')?.classList.toggle('active', lang === 'es-MX');
+};
+
+window._mrVoiceDash = function(fieldId) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { showToast('Voice input is not supported in this browser.', 'error'); return; }
+  const btn = document.querySelector(`[data-mr-voice-for="${fieldId}"]`);
+  const sr = new SR();
+  sr.lang = _mrLangDash;
+  sr.interimResults = false;
+  sr.maxAlternatives = 1;
+  if (btn) { btn.textContent = '🔴'; btn.disabled = true; }
+  sr.onresult = e => {
+    const txt = e.results[0][0].transcript;
+    const inp = document.getElementById(fieldId);
+    if (inp) { inp.value = txt; inp.dispatchEvent(new Event('input')); }
+  };
+  sr.onend  = () => { if (btn) { btn.textContent = '🎤'; btn.disabled = false; } };
+  sr.onerror = e => {
+    if (btn) { btn.textContent = '🎤'; btn.disabled = false; }
+    if (e.error !== 'no-speech') showToast('Voice error: ' + e.error, 'error');
+  };
+  sr.start();
+};
+
 window._mrGetRatesDash = async function() {
   const service  = (document.getElementById('mrServiceDash')?.value || '').trim();
   const city     = (document.getElementById('mrCityDash')?.value    || '').trim();
@@ -2431,7 +2461,7 @@ window._mrGetRatesDash = async function() {
   const btnEl    = document.getElementById('mrBtnDash');
   if (!service || !city) { showToast('Enter both a service type and a city.', 'error'); return; }
 
-  const cacheKey = `mr_${service.toLowerCase().replace(/\s+/g,'-')}_${city.toLowerCase().replace(/\s+/g,'-')}`;
+  const cacheKey = `mr_${_mrLangDash}_${service.toLowerCase().replace(/\s+/g,'-')}_${city.toLowerCase().replace(/\s+/g,'-')}`;
   const cached = localStorage.getItem(cacheKey);
   if (cached) {
     try {
@@ -2447,7 +2477,7 @@ window._mrGetRatesDash = async function() {
     const resp = await fetch('/.netlify/functions/market-rate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ service, city })
+      body: JSON.stringify({ service, city, lang: _mrLangDash })
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || 'Failed to get market rates');

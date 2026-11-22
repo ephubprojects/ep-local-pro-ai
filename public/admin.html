@@ -895,13 +895,25 @@
           <div class="mr-standalone-inputs">
             <div style="flex:2;min-width:180px">
               <label class="form-label">Service / Job Type</label>
-              <input type="text" id="mrServiceAdmin" class="form-input" placeholder="e.g. Tankless water heater replacement, Roof repair, Lawn care…" oninput="window._mrClearAdmin()"/>
+              <div class="mr-input-wrap">
+                <input type="text" id="mrServiceAdmin" class="form-input" placeholder="e.g. 100 person wedding catering, Roof repair, Lawn care…" oninput="window._mrClearAdmin()"/>
+                <button class="mr-voice-btn" data-mr-voice-for="mrServiceAdmin" onclick="window._mrVoice('mrServiceAdmin','admin')" title="Voice input">🎤</button>
+              </div>
             </div>
             <div style="flex:1;min-width:140px">
               <label class="form-label">City / County, State</label>
-              <input type="text" id="mrCityAdmin" class="form-input" placeholder="e.g. Ventura County, CA" oninput="window._mrClearAdmin()"/>
+              <div class="mr-input-wrap">
+                <input type="text" id="mrCityAdmin" class="form-input" placeholder="e.g. Ventura County, CA" oninput="window._mrClearAdmin()"/>
+                <button class="mr-voice-btn" data-mr-voice-for="mrCityAdmin" onclick="window._mrVoice('mrCityAdmin','admin')" title="Voice input">🎤</button>
+              </div>
             </div>
-            <button class="btn-primary" id="mrBtnAdmin" onclick="window._mrGetRatesAdmin()" style="align-self:flex-end;white-space:nowrap">📊 Get Market Rates</button>
+            <div class="mr-controls">
+              <div class="mr-lang-toggle">
+                <button class="mr-lang-btn active" id="mrLangAdminEN" onclick="window._mrSetLang('admin','en-US')">EN</button>
+                <button class="mr-lang-btn" id="mrLangAdminES" onclick="window._mrSetLang('admin','es-MX')">ES</button>
+              </div>
+              <button class="btn-primary" id="mrBtnAdmin" onclick="window._mrGetRatesAdmin()" style="white-space:nowrap">📊 Get Market Rates</button>
+            </div>
           </div>
         </div>
         <div id="mrResultAdmin" style="margin-top:16px"></div>

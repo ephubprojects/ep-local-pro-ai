@@ -4181,10 +4181,41 @@ function _wireDocLogoUpload() {
 }
 
 // ── Market Rate Calculator ────────────────────────────────────
-async function _mrFetch(service, city, resultEl, btnEl) {
+const _mrLangs = { admin: 'en-US' };
+
+window._mrSetLang = function(ctx, lang) {
+  _mrLangs[ctx] = lang;
+  document.getElementById('mrLangAdminEN')?.classList.toggle('active', lang === 'en-US');
+  document.getElementById('mrLangAdminES')?.classList.toggle('active', lang === 'es-MX');
+};
+
+window._mrVoice = function(fieldId, ctx) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { showToast('Voice input is not supported in this browser.', 'error'); return; }
+  const btn = document.querySelector(`[data-mr-voice-for="${fieldId}"]`);
+  const lang = _mrLangs[ctx] || 'en-US';
+  const sr = new SR();
+  sr.lang = lang;
+  sr.interimResults = false;
+  sr.maxAlternatives = 1;
+  if (btn) { btn.textContent = '🔴'; btn.disabled = true; }
+  sr.onresult = e => {
+    const txt = e.results[0][0].transcript;
+    const inp = document.getElementById(fieldId);
+    if (inp) { inp.value = txt; inp.dispatchEvent(new Event('input')); }
+  };
+  sr.onend = () => { if (btn) { btn.textContent = '🎤'; btn.disabled = false; } };
+  sr.onerror = e => {
+    if (btn) { btn.textContent = '🎤'; btn.disabled = false; }
+    if (e.error !== 'no-speech') showToast('Voice error: ' + e.error, 'error');
+  };
+  sr.start();
+};
+
+async function _mrFetch(service, city, lang, resultEl, btnEl) {
   if (!service || !city) { showToast('Enter both a service type and a city.', 'error'); return; }
 
-  const cacheKey = `mr_${service.toLowerCase().replace(/\s+/g,'-')}_${city.toLowerCase().replace(/\s+/g,'-')}`;
+  const cacheKey = `mr_${lang}_${service.toLowerCase().replace(/\s+/g,'-')}_${city.toLowerCase().replace(/\s+/g,'-')}`;
   const cached = localStorage.getItem(cacheKey);
   if (cached) {
     try {
@@ -4200,7 +4231,7 @@ async function _mrFetch(service, city, resultEl, btnEl) {
     const resp = await fetch('/.netlify/functions/market-rate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ service, city })
+      body: JSON.stringify({ service, city, lang })
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || 'Failed to get market rates');
@@ -4251,7 +4282,7 @@ function _mrRenderHistory(containerEl, onSelect) {
 window._mrGetRatesAdmin = async function() {
   const service = (document.getElementById('mrServiceAdmin')?.value || '').trim();
   const city    = (document.getElementById('mrCityAdmin')?.value    || '').trim();
-  await _mrFetch(service, city,
+  await _mrFetch(service, city, _mrLangs.admin || 'en-US',
     document.getElementById('mrResultAdmin'),
     document.getElementById('mrBtnAdmin')
   );
