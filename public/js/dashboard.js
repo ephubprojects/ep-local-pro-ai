@@ -2402,17 +2402,23 @@ function _mrRenderHistoryDash() {
     const hist = JSON.parse(localStorage.getItem('mr_history') || '[]');
     if (!hist.length) { container.innerHTML = ''; return; }
     container.innerHTML = `
-      <h3 style="font-size:0.85rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Recent Lookups</h3>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <h3 style="font-size:0.85rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin:0">Recent Lookups</h3>
+        <button class="mr-clear-all-btn" data-clear-all>Clear all</button>
+      </div>
       <div class="mr-history-list">
         ${hist.map((h, i) => `
-          <div class="mr-history-item" data-idx="${i}" style="cursor:pointer">
+          <div class="mr-history-item" data-idx="${i}">
             <div class="mr-history-svc">${h.service}</div>
             <div class="mr-history-city">${h.city}</div>
             <div class="mr-history-range">${_mrFmtDash(h.min)} – ${_mrFmtDash(h.max)} <span class="mr-history-unit">${h.unit || 'per job'}</span></div>
+            <button class="mr-del-btn" data-del="${i}" title="Remove">✕</button>
           </div>`).join('')}
       </div>`;
+
     container.querySelectorAll('.mr-history-item').forEach(el => {
-      el.addEventListener('click', () => {
+      el.addEventListener('click', e => {
+        if (e.target.closest('[data-del]')) return;
         const h = hist[+el.dataset.idx];
         const s = document.getElementById('mrServiceDash');
         const c = document.getElementById('mrCityDash');
@@ -2420,6 +2426,21 @@ function _mrRenderHistoryDash() {
         if (c) c.value = h.city;
         window._mrGetRatesDash();
       });
+    });
+    container.querySelectorAll('[data-del]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        try {
+          const h2 = JSON.parse(localStorage.getItem('mr_history') || '[]');
+          h2.splice(+btn.dataset.del, 1);
+          localStorage.setItem('mr_history', JSON.stringify(h2));
+        } catch {}
+        _mrRenderHistoryDash();
+      });
+    });
+    container.querySelector('[data-clear-all]')?.addEventListener('click', () => {
+      localStorage.removeItem('mr_history');
+      container.innerHTML = '';
     });
   } catch {}
 }

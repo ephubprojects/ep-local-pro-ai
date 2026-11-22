@@ -4283,26 +4283,51 @@ function _mrSaveHistory(service, city, data) {
   } catch {}
 }
 
+function _mrDeleteHistoryItem(idx, containerEl, onSelect) {
+  try {
+    const hist = JSON.parse(localStorage.getItem('mr_history') || '[]');
+    hist.splice(idx, 1);
+    localStorage.setItem('mr_history', JSON.stringify(hist));
+  } catch {}
+  _mrRenderHistory(containerEl, onSelect);
+}
+
 function _mrRenderHistory(containerEl, onSelect) {
   if (!containerEl) return;
   try {
     const hist = JSON.parse(localStorage.getItem('mr_history') || '[]');
     if (!hist.length) { containerEl.innerHTML = ''; return; }
     containerEl.innerHTML = `
-      <h3 style="font-size:0.85rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Recent Lookups</h3>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <h3 style="font-size:0.85rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin:0">Recent Lookups</h3>
+        <button class="mr-clear-all-btn" data-clear-all>Clear all</button>
+      </div>
       <div class="mr-history-list">
         ${hist.map((h, i) => `
-          <div class="mr-history-item" data-idx="${i}" style="cursor:pointer">
+          <div class="mr-history-item" data-idx="${i}">
             <div class="mr-history-svc">${h.service}</div>
             <div class="mr-history-city">${h.city}</div>
             <div class="mr-history-range">${_mrFmt(h.min)} – ${_mrFmt(h.max)} <span class="mr-history-unit">${h.unit || 'per job'}</span></div>
+            <button class="mr-del-btn" data-del="${i}" title="Remove">✕</button>
           </div>`).join('')}
       </div>`;
+
     containerEl.querySelectorAll('.mr-history-item').forEach(el => {
-      el.addEventListener('click', () => {
+      el.addEventListener('click', e => {
+        if (e.target.closest('[data-del]')) return;
         const h = hist[+el.dataset.idx];
         if (onSelect) onSelect(h.service, h.city);
       });
+    });
+    containerEl.querySelectorAll('[data-del]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        _mrDeleteHistoryItem(+btn.dataset.del, containerEl, onSelect);
+      });
+    });
+    containerEl.querySelector('[data-clear-all]')?.addEventListener('click', () => {
+      localStorage.removeItem('mr_history');
+      containerEl.innerHTML = '';
     });
   } catch {}
 }

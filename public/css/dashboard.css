@@ -2652,6 +2652,34 @@
 .mr-history-city  { width: 150px; font-size: 0.78rem; color: #64748b; flex-shrink: 0; }
 .mr-history-range { font-size: 0.82rem; font-weight: 700; color: #4f46e5; white-space: nowrap; flex-shrink: 0; }
 .mr-history-unit  { font-weight: 400; color: #94a3b8; font-size: 0.72rem; }
+.mr-del-btn {
+  flex-shrink: 0;
+  margin-left: auto;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.mr-del-btn:hover { background: #fee2e2; color: #ef4444; }
+.mr-clear-all-btn {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+.mr-clear-all-btn:hover { color: #ef4444; background: #fee2e2; }
 
 @media (max-width: 600px) {
   .mr-standalone-inputs { flex-direction: column; }
