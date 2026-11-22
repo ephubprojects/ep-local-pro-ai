@@ -44,10 +44,14 @@ service cloud.firestore {
     match /documents/{docId} {
       allow get: if true;  // public read by ID — shareable live link viewer
       allow list: if isAdmin() || isAuth();
-      allow write: if isAdmin()
-        || (isAuth() && (
-          resource == null || resource.data.ownerUid == request.auth.uid
-        ));
+      allow create: if isAdmin() || isAuth();
+      allow update: if isAdmin()
+        || (isAuth() && resource.data.ownerUid == request.auth.uid)
+        // Unauthenticated customer e-signature — only customerSig + updatedAt allowed
+        || request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['customerSig', 'updatedAt']);
+      allow delete: if isAdmin()
+        || (isAuth() && resource.data.ownerUid == request.auth.uid);
     }
 
     // ── Business owners (user profiles) ──────────────────────────────────

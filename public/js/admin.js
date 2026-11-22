@@ -2159,6 +2159,7 @@ function renderAdminDocCards() {
       <div class="doc-row-actions">
         ${docData.htmlContent ? `<button class="btn-action" data-view>👁 View</button>` : ''}
         <button class="btn-action" data-edit>✏️ Edit</button>
+        ${(docData.type==='estimate'||docData.type==='contract') ? `<button class="btn-action btn-action-sign" data-sign title="${docData.ownerSig ? 'Re-sign / View Signature' : 'Owner: Sign Document'}">✍️ Sign</button>` : ''}
         <button class="btn-action btn-action-del" data-del>🗑 Delete</button>
       </div>`;
 
@@ -2166,6 +2167,7 @@ function renderAdminDocCards() {
       row.querySelector('[data-view]')?.addEventListener('click', () => window._docViewDoc(docData.id));
     }
     row.querySelector('[data-edit]')?.addEventListener('click', () => window._docEditDoc(docData.id));
+    row.querySelector('[data-sign]')?.addEventListener('click', () => window._docOwnerSign(docData.id));
     row.querySelector('[data-del]')?.addEventListener('click',  () => window._docDeleteDoc(docData.id));
     row.querySelector('[data-status-approve]')?.addEventListener('click', () => window._docSetStatus(docData.id, st === 'approved' ? 'pending' : 'approved'));
     row.querySelector('[data-status-decline]')?.addEventListener('click', () => window._docSetStatus(docData.id, st === 'declined' ? 'pending' : 'declined'));
@@ -2186,6 +2188,55 @@ window._docSetStatus = async function(docId, newStatus) {
     console.error('Status update failed:', e);
     showToast('Could not update status.', 'error');
   }
+};
+
+window._docOwnerSign = function(docId) {
+  const docData = adminAllDocs.find(d => d.id === docId);
+  if (!docData) return;
+  const existing = docData.ownerSig;
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:28px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+      <div style="font-size:1rem;font-weight:800;color:#1e293b;margin-bottom:4px;">✍️ Owner Signature</div>
+      <div style="font-size:0.8rem;color:#64748b;margin-bottom:20px;">Type your full legal name to sign this document electronically</div>
+      ${existing ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.82rem;color:#166534;">✅ Already signed by <strong>${existing.name}</strong></div>` : ''}
+      <input id="_ownerSigInp" type="text" placeholder="Full legal name" autocomplete="name"
+        style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:0.9rem;outline:none;margin-bottom:12px;box-sizing:border-box;"
+        value="${existing ? existing.name : ''}"/>
+      <div id="_ownerSigPrev" style="font-family:Georgia,serif;font-size:22pt;font-style:italic;font-weight:bold;color:#15803d;min-height:44px;line-height:1.2;padding:4px 0 8px;border-bottom:1px solid #e2e8f0;margin-bottom:16px;">${existing ? existing.name : ''}</div>
+      <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:16px;">By clicking Sign, you agree this is your electronic signature and is legally binding.</div>
+      <div style="display:flex;gap:10px;">
+        <button id="_ownerSigConfirm" style="flex:1;background:#15803d;color:#fff;border:none;border-radius:9px;padding:11px;font-size:0.85rem;font-weight:700;cursor:pointer;">✅ Sign Document</button>
+        <button id="_ownerSigCancel" style="flex:1;background:#f1f5f9;color:#1e293b;border:none;border-radius:9px;padding:11px;font-size:0.85rem;font-weight:700;cursor:pointer;">Cancel</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  const inp  = document.getElementById('_ownerSigInp');
+  const prev = document.getElementById('_ownerSigPrev');
+  inp.focus();
+  inp.addEventListener('input', () => { prev.textContent = inp.value; });
+
+  document.getElementById('_ownerSigConfirm').addEventListener('click', async () => {
+    const name = inp.value.trim();
+    if (!name) { inp.style.borderColor = '#dc2626'; inp.focus(); return; }
+    document.getElementById('_ownerSigConfirm').textContent = '⏳ Saving…';
+    try {
+      await updateDoc(doc(db, 'documents', docId), {
+        ownerSig: { name, signedAt: serverTimestamp() },
+        updatedAt: serverTimestamp()
+      });
+      const idx = adminAllDocs.findIndex(d => d.id === docId);
+      if (idx !== -1) adminAllDocs[idx].ownerSig = { name, signedAt: new Date() };
+      renderAdminDocCards();
+      showToast('Document signed by owner!', 'success');
+      overlay.remove();
+    } catch (e) { alert('Error saving signature: ' + e.message); }
+  });
+  document.getElementById('_ownerSigCancel').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 };
 
 // ============================================================
@@ -3223,6 +3274,26 @@ function _docGenerateHTML() {
   }
 }
 
+// ── Shared electronic signature section (estimate + contract only) ───────
+function _docSigSection(custName, bizName) {
+  const es = _docLang === 'es';
+  return `<div style="margin-top:36px;padding-top:20px;border-top:2px solid #e2e8f0;">
+  <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:20px;">✍️ ${es?'Firmas Autorizadas':'Authorized Signatures'}</div>
+  <div style="display:flex;gap:40px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:200px;">
+      <div style="font-size:0.62rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:8px;">${es?'Negocio / Propietario':'Business / Owner'}</div>
+      <div id="ep-sig-owner" style="min-height:40px;border-bottom:1px dashed #cbd5e1;margin-bottom:6px;display:flex;align-items:flex-end;padding-bottom:4px;"></div>
+      <div style="font-size:0.72rem;font-weight:600;color:#1e293b;">${_esc(bizName)||'—'}</div>
+    </div>
+    <div style="flex:1;min-width:200px;">
+      <div style="font-size:0.62rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:8px;">${es?'Cliente / Firmante':'Customer / Client'}</div>
+      <div id="ep-sig-client" style="min-height:40px;border-bottom:1px dashed #cbd5e1;margin-bottom:6px;display:flex;align-items:flex-end;padding-bottom:4px;"></div>
+      <div style="font-size:0.72rem;font-weight:600;color:#1e293b;">${_esc(custName)||'—'}</div>
+    </div>
+  </div>
+</div>`;
+}
+
 // ── Template 1: Classic ───────────────────────────────────────
 function _docTplClassic() {
   const L = DOC_LABELS[_docLang];
@@ -3504,6 +3575,8 @@ function _docTplClassic() {
     <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">${paymentBlockHtml}</div>
   </div>` : ''}
 
+  ${(_docType==='estimate'||_docType==='contract') ? _docSigSection(custName, bizName) : ''}
+
   <div class="doc-footer">
     <span>${L.thankYou}</span>
     <span>${typeLabel} ${_esc(docNumber)}</span>
@@ -3526,11 +3599,6 @@ function _docTplBold() {
     const tl = _docLang === 'es' ? (TYPE_LABELS_ES[k] || k) : k.charAt(0).toUpperCase() + k.slice(1);
     return `<tr><td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;"><span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;color:#dc2626;">${_esc(tl)}</span><br><span style="font-size:0.82rem;">${_esc(it.desc)}</span></td><td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;">$${(it.price||0).toFixed(2)}</td></tr>`;
   }).join('') : '';
-
-  const sigBlock = `<div style="display:flex;gap:40px;margin-top:32px;flex-wrap:wrap;">
-    <div style="flex:1;min-width:180px;"><div style="border-bottom:2px solid #111;height:40px;margin-bottom:4px;"></div><div style="font-size:0.68rem;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">${_docLang==='es'?'Firma del Evaluador':'Evaluator Signature'}</div></div>
-    <div style="flex:1;min-width:180px;"><div style="border-bottom:2px solid #111;height:40px;margin-bottom:4px;"></div><div style="font-size:0.68rem;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">${_docLang==='es'?'Firma del Cliente':'Customer Signature'}</div></div>
-  </div>`;
 
   return `<!DOCTYPE html><html lang="${_docLang==='es'?'es':'en'}"><head><meta charset="utf-8"/><title>${typeLabel} ${docNumber}</title>
 <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1e293b;background:#fff;padding:0;font-size:13px;line-height:1.5}.wrap{max-width:760px;margin:0 auto}
@@ -3565,7 +3633,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}thead tr{background
     ${notes?`<div class="notes">📌 ${_esc(notes)}</div>`:''}
     ${includeTC&&termsText?`<div style="margin-top:20px;padding-top:14px;border-top:2px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">⚖️ ${L.tcTitle}</div><div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;padding:12px;">${_esc(termsText)}</div></div>`:''}
     ${paymentBlockHtml?`<div style="margin-top:20px;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;text-align:center;"><div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:10px;">💳 ${_docLang==='es'?'Opciones de Pago':'Payment Options'}</div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">${paymentBlockHtml}</div></div>`:''}
-    ${sigBlock}
+    ${(_docType==='estimate'||_docType==='contract') ? _docSigSection(custName, bizName) : ''}
   </div>
   <div class="foot"><span>${L.thankYou}</span><span>${typeLabel} ${_esc(docNumber)}</span></div>
 </div></body></html>`;
@@ -3587,10 +3655,6 @@ function _docTplExecutive() {
     return `<tr><td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;"><span style="font-size:0.65rem;font-weight:700;color:${gold};text-transform:uppercase;letter-spacing:.04em;">${_esc(tl)}</span><br><span style="font-size:0.82rem;">${_esc(it.desc)}</span></td><td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;">$${(it.price||0).toFixed(2)}</td></tr>`;
   }).join('') : '';
 
-  const sigBlock = `<div style="display:flex;gap:40px;margin-top:36px;padding-top:20px;border-top:1px solid #e2e8f0;flex-wrap:wrap;">
-    <div style="flex:1;min-width:200px;"><div style="border-bottom:1px solid ${navy};height:40px;margin-bottom:6px;"></div><div style="font-size:0.68rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">${_docLang==='es'?'Firma Autorizada':'Authorized Signature'}</div></div>
-    <div style="flex:1;min-width:200px;"><div style="border-bottom:1px solid ${navy};height:40px;margin-bottom:6px;"></div><div style="font-size:0.68rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">${_docLang==='es'?'Firma del Cliente':'Client Signature'}</div></div>
-  </div>`;
 
   return `<!DOCTYPE html><html lang="${_docLang==='es'?'es':'en'}"><head><meta charset="utf-8"/><title>${typeLabel} ${docNumber}</title>
 <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Georgia',serif;color:#1e293b;background:#fff;padding:0;font-size:13px;line-height:1.6}.wrap{max-width:760px;margin:0 auto}
@@ -3622,7 +3686,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}thead tr{background
     ${notes?`<div class="notes">📌 ${_esc(notes)}</div>`:''}
     ${includeTC&&termsText?`<div style="margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">⚖️ ${L.tcTitle}</div><div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;background:#fafaf8;border:1px solid #e2e8f0;padding:14px;">${_esc(termsText)}</div></div>`:''}
     ${paymentBlockHtml?`<div style="margin-top:20px;padding:16px;background:#fdf8ef;border:1px solid #fde68a;border-radius:10px;text-align:center;"><div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#92400e;margin-bottom:10px;">💳 ${_docLang==='es'?'Opciones de Pago':'Payment Options'}</div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">${paymentBlockHtml}</div></div>`:''}
-    ${sigBlock}
+    ${(_docType==='estimate'||_docType==='contract') ? _docSigSection(custName, bizName) : ''}
   </div>
   <div class="foot"><span>${L.thankYou}</span><span>${typeLabel} ${_esc(docNumber)}</span></div>
 </div></body></html>`;
@@ -3643,10 +3707,6 @@ function _docTplModern() {
     return `<tr><td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:0.6rem;font-weight:800;text-transform:uppercase;background:${tc};color:#fff;margin-bottom:3px;">${_esc(tl)}</span><br><span style="font-size:0.82rem;">${_esc(it.desc)}</span></td><td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:700;">$${(it.price||0).toFixed(2)}</td></tr>`;
   }).join('') : '';
 
-  const sigBlock = `<div style="display:flex;gap:24px;margin-top:32px;flex-wrap:wrap;">
-    <div style="flex:1;min-width:180px;background:#f8fafc;border-radius:12px;padding:16px 20px;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:24px;">${_docLang==='es'?'Firma del Evaluador':'Evaluator Signature'}</div><div style="border-top:2px solid #7c3aed;"></div></div>
-    <div style="flex:1;min-width:180px;background:#f8fafc;border-radius:12px;padding:16px 20px;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:24px;">${_docLang==='es'?'Firma del Cliente':'Client Signature'}</div><div style="border-top:2px solid #0891b2;"></div></div>
-  </div>`;
 
   return `<!DOCTYPE html><html lang="${_docLang==='es'?'es':'en'}"><head><meta charset="utf-8"/><title>${typeLabel} ${docNumber}</title>
 <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1e293b;background:#f1f5f9;padding:20px;font-size:13px;line-height:1.5}.wrap{max-width:760px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.1)}
@@ -3678,7 +3738,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px;border-radius:12px;
     ${notes?`<div class="notes">📌 ${_esc(notes)}</div>`:''}
     ${includeTC&&termsText?`<div style="margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">⚖️ ${L.tcTitle}</div><div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;padding:14px;">${_esc(termsText)}</div></div>`:''}
     ${paymentBlockHtml?`<div style="margin-top:20px;padding:16px;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:12px;text-align:center;"><div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#4338ca;margin-bottom:10px;">💳 ${_docLang==='es'?'Opciones de Pago':'Payment Options'}</div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">${paymentBlockHtml}</div></div>`:''}
-    ${sigBlock}
+    ${(_docType==='estimate'||_docType==='contract') ? _docSigSection(custName, bizName) : ''}
   </div>
   <div class="foot"><span>${L.thankYou}</span><span>${typeLabel} ${_esc(docNumber)}</span></div>
 </div></body></html>`;
@@ -3698,10 +3758,6 @@ function _docTplMinimal() {
     return `<tr><td style="padding:10px 0;border-bottom:1px solid #e2e8f0;"><span style="font-size:0.65rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;">${_esc(tl)}</span><br><span style="font-size:0.85rem;">${_esc(it.desc)}</span></td><td style="padding:10px 0;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;">$${(it.price||0).toFixed(2)}</td></tr>`;
   }).join('') : '';
 
-  const sigBlock = `<div style="display:flex;gap:60px;margin-top:48px;flex-wrap:wrap;">
-    <div style="flex:1;min-width:180px;"><div style="border-bottom:1px solid #1e293b;padding-top:36px;margin-bottom:6px;"></div><div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;">${_docLang==='es'?'Firma del Evaluador':'Evaluator Signature'}&nbsp;&nbsp;${_docLang==='es'?'Fecha':'Date'} ___________</div></div>
-    <div style="flex:1;min-width:180px;"><div style="border-bottom:1px solid #1e293b;padding-top:36px;margin-bottom:6px;"></div><div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;">${_docLang==='es'?'Firma del Cliente':'Client Signature'}&nbsp;&nbsp;${_docLang==='es'?'Fecha':'Date'} ___________</div></div>
-  </div>`;
 
   return `<!DOCTYPE html><html lang="${_docLang==='es'?'es':'en'}"><head><meta charset="utf-8"/><title>${typeLabel} ${docNumber}</title>
 <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1e293b;background:#fff;padding:40px;font-size:13px;line-height:1.6}.wrap{max-width:720px;margin:0 auto}
@@ -3732,7 +3788,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}thead th{padding:8p
   ${notes?`<div class="notes">Note: ${_esc(notes)}</div>`:''}
   ${includeTC&&termsText?`<div style="margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;"><div class="section-head">⚖️ ${L.tcTitle}</div><div style="font-size:0.75rem;color:#475569;line-height:1.7;white-space:pre-wrap;">${_esc(termsText)}</div></div>`:''}
   ${paymentBlockHtml?`<div style="margin-top:28px;padding:16px;border:1px solid #e2e8f0;border-left:3px solid #1e293b;text-align:center;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:10px;">💳 ${_docLang==='es'?'Opciones de Pago':'Payment Options'}</div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">${paymentBlockHtml}</div></div>`:''}
-  ${sigBlock}
+  ${(_docType==='estimate'||_docType==='contract') ? _docSigSection(custName, bizName) : ''}
   <div class="foot"><span>${L.thankYou}</span><span>${typeLabel} ${_esc(docNumber)}</span></div>
 </div></body></html>`;
 }
@@ -3859,6 +3915,15 @@ function _docShowShareModal(viewUrl, docNumber, type) {
         <button id="shareModalCopyBtn" style="background:#4f46e5;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">Copy Link</button>
       </div>
       <div style="font-size:0.73rem;color:#94a3b8;margin-bottom:16px;">🔄 When you edit and save again, the customer's link auto-updates instantly</div>
+      ${(type==='estimate'||type==='contract') ? `
+      <div style="border-top:1px solid #e2e8f0;padding-top:14px;margin-bottom:14px;">
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px;">✍️ Signature Request</div>
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+          <span id="shareModalSignUrl" style="font-size:0.78rem;color:#166534;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+          <button id="shareModalCopySign" style="background:#15803d;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">Copy</button>
+        </div>
+        <div style="font-size:0.72rem;color:#94a3b8;">Send this link to your customer — they can sign electronically</div>
+      </div>` : ''}
       <div style="display:flex;gap:10px;">
         <button id="shareModalWA" style="flex:1;background:#22c55e;color:#fff;border:none;border-radius:9px;padding:10px;font-size:0.82rem;font-weight:700;cursor:pointer;">💬 WhatsApp</button>
         <button id="shareModalEmail" style="flex:1;background:#4f46e5;color:#fff;border:none;border-radius:9px;padding:10px;font-size:0.82rem;font-weight:700;cursor:pointer;">📧 Email</button>
@@ -3891,6 +3956,19 @@ function _docShowShareModal(viewUrl, docNumber, type) {
     const body = encodeURIComponent(`${reviewText}:\n${viewUrl}\n\nThis link always shows the latest version.`);
     window.open(`https://mail.google.com/mail/?view=cm&su=${subject}&body=${body}`, '_blank', 'noopener');
   });
+
+  // Signature request link
+  const signUrlEl = document.getElementById('shareModalSignUrl');
+  if (signUrlEl) {
+    const signUrl = `${window.location.origin}/sign.html?id=${_docCurrentId}`;
+    signUrlEl.textContent = signUrl;
+    document.getElementById('shareModalCopySign')?.addEventListener('click', () => {
+      navigator.clipboard.writeText(signUrl).then(() => {
+        const b = document.getElementById('shareModalCopySign');
+        if (b) { b.textContent = '✓ Copied!'; setTimeout(() => { b.textContent = 'Copy'; }, 2000); }
+      });
+    });
+  }
 
   document.getElementById('shareModalClose')?.addEventListener('click', () => modal.remove());
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });

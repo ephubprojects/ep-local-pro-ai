@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Sign Document</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #f1f5f9; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1e293b; }
+
+    #loading {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 100vh; gap: 14px;
+      color: #64748b; font-size: 0.9rem;
+    }
+    .spinner {
+      width: 40px; height: 40px; border: 3px solid #e2e8f0;
+      border-top-color: #15803d; border-radius: 50%;
+      animation: spin .75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #error {
+      display: none; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 100vh; gap: 10px;
+      color: #64748b; text-align: center; padding: 20px;
+    }
+    #error .err-icon { font-size: 3rem; }
+    #error p { font-size: 0.95rem; max-width: 320px; line-height: 1.6; }
+
+    #main { display: none; }
+
+    /* Document preview frame */
+    #frame-wrap { background: #fff; }
+    #docFrame { width: 100%; border: none; display: block; }
+
+    /* Signature panel */
+    #sig-panel {
+      max-width: 600px; margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+    .sig-card {
+      background: #fff; border-radius: 16px; padding: 28px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.08);
+    }
+    .sig-card h2 {
+      font-size: 1.1rem; font-weight: 800; color: #1e293b;
+      margin-bottom: 4px;
+    }
+    .sig-card .sub {
+      font-size: 0.82rem; color: #64748b; margin-bottom: 24px;
+    }
+
+    /* Already signed state */
+    #already-signed {
+      display: none;
+      background: #f0fdf4; border: 1px solid #bbf7d0;
+      border-radius: 12px; padding: 20px; text-align: center;
+    }
+    #already-signed .check { font-size: 2.5rem; margin-bottom: 8px; }
+    #already-signed .label { font-size: 1rem; font-weight: 700; color: #15803d; }
+    #already-signed .detail { font-size: 0.82rem; color: #166534; margin-top: 4px; }
+
+    /* Signature input area */
+    #sig-input-area {}
+    .sig-label {
+      font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: #94a3b8; margin-bottom: 8px;
+    }
+    #sigNameInp {
+      width: 100%; padding: 12px 16px; border: 1.5px solid #e2e8f0;
+      border-radius: 10px; font-size: 1rem; outline: none;
+      transition: border-color .15s;
+    }
+    #sigNameInp:focus { border-color: #15803d; }
+    #sigNameInp.error { border-color: #dc2626; }
+
+    .sig-preview-wrap {
+      margin: 16px 0;
+      background: #f8fafc; border-radius: 10px;
+      padding: 16px 20px; min-height: 72px;
+      border: 1.5px dashed #cbd5e1;
+      display: flex; flex-direction: column; justify-content: flex-end;
+    }
+    #sigPreview {
+      font-family: Georgia, serif;
+      font-size: 28pt;
+      font-style: italic;
+      font-weight: bold;
+      color: #15803d;
+      line-height: 1.1;
+      min-height: 44px;
+      transition: opacity .1s;
+    }
+    #sigPreview.empty { opacity: 0.25; }
+    .sig-preview-label {
+      font-size: 0.62rem; text-transform: uppercase; letter-spacing: .06em;
+      color: #94a3b8; margin-top: 8px;
+    }
+
+    .legal-note {
+      font-size: 0.75rem; color: #94a3b8; line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    #sigBtn {
+      width: 100%; padding: 14px; background: #15803d; color: #fff;
+      border: none; border-radius: 11px; font-size: 0.95rem;
+      font-weight: 800; cursor: pointer; letter-spacing: .02em;
+      transition: background .15s, transform .1s;
+    }
+    #sigBtn:hover { background: #166534; }
+    #sigBtn:active { transform: scale(.98); }
+    #sigBtn:disabled { background: #94a3b8; cursor: default; }
+
+    /* Success overlay */
+    #success-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.55); z-index: 9999;
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    #success-overlay .box {
+      background: #fff; border-radius: 16px; padding: 36px 28px;
+      max-width: 380px; width: 100%; text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,.3);
+    }
+    #success-overlay .icon { font-size: 3.5rem; margin-bottom: 12px; }
+    #success-overlay h3 { font-size: 1.2rem; font-weight: 800; color: #15803d; margin-bottom: 6px; }
+    #success-overlay p { font-size: 0.85rem; color: #64748b; line-height: 1.6; }
+    #success-overlay .sig-name {
+      font-family: Georgia, serif; font-size: 24pt; font-style: italic;
+      font-weight: bold; color: #15803d; margin: 16px 0 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="loading">
+    <div class="spinner"></div>
+    <span>Loading document…</span>
+  </div>
+
+  <div id="error">
+    <div class="err-icon">📄</div>
+    <p id="errorMsg">Document not found.</p>
+  </div>
+
+  <div id="main">
+    <div id="frame-wrap">
+      <iframe id="docFrame" title="Document" scrolling="no"></iframe>
+    </div>
+
+    <div id="sig-panel">
+      <div class="sig-card">
+        <h2>✍️ Sign Document</h2>
+        <div class="sub" id="sigSubtitle">Please review the document above and sign below.</div>
+
+        <!-- Already signed -->
+        <div id="already-signed">
+          <div class="check">✅</div>
+          <div class="label">Document Already Signed</div>
+          <div class="detail" id="alreadySignedDetail"></div>
+        </div>
+
+        <!-- Signature input -->
+        <div id="sig-input-area">
+          <div class="sig-label">Your Full Legal Name</div>
+          <input id="sigNameInp" type="text" placeholder="Type your name here…" autocomplete="name"/>
+
+          <div class="sig-preview-wrap">
+            <div id="sigPreview" class="empty">Your Signature</div>
+            <div class="sig-preview-label">Signature Preview</div>
+          </div>
+
+          <div class="legal-note">
+            By clicking "Sign Document" you agree that this electronic signature is the
+            legal equivalent of your handwritten signature on this document.
+          </div>
+
+          <button id="sigBtn" disabled>✍️ Sign Document</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="success-overlay">
+    <div class="box">
+      <div class="icon">🎉</div>
+      <h3>Signed Successfully!</h3>
+      <div class="sig-name" id="successName"></div>
+      <p>Your electronic signature has been recorded. The business owner has been notified.</p>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp }   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getFirestore, doc, getDoc, updateDoc, serverTimestamp }
+      from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey:            'AIzaSyB4M24fLSHNKdWRHDDu9xj2sPGYCDZExiA',
+      authDomain:        'ep-local-pro-ai.firebaseapp.com',
+      projectId:         'ep-local-pro-ai',
+      storageBucket:     'ep-local-pro-ai.firebasestorage.app',
+      messagingSenderId: '182127678437',
+      appId:             '1:182127678437:web:073432114afc243b5d150c'
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    const loadingEl  = document.getElementById('loading');
+    const errorDiv   = document.getElementById('error');
+    const errorMsg   = document.getElementById('errorMsg');
+    const mainEl     = document.getElementById('main');
+    const frame      = document.getElementById('docFrame');
+    const sigNameInp = document.getElementById('sigNameInp');
+    const sigPreview = document.getElementById('sigPreview');
+    const sigBtn     = document.getElementById('sigBtn');
+
+    function showError(msg) {
+      loadingEl.style.display = 'none';
+      mainEl.style.display    = 'none';
+      errorDiv.style.display  = 'flex';
+      errorMsg.textContent    = msg;
+    }
+
+    function resizeFrame() {
+      try {
+        const h = frame.contentDocument?.body?.scrollHeight;
+        if (h && h > 100) frame.style.height = h + 'px';
+      } catch (_) {}
+    }
+
+    function fmtDate(val) {
+      const d = val?.toDate ? val.toDate() : new Date(val);
+      return d.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+    }
+
+    function injectSignatures(data) {
+      try {
+        const fdoc = frame.contentDocument;
+        if (!fdoc) return;
+        const sigHtml = (name, date, ip) =>
+          `<div style="font-family:Georgia,serif;font-size:22pt;font-style:italic;font-weight:bold;color:#15803d;line-height:1.1;">${name}</div>` +
+          `<div style="font-size:0.62rem;color:#94a3b8;margin-top:3px;">Signed ${date}${ip ? ' · IP: ' + ip : ''}</div>`;
+
+        if (data.ownerSig?.name) {
+          const el = fdoc.getElementById('ep-sig-owner');
+          if (el) {
+            el.style.borderBottom = 'none';
+            el.style.height = 'auto';
+            el.innerHTML = sigHtml(data.ownerSig.name, fmtDate(data.ownerSig.signedAt), '');
+          }
+        }
+        if (data.customerSig?.name) {
+          const el = fdoc.getElementById('ep-sig-client');
+          if (el) {
+            el.style.borderBottom = 'none';
+            el.style.height = 'auto';
+            el.innerHTML = sigHtml(data.customerSig.name, fmtDate(data.customerSig.signedAt), data.customerSig.ip || '');
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Live signature preview
+    sigNameInp.addEventListener('input', () => {
+      const val = sigNameInp.value.trim();
+      sigPreview.textContent = val || 'Your Signature';
+      sigPreview.classList.toggle('empty', !val);
+      sigBtn.disabled = !val;
+      sigNameInp.classList.remove('error');
+    });
+
+    // Load document
+    const id = new URLSearchParams(location.search).get('id');
+
+    if (!id) {
+      showError('No document ID provided.');
+    } else {
+      getDoc(doc(db, 'documents', id)).then(snap => {
+        if (!snap.exists()) { showError('This document was not found or has been deleted.'); return; }
+        const data = snap.data();
+
+        if (!data.htmlContent) { showError('No preview available for this document.'); return; }
+        if (data.type !== 'estimate' && data.type !== 'contract') {
+          showError('Electronic signatures are only available for Estimates and Contracts.');
+          return;
+        }
+
+        // Page title
+        const typeName = data.type.charAt(0).toUpperCase() + data.type.slice(1);
+        document.title = `Sign ${typeName}${data.docNumber ? ' #' + data.docNumber : ''}`;
+
+        // Render doc into iframe
+        frame.srcdoc = data.htmlContent;
+        frame.onload = () => {
+          injectSignatures(data);
+          resizeFrame();
+          setTimeout(resizeFrame, 600);
+        };
+
+        loadingEl.style.display = 'none';
+        mainEl.style.display    = 'block';
+
+        // If already signed by customer, show already-signed state
+        if (data.customerSig?.name) {
+          document.getElementById('sig-input-area').style.display = 'none';
+          const alreadySigned = document.getElementById('already-signed');
+          alreadySigned.style.display = 'block';
+          document.getElementById('alreadySignedDetail').textContent =
+            `Signed by ${data.customerSig.name} on ${fmtDate(data.customerSig.signedAt)}`;
+        }
+
+      }).catch(err => {
+        console.error('sign.html load error:', err);
+        showError('Could not load this document. The link may have expired.');
+      });
+    }
+
+    // Sign button handler
+    sigBtn.addEventListener('click', async () => {
+      const name = sigNameInp.value.trim();
+      if (!name) { sigNameInp.classList.add('error'); sigNameInp.focus(); return; }
+
+      sigBtn.disabled = true;
+      sigBtn.textContent = '⏳ Signing…';
+
+      try {
+        // Get signer IP
+        let ip = '—';
+        try {
+          const ipRes = await fetch('/.netlify/functions/get-ip');
+          if (ipRes.ok) { const d = await ipRes.json(); ip = d.ip || '—'; }
+        } catch (_) {}
+
+        await updateDoc(doc(db, 'documents', id), {
+          customerSig: { name, ip, signedAt: serverTimestamp() },
+          updatedAt: serverTimestamp()
+        });
+
+        // Show success
+        document.getElementById('successName').textContent = name;
+        document.getElementById('success-overlay').style.display = 'flex';
+
+        // Also update the sig in the iframe live
+        setTimeout(() => {
+          try {
+            const fdoc = frame.contentDocument;
+            const el = fdoc?.getElementById('ep-sig-client');
+            if (el) {
+              el.style.borderBottom = 'none';
+              el.style.height = 'auto';
+              el.innerHTML =
+                `<div style="font-family:Georgia,serif;font-size:22pt;font-style:italic;font-weight:bold;color:#15803d;line-height:1.1;">${name}</div>` +
+                `<div style="font-size:0.62rem;color:#94a3b8;margin-top:3px;">Signed today · IP: ${ip}</div>`;
+              resizeFrame();
+            }
+          } catch (_) {}
+
+          // Swap to already-signed state
+          document.getElementById('sig-input-area').style.display = 'none';
+          const alreadySigned = document.getElementById('already-signed');
+          alreadySigned.style.display = 'block';
+          document.getElementById('alreadySignedDetail').textContent =
+            `Signed by ${name} · ${new Date().toLocaleDateString()}`;
+        }, 400);
+
+      } catch (e) {
+        console.error('Signature save error:', e);
+        sigBtn.disabled = false;
+        sigBtn.textContent = '✍️ Sign Document';
+        alert('Could not save signature. Please try again.\n\n' + e.message);
+      }
+    });
+  </script>
+</body>
+</html>

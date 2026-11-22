@@ -2623,6 +2623,7 @@ textarea.doc-input { resize: vertical; }
 .doc-row-status  { display: flex; gap: 4px; padding: 0 8px; flex-shrink: 0; }
 .doc-row-actions { padding: 0 10px 0 4px; display: flex; gap: 4px; flex-shrink: 0; }
 .btn-action-del  { color: #ef4444; }
+.btn-action-sign { color: #15803d; }
 
 .status-btn {
   font-size: 0.7rem;

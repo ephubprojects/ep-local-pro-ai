@@ -135,6 +135,39 @@
       } catch (_) {}
     }
 
+    function fmtSigDate(val) {
+      if (!val) return '';
+      const d = val.toDate ? val.toDate() : new Date(val);
+      return d.toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+    }
+
+    function injectSignatures(data) {
+      try {
+        const fdoc = frame.contentDocument;
+        if (!fdoc) return;
+        const sigHtml = (name, date, ip) =>
+          `<div style="font-family:Georgia,serif;font-size:22pt;font-style:italic;font-weight:bold;color:#15803d;line-height:1.1;">${name}</div>` +
+          `<div style="font-size:0.62rem;color:#94a3b8;margin-top:3px;">Signed ${date}${ip ? ' · IP: ' + ip : ''}</div>`;
+
+        if (data.ownerSig?.name) {
+          const el = fdoc.getElementById('ep-sig-owner');
+          if (el) {
+            el.style.borderBottom = 'none';
+            el.style.height = 'auto';
+            el.innerHTML = sigHtml(data.ownerSig.name, fmtSigDate(data.ownerSig.signedAt), '');
+          }
+        }
+        if (data.customerSig?.name) {
+          const el = fdoc.getElementById('ep-sig-client');
+          if (el) {
+            el.style.borderBottom = 'none';
+            el.style.height = 'auto';
+            el.innerHTML = sigHtml(data.customerSig.name, fmtSigDate(data.customerSig.signedAt), data.customerSig.ip || '');
+          }
+        }
+      } catch (_) {}
+    }
+
     const id = new URLSearchParams(location.search).get('id');
 
     if (!id) {
@@ -159,11 +192,11 @@
             : 'Document';
           document.title = `${typeName}${data.docNumber ? ' ' + data.docNumber : ''}`;
 
-          // Render into iframe
+          // Render into iframe then inject any saved signatures
           frame.srcdoc = data.htmlContent;
           frame.onload = () => {
+            injectSignatures(data);
             resizeFrame();
-            // Re-check after images / fonts settle
             setTimeout(resizeFrame, 600);
           };
 
