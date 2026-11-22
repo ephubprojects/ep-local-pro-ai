@@ -1719,21 +1719,26 @@ async function cancelMyAccount() {
 // SETTINGS
 // ============================================================
 async function saveSettings() {
-  const platformName = document.getElementById('settingPlatformName')?.value.trim() || '';
-  const supportEmail = document.getElementById('settingSupportEmail')?.value.trim() || '';
-  const demoAgentId  = document.getElementById('settingDemoAgentId')?.value.trim()  || '';
-  const demoVoiceEn  = document.getElementById('settingDemoVoiceEn')?.value          || '';
-  const demoVoiceEs  = document.getElementById('settingDemoVoiceEs')?.value          || '';
+  const platformName  = document.getElementById('settingPlatformName')?.value.trim()  || '';
+  const supportEmail  = document.getElementById('settingSupportEmail')?.value.trim()  || '';
+  const demoAgentId   = document.getElementById('settingDemoAgentId')?.value.trim()   || '';
+  const demoVoiceEn   = document.getElementById('settingDemoVoiceEn')?.value           || '';
+  const demoVoiceEs   = document.getElementById('settingDemoVoiceEs')?.value           || '';
+  const financingUrl  = document.getElementById('settingFinancingUrl')?.value.trim()  || '';
 
   try {
     if (currentUser) {
       await Promise.all([
         updateDoc(doc(db, 'owners', currentUser.uid), {
-          platformName, supportEmail, demoAgentId, demoVoiceEn, demoVoiceEs,
+          platformName, supportEmail, demoAgentId, demoVoiceEn, demoVoiceEs, financingUrl,
           updatedAt: serverTimestamp()
         }),
         setDoc(doc(db, 'config', 'demo'), {
           demoAgentId, demoVoiceEn, demoVoiceEs,
+          updatedAt: serverTimestamp()
+        }),
+        setDoc(doc(db, 'config', 'financing'), {
+          url: financingUrl,
           updatedAt: serverTimestamp()
         })
       ]);
@@ -1756,11 +1761,13 @@ async function loadSettings() {
     const sda = document.getElementById('settingDemoAgentId');
     const sde = document.getElementById('settingDemoVoiceEn');
     const sds = document.getElementById('settingDemoVoiceEs');
-    if (sfn && d.platformName) sfn.value = d.platformName;
-    if (sse && d.supportEmail) sse.value = d.supportEmail;
-    if (sda && d.demoAgentId) sda.value = d.demoAgentId;
-    if (sde && d.demoVoiceEn) sde.value = d.demoVoiceEn;
-    if (sds && d.demoVoiceEs) sds.value = d.demoVoiceEs;
+    if (sfn && d.platformName)  sfn.value = d.platformName;
+    if (sse && d.supportEmail)  sse.value = d.supportEmail;
+    if (sda && d.demoAgentId)   sda.value = d.demoAgentId;
+    if (sde && d.demoVoiceEn)   sde.value = d.demoVoiceEn;
+    if (sds && d.demoVoiceEs)   sds.value = d.demoVoiceEs;
+    const sfu = document.getElementById('settingFinancingUrl');
+    if (sfu && d.financingUrl)  sfu.value = d.financingUrl;
   } catch (err) {
     console.error('loadSettings error:', err);
   }

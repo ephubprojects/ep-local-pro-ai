@@ -1019,7 +1019,16 @@
 
         <div class="settings-section" style="margin-top:28px;" id="adminFinancingGatewaySection">
           <h3>🏦 Financing Gateway</h3>
-          <p class="readonly-note" style="margin-bottom:14px;">Control which users can offer financing on their documents. Only users you enable will see the Financing option.</p>
+          <p class="readonly-note" style="margin-bottom:16px;">Set the prequalification form URL and control which users can offer financing on their documents.</p>
+
+          <!-- Global Financing URL -->
+          <div class="form-group" style="margin-bottom:20px;">
+            <label for="settingFinancingUrl">Prequalification Form URL</label>
+            <input type="url" id="settingFinancingUrl" placeholder="https://apply.yourfinancingpartner.com/prequalify" />
+            <div class="form-hint">Customers will be sent to this URL when they click "Apply for Financing" on a document. Leave blank to disable the financing button globally.</div>
+          </div>
+
+          <p class="readonly-note" style="margin-bottom:14px;">Control which users can offer financing on their documents. Only users you enable will see the Financing toggle when creating documents.</p>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
             <button class="btn-sm btn-pm-success" onclick="adminToggleFinancingAll(true)">✅ Enable All Users</button>
             <button class="btn-sm btn-pm-danger"  onclick="adminToggleFinancingAll(false)">❌ Disable All Users</button>

@@ -210,9 +210,48 @@
       </div>
     </div>
 
+    <!-- Financing bar — shown when document has financingEnabled -->
+    <div id="fin-bar" style="display:none;background:#fff;border-top:3px solid #ea580c;">
+      <div id="fin-prompt" style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;gap:16px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-size:1.5rem;">🏦</span>
+          <div>
+            <div style="font-size:0.95rem;font-weight:800;color:#1e293b;">Financing Available</div>
+            <div style="font-size:0.78rem;color:#64748b;margin-top:1px;">You may qualify — apply in minutes with no impact to your credit</div>
+          </div>
+        </div>
+        <button id="fin-apply-btn" style="background:#ea580c;color:#fff;border:none;border-radius:9px;padding:10px 22px;font-size:0.85rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+          Apply for Financing →
+        </button>
+      </div>
+    </div>
+
     <div class="live-badge">
       <span class="live-dot"></span>
       Live document
+    </div>
+  </div>
+
+  <!-- Financing modal -->
+  <div id="fin-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:#fff;border-radius:18px;max-width:480px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;">
+      <div style="background:linear-gradient(135deg,#ea580c,#c2410c);padding:22px 24px;display:flex;align-items:center;gap:14px;">
+        <span style="font-size:2rem;">🏦</span>
+        <div style="flex:1;">
+          <div style="font-size:1.1rem;font-weight:800;color:#fff;">Apply for Financing</div>
+          <div style="font-size:0.78rem;color:rgba(255,255,255,.75);margin-top:2px;">Fast prequalification — no credit impact</div>
+        </div>
+        <button id="fin-modal-close" style="background:rgba(255,255,255,.18);border:none;border-radius:8px;width:30px;height:30px;color:#fff;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+      </div>
+      <div style="padding:28px 24px;">
+        <p style="font-size:0.9rem;color:#475569;line-height:1.6;margin-bottom:22px;">Click below to open the prequalification form. The process is quick and checking your eligibility won't affect your credit score.</p>
+        <button id="fin-open-form-btn" style="width:100%;padding:14px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;border:none;border-radius:11px;font-size:0.95rem;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(234,88,12,.35);">
+          🚀 Start My Application
+        </button>
+        <button id="fin-modal-cancel" style="width:100%;margin-top:10px;padding:11px;background:transparent;border:1.5px solid #e2e8f0;color:#64748b;border-radius:9px;font-size:0.85rem;font-weight:600;cursor:pointer;">
+          Not right now
+        </button>
+      </div>
     </div>
   </div>
 
@@ -384,6 +423,12 @@
           };
 
           updateSigBar(data);
+
+          // Show/hide financing bar
+          const finBar = document.getElementById('fin-bar');
+          if (finBar) finBar.style.display = (data.financingEnabled && data.financingUrl) ? 'block' : 'none';
+          window._setFinUrl?.(data.financingUrl || '');
+
           loading.style.display   = 'none';
           frameWrap.style.display = 'block';
         },
@@ -446,6 +491,34 @@
         alert('Could not save signature. Please try again.\n\n' + e.message);
       }
     });
+
+    // Financing bar / modal wiring
+    (function() {
+      let _finUrl = '';
+      const finModal = document.getElementById('fin-modal');
+
+      document.getElementById('fin-apply-btn')?.addEventListener('click', () => {
+        if (finModal) finModal.style.display = 'flex';
+      });
+
+      function hideFinModal() { if (finModal) finModal.style.display = 'none'; }
+      document.getElementById('fin-modal-close')?.addEventListener('click', hideFinModal);
+      document.getElementById('fin-modal-cancel')?.addEventListener('click', hideFinModal);
+      finModal?.addEventListener('click', e => { if (e.target === finModal) hideFinModal(); });
+
+      document.getElementById('fin-open-form-btn')?.addEventListener('click', () => {
+        const bar = document.getElementById('fin-bar');
+        const url = bar?.dataset.finUrl || _finUrl;
+        if (url) window.open(url, '_blank', 'noopener');
+      });
+
+      // Expose setter so onSnapshot can pass the url through
+      window._setFinUrl = url => {
+        _finUrl = url || '';
+        const bar = document.getElementById('fin-bar');
+        if (bar) bar.dataset.finUrl = _finUrl;
+      };
+    })();
   </script>
 </body>
 </html>

@@ -729,6 +729,14 @@ async function loadDocuments() {
     };
   });
 
+  // Fetch global financing URL set by admin
+  try {
+    const fSnap = await getDoc(doc(db, 'config', 'financing'));
+    _dFinancingUrl = fSnap.exists() ? (fSnap.data().url || '') : '';
+    const finRow = document.getElementById('docFinancingSection');
+    if (finRow) finRow.style.display = _dFinancingUrl ? '' : 'none';
+  } catch (_) { _dFinancingUrl = ''; }
+
   try {
     const q = query(
       collection(db, 'documents'),
@@ -2561,6 +2569,7 @@ let _dLogoUrl     = '';
 let _dCurrentDocId = null;
 let _dShowPricing  = true;
 let _dAllCustomers = [];
+let _dFinancingUrl = '';
 let _dBizPaymentMethods = {};
 let _dVoiceRecognizer   = null;
 
@@ -3412,6 +3421,8 @@ window._dashDocSave = async function() {
       logoUrl:      _dLogoUrl,
       htmlContent,
       amount:       grand.toFixed(2),
+      financingEnabled: document.getElementById('docFinancingEnabled')?.checked || false,
+      financingUrl:     _dFinancingUrl,
       createdAt:    serverTimestamp()
     };
 

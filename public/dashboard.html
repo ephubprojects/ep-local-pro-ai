@@ -1071,6 +1071,15 @@
           </div>
         </div>
 
+        <!-- Financing Toggle (shown only when admin has set a financing URL) -->
+        <div class="doc-form-section" id="docFinancingSection" style="display:none">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="docFinancingEnabled" style="width:auto;accent-color:var(--indigo)" onchange="window._dashDocUpdatePreview()"/>
+            <span style="font-size:0.82rem;font-weight:700;color:var(--ink)">🏦 Show Financing Button on Document</span>
+          </label>
+          <p style="font-size:0.75rem;color:var(--muted);margin-top:5px;margin-left:24px;">Adds a financing application button at the bottom of the customer-facing document.</p>
+        </div>
+
         <!-- Action Buttons -->
         <div class="doc-form-actions">
           <button class="btn-save" id="dashDocSaveBtn" onclick="window._dashDocSave()" style="flex:1">
