@@ -223,6 +223,9 @@ async function onAdminReady(user) {
       if (sph) sph.value = od.phone     || '';
       if (sun) sun.value = od.username  || '';
 
+      // Load avatar
+      _profileSetAvatar(od.photoURL || '', (od.firstName || '') + ' ' + (od.lastName || ''));
+
       // Load payment methods into form
       if (od.paymentMethods) {
         _paymentMethodsData = od.paymentMethods;
@@ -1494,12 +1497,69 @@ async function saveProfile() {
         updatedAt: serverTimestamp()
       });
     }
+    // Update avatar name label live
+    _profileSetAvatarName(`${firstName} ${lastName}`.trim());
     showToast('Profile saved', 'success');
   } catch (err) {
     console.error('saveProfile error:', err);
     showToast('Error saving profile', 'error');
   }
 }
+
+// ── Profile avatar helpers ────────────────────────────────────
+function _profileSetAvatar(url, name) {
+  const img  = document.getElementById('profileAvatarImg');
+  const ph   = document.getElementById('profileAvatarPlaceholder');
+  const rmBtn = document.getElementById('profileAvatarRemoveBtn');
+  _profileSetAvatarName(name);
+  if (url) {
+    if (img) { img.src = url; img.style.display = 'block'; }
+    if (ph)  ph.style.display = 'none';
+    if (rmBtn) rmBtn.style.display = 'inline-block';
+  } else {
+    if (img) img.style.display = 'none';
+    if (ph)  ph.style.display = 'flex';
+    if (rmBtn) rmBtn.style.display = 'none';
+  }
+}
+
+function _profileSetAvatarName(name) {
+  const el = document.getElementById('profileAvatarName');
+  if (el) el.textContent = name || '—';
+}
+
+document.getElementById('profileAvatarInput')?.addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  if (!file || !currentUser) return;
+  const wrap = document.getElementById('profileAvatarWrap');
+  wrap?.classList.add('profile-avatar-uploading');
+  try {
+    const path = `owners/${currentUser.uid}/avatar`;
+    const snap = await uploadBytes(storageRef(storage, path), file);
+    const url  = await getDownloadURL(snap.ref);
+    await updateDoc(doc(db, 'owners', currentUser.uid), { photoURL: url, updatedAt: serverTimestamp() });
+    _profileSetAvatar(url, document.getElementById('profileAvatarName')?.textContent || '');
+    showToast('Photo updated', 'success');
+  } catch (err) {
+    console.error('Avatar upload error:', err);
+    showToast('Upload failed', 'error');
+  } finally {
+    wrap?.classList.remove('profile-avatar-uploading');
+    e.target.value = '';
+  }
+});
+
+document.getElementById('profileAvatarRemoveBtn')?.addEventListener('click', async () => {
+  if (!currentUser) return;
+  if (!confirm('Remove your profile photo?')) return;
+  try {
+    await updateDoc(doc(db, 'owners', currentUser.uid), { photoURL: '', updatedAt: serverTimestamp() });
+    _profileSetAvatar('', document.getElementById('profileAvatarName')?.textContent || '');
+    showToast('Photo removed', 'success');
+  } catch (err) {
+    showToast('Error removing photo', 'error');
+  }
+});
 
 function _populatePaymentMethodsForm(methods) {
   if (!methods) return;

@@ -1066,6 +1066,110 @@ input[type="color"]#catColorPicker {
   background: var(--green, #10b981);
 }
 
+/* ── Profile Avatar Upload ────────────────────────────────── */
+.profile-avatar-section {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 20px;
+  background: linear-gradient(135deg,#f8fafc,#eef2ff);
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  margin-bottom: 22px;
+}
+
+.profile-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 88px;
+  height: 88px;
+}
+
+.profile-avatar-img {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #fff;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+}
+
+.profile-avatar-placeholder {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: linear-gradient(135deg,#4f46e5,#7c3aed);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+  border: 3px solid #fff;
+  box-shadow: 0 4px 14px rgba(79,70,229,0.25);
+}
+
+.profile-avatar-edit-btn {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 26px;
+  height: 26px;
+  background: #fff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  transition: all 0.15s;
+  line-height: 1;
+}
+.profile-avatar-edit-btn:hover {
+  background: #4f46e5;
+  border-color: #4f46e5;
+  transform: scale(1.1);
+}
+
+.profile-avatar-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.profile-avatar-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+.profile-avatar-hint {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.profile-avatar-remove {
+  margin-top: 6px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #ef4444;
+  background: transparent;
+  border: 1.5px solid #fca5a5;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  align-self: flex-start;
+}
+.profile-avatar-remove:hover { background: #fef2f2; border-color: #ef4444; }
+
+.profile-avatar-uploading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
 /* ── Settings Section ─────────────────────────────────────── */
 .settings-section {
   max-width: 540px;

@@ -826,6 +826,22 @@
       <div class="section-card">
         <div class="settings-section">
           <h3>Admin Profile</h3>
+
+          <!-- Avatar / Logo Upload -->
+          <div class="profile-avatar-section">
+            <div class="profile-avatar-wrap" id="profileAvatarWrap">
+              <img id="profileAvatarImg" src="" alt="Profile photo" class="profile-avatar-img" style="display:none;" />
+              <div id="profileAvatarPlaceholder" class="profile-avatar-placeholder">👤</div>
+              <label class="profile-avatar-edit-btn" for="profileAvatarInput" title="Upload photo or logo">✏️</label>
+              <input type="file" id="profileAvatarInput" accept="image/*" style="display:none;" />
+            </div>
+            <div class="profile-avatar-meta">
+              <p class="profile-avatar-name" id="profileAvatarName">—</p>
+              <p class="profile-avatar-hint">Upload a profile photo or business logo</p>
+              <button class="profile-avatar-remove" id="profileAvatarRemoveBtn" style="display:none;">✕ Remove photo</button>
+            </div>
+          </div>
+
           <div class="form-row">
             <div class="form-group">
               <label>First Name</label>
