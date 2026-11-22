@@ -803,24 +803,157 @@ function renderDocCards() {
       <div class="doc-card-actions">
         ${docData.htmlContent ? `<button class="btn-action" data-view>👁 View</button>` : ''}
         ${docData.htmlContent ? `<button class="btn-action primary" data-dl>↓ PDF</button>` : ''}
+        ${(docData.type==='estimate'||docData.type==='contract') ? `<button class="btn-action btn-action-sign" data-sign title="${docData.ownerSig ? 'Re-sign / View Signature' : 'Sign Document'}">✍️ Sign</button>` : ''}
       </div>`;
 
     if (docData.htmlContent) {
       const label = docData.docNumber || typeLbl;
-      card.querySelector('[data-view]')?.addEventListener('click', () => viewDocument(docData.htmlContent, label));
+      card.querySelector('[data-view]')?.addEventListener('click', () => viewDocument(docData, label));
       card.querySelector('[data-dl]')?.addEventListener('click',   () => downloadDocument(docData.htmlContent, label));
     }
+    card.querySelector('[data-sign]')?.addEventListener('click', () => dashOwnerSign(docData.id, docData));
     list.appendChild(card);
   });
 }
 
-function viewDocument(htmlContent, label) {
+function _dashSigHtml(name, date, ip, consented) {
+  const fmtD = d => d ? (d.toDate ? d.toDate() : new Date(d)).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}) : '';
+  return `<div style="font-family:Georgia,serif;font-size:22pt;font-style:italic;font-weight:bold;color:#15803d;line-height:1.1;">${name}</div>` +
+    `<div style="font-size:0.62rem;color:#94a3b8;margin-top:3px;">Signed ${fmtD(date)}${ip?' · IP: '+ip:''}</div>` +
+    (consented
+      ? `<div style="display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:3px 8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:20px;">` +
+        `<span style="font-size:0.65rem;color:#15803d;">✅ Reviewed &amp; consented to terms</span></div>`
+      : '');
+}
+
+function _dashInjectSigs(iframe, data) {
+  try {
+    const fdoc = iframe.contentDocument;
+    if (!fdoc) return;
+    if (data.ownerSig?.name) {
+      const el = fdoc.getElementById('ep-sig-owner');
+      if (el) { el.style.borderBottom='none'; el.style.height='auto'; el.innerHTML=_dashSigHtml(data.ownerSig.name,data.ownerSig.signedAt,'',data.ownerSig.consentGiven); }
+    }
+    if (data.customerSig?.name) {
+      const el = fdoc.getElementById('ep-sig-client');
+      if (el) { el.style.borderBottom='none'; el.style.height='auto'; el.innerHTML=_dashSigHtml(data.customerSig.name,data.customerSig.signedAt,data.customerSig.ip||'',data.customerSig.consentGiven); }
+    }
+  } catch(_) {}
+}
+
+function viewDocument(docData, label) {
   const frame = qs('#docPreviewFrame');
   if (!frame) return;
+  const htmlContent = typeof docData === 'string' ? docData : docData.htmlContent;
   qs('#docPreviewTitle').textContent = label || 'Document Preview';
   frame.srcdoc = htmlContent;
+  frame.onload = () => {
+    if (typeof docData === 'object') _dashInjectSigs(frame, docData);
+    try { const h = frame.contentDocument?.body?.scrollHeight; if (h>100) frame.style.height=h+'px'; } catch(_) {}
+  };
   qs('#docPreviewModal').classList.remove('hidden');
   qs('#docPrintBtn').onclick = () => frame.contentWindow?.print();
+}
+
+async function dashOwnerSign(docId, cachedData) {
+  let data = cachedData;
+  if (!data?.htmlContent) {
+    try { const s = await getDoc(doc(db,'documents',docId)); data = s.data(); } catch(e) { alert('Could not load document: '+e.message); return; }
+  }
+  const existing  = data?.ownerSig;
+  const typeLabel = (data?.type||'document').charAt(0).toUpperCase()+(data?.type||'document').slice(1);
+  const docNumber = data?.docNumber || '';
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;flex-direction:column;';
+  overlay.innerHTML = `
+    <div style="background:#0f172a;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:12px;">
+      <div style="color:#fff;font-weight:700;font-size:0.9rem;">✍️ Sign — ${typeLabel}${docNumber?' #'+docNumber:''}</div>
+      <button id="_dsClose" style="background:rgba(255,255,255,.1);border:none;color:#fff;border-radius:6px;padding:5px 12px;font-size:0.82rem;cursor:pointer;">✕ Close</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;background:#f1f5f9;">
+      <iframe id="_dsFrame" style="width:100%;border:none;display:block;" scrolling="no"></iframe>
+      <div style="max-width:620px;margin:0 auto;padding:24px 16px 48px;">
+        ${existing ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:0.82rem;color:#166534;">✅ Already signed by <strong>${existing.name}</strong> — you can update it below.</div>` : ''}
+        <div style="background:#fff;border-radius:14px;padding:24px;box-shadow:0 4px 24px rgba(0,0,0,.08);">
+          <div style="font-size:0.95rem;font-weight:800;color:#1e293b;margin-bottom:4px;">Owner / Business Signature</div>
+          <div style="font-size:0.8rem;color:#64748b;margin-bottom:18px;">Review the document above, then type your full legal name and confirm your consent below.</div>
+          <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px;">Full Legal Name</div>
+          <input id="_dsInp" type="text" placeholder="Type your name…" autocomplete="name"
+            style="width:100%;padding:12px 16px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:1rem;outline:none;box-sizing:border-box;margin-bottom:14px;transition:border-color .15s;"
+            value="${existing ? existing.name : ''}"/>
+          <div style="background:#f8fafc;border-radius:10px;padding:14px 18px;min-height:60px;border:1.5px dashed #cbd5e1;margin-bottom:20px;display:flex;flex-direction:column;justify-content:flex-end;">
+            <div id="_dsPrev" style="font-family:Georgia,serif;font-size:26pt;font-style:italic;font-weight:bold;color:#15803d;line-height:1.1;">${existing ? existing.name : ''}</div>
+            <div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-top:6px;">Signature Preview</div>
+          </div>
+          <label id="_dsConsentWrap" style="display:flex;gap:12px;align-items:flex-start;padding:14px 16px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;margin-bottom:16px;transition:border-color .15s;">
+            <input type="checkbox" id="_dsConsent" style="margin-top:2px;width:16px;height:16px;accent-color:#15803d;flex-shrink:0;cursor:pointer;"/>
+            <span style="font-size:0.8rem;color:#475569;line-height:1.6;">
+              I have reviewed this <strong>${typeLabel}</strong> and agree to the described scope, pricing, and terms.
+              I declare my consent to proceed and understand that this electronic signature is legally binding
+              under the ESIGN Act and UETA.
+            </span>
+          </label>
+          <button id="_dsConfirm" disabled style="width:100%;background:#94a3b8;color:#fff;border:none;border-radius:10px;padding:14px;font-size:0.95rem;font-weight:800;cursor:not-allowed;transition:background .15s;">✅ Sign Document</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  const iframe  = document.getElementById('_dsFrame');
+  const inp     = document.getElementById('_dsInp');
+  const prev    = document.getElementById('_dsPrev');
+  const consent = document.getElementById('_dsConsent');
+  const wrap    = document.getElementById('_dsConsentWrap');
+  const btn     = document.getElementById('_dsConfirm');
+
+  if (data?.htmlContent) {
+    iframe.srcdoc = data.htmlContent;
+    iframe.onload = () => {
+      _dashInjectSigs(iframe, data);
+      try { const h = iframe.contentDocument?.body?.scrollHeight; if (h>100) iframe.style.height=h+'px'; } catch(_) {}
+      setTimeout(() => { try { const h = iframe.contentDocument?.body?.scrollHeight; if (h>100) iframe.style.height=h+'px'; } catch(_) {} }, 600);
+    };
+  }
+
+  function updateBtn() {
+    const ready = inp.value.trim() && consent.checked;
+    btn.disabled = !ready;
+    btn.style.background = ready ? '#15803d' : '#94a3b8';
+    btn.style.cursor     = ready ? 'pointer'  : 'not-allowed';
+    wrap.style.borderColor = consent.checked ? '#15803d' : '#e2e8f0';
+    wrap.style.background  = consent.checked ? '#f0fdf4' : '#f8fafc';
+  }
+
+  inp.focus();
+  inp.addEventListener('input',    () => { prev.textContent = inp.value; updateBtn(); });
+  consent.addEventListener('change', updateBtn);
+
+  document.getElementById('_dsClose').addEventListener('click', () => overlay.remove());
+
+  btn.addEventListener('click', async () => {
+    const name = inp.value.trim();
+    if (!name)            { inp.style.borderColor='#dc2626'; inp.focus(); return; }
+    if (!consent.checked) { wrap.style.borderColor='#dc2626'; return; }
+    btn.textContent='⏳ Signing…'; btn.disabled=true;
+    try {
+      await updateDoc(doc(db,'documents',docId), {
+        ownerSig: { name, signedAt: serverTimestamp(), consentGiven: true, consentAt: serverTimestamp() },
+        updatedAt: serverTimestamp()
+      });
+      _dashInjectSigs(iframe, { ownerSig:{name,signedAt:new Date(),consentGiven:true}, customerSig: data.customerSig });
+      // Update local cache
+      const idx = allDocs.findIndex(d=>d.id===docId);
+      if (idx!==-1) allDocs[idx].ownerSig={name,signedAt:new Date(),consentGiven:true};
+      showToast('Document signed!','success');
+      btn.textContent='✅ Signed!'; btn.style.background='#166534';
+      setTimeout(() => overlay.remove(), 1400);
+    } catch(e) {
+      btn.textContent='✅ Sign Document'; btn.disabled=false;
+      alert('Error saving signature: '+e.message);
+    }
+  });
 }
 
 function downloadDocument(htmlContent, label) {
