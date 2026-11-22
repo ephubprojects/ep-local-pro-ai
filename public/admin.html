@@ -516,11 +516,31 @@
 
       <!-- Filter tabs + Search -->
       <div class="docs-tabs-bar">
-        <button class="docs-tab active" data-filter="all">All <span class="docs-tab-count" id="adCountAll">0</span></button>
-        <button class="docs-tab" data-filter="invoice">Invoices <span class="docs-tab-count" id="adCountInvoice">0</span></button>
-        <button class="docs-tab" data-filter="estimate">Estimates <span class="docs-tab-count" id="adCountEstimate">0</span></button>
-        <button class="docs-tab" data-filter="contract">Contracts <span class="docs-tab-count" id="adCountContract">0</span></button>
-        <button class="docs-tab" data-filter="receipt">Receipts <span class="docs-tab-count" id="adCountReceipt">0</span></button>
+        <button class="docs-tab active" data-filter="all">
+          <span class="docs-tab-icon">📋</span>
+          <span class="docs-tab-label">All</span>
+          <span class="docs-tab-count" id="adCountAll">0</span>
+        </button>
+        <button class="docs-tab" data-filter="invoice">
+          <span class="docs-tab-icon">🧾</span>
+          <span class="docs-tab-label">Invoices</span>
+          <span class="docs-tab-count" id="adCountInvoice">0</span>
+        </button>
+        <button class="docs-tab" data-filter="estimate">
+          <span class="docs-tab-icon">📝</span>
+          <span class="docs-tab-label">Estimates</span>
+          <span class="docs-tab-count" id="adCountEstimate">0</span>
+        </button>
+        <button class="docs-tab" data-filter="contract">
+          <span class="docs-tab-icon">📄</span>
+          <span class="docs-tab-label">Contracts</span>
+          <span class="docs-tab-count" id="adCountContract">0</span>
+        </button>
+        <button class="docs-tab" data-filter="receipt">
+          <span class="docs-tab-icon">🧮</span>
+          <span class="docs-tab-label">Receipts</span>
+          <span class="docs-tab-count" id="adCountReceipt">0</span>
+        </button>
       </div>
       <div style="margin-bottom:12px;">
         <input id="adminDocsSearch" type="search" placeholder="🔍  Search by customer name, job # or phone…"

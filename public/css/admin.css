@@ -2590,6 +2590,74 @@ textarea.doc-input { resize: vertical; }
 .btn-pm-success { background:#15803d; color:#fff; }
 .btn-pm-danger  { background:#dc2626; color:#fff; }
 
+/* ── Document filter tabs ─────────────────────────────────── */
+.docs-tabs-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.docs-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  letter-spacing: 0.01em;
+}
+
+.docs-tab:hover {
+  border-color: #94a3b8;
+  color: #334155;
+  background: #f8fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+}
+
+.docs-tab-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.docs-tab-label {
+  font-size: 0.82rem;
+}
+
+.docs-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 20px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  transition: background 0.18s, color 0.18s;
+}
+
+/* Active state — each tab gets its own accent */
+.docs-tab[data-filter="all"].active        { background: linear-gradient(135deg,#1e293b,#334155); border-color: #1e293b; color: #fff; box-shadow: 0 4px 12px rgba(30,41,59,0.25); }
+.docs-tab[data-filter="invoice"].active    { background: linear-gradient(135deg,#4338ca,#6366f1); border-color: #4338ca; color: #fff; box-shadow: 0 4px 12px rgba(67,56,202,0.28); }
+.docs-tab[data-filter="estimate"].active   { background: linear-gradient(135deg,#b45309,#f59e0b); border-color: #b45309; color: #fff; box-shadow: 0 4px 12px rgba(180,83,9,0.28); }
+.docs-tab[data-filter="contract"].active   { background: linear-gradient(135deg,#6d28d9,#7c3aed); border-color: #6d28d9; color: #fff; box-shadow: 0 4px 12px rgba(109,40,217,0.28); }
+.docs-tab[data-filter="receipt"].active    { background: linear-gradient(135deg,#047857,#10b981); border-color: #047857; color: #fff; box-shadow: 0 4px 12px rgba(4,120,87,0.28); }
+
+.docs-tab.active .docs-tab-count { background: rgba(255,255,255,0.25); color: #fff; }
+.docs-tab.active                  { transform: translateY(-1px); }
+
 /* ── Document list — inline rows ──────────────────────────── */
 .docs-list {
   display: flex;
