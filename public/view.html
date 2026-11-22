@@ -329,6 +329,11 @@
         const fdoc = frame.contentDocument;
         if (!fdoc) return;
 
+        // Always sync logo from Firestore so old documents auto-update
+        if (data.logoUrl) {
+          fdoc.querySelectorAll('img[alt="Logo"]').forEach(img => { img.src = data.logoUrl; });
+        }
+
         if (data.ownerSig?.name) {
           const el = fdoc.getElementById('ep-sig-owner');
           if (el) {
