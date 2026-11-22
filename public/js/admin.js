@@ -2236,17 +2236,24 @@ window._docOwnerSign = async function(docId) {
         ${existing ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:0.82rem;color:#166534;">✅ Already signed by <strong>${existing.name}</strong> — you can update it below.</div>` : ''}
         <div style="background:#fff;border-radius:14px;padding:24px 24px 20px;box-shadow:0 4px 24px rgba(0,0,0,.08);">
           <div style="font-size:0.95rem;font-weight:800;color:#1e293b;margin-bottom:4px;">Owner / Business Signature</div>
-          <div style="font-size:0.8rem;color:#64748b;margin-bottom:18px;">Type your full legal name below — it will appear as your signature on the document.</div>
+          <div style="font-size:0.8rem;color:#64748b;margin-bottom:18px;">Review the document above, then type your full legal name and confirm your consent below.</div>
           <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px;">Full Legal Name</div>
           <input id="_osInp" type="text" placeholder="Type your name…" autocomplete="name"
             style="width:100%;padding:12px 16px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:1rem;outline:none;box-sizing:border-box;margin-bottom:14px;transition:border-color .15s;"
             value="${existing ? existing.name : ''}"/>
-          <div style="background:#f8fafc;border-radius:10px;padding:14px 18px;min-height:60px;border:1.5px dashed #cbd5e1;margin-bottom:14px;display:flex;flex-direction:column;justify-content:flex-end;">
+          <div style="background:#f8fafc;border-radius:10px;padding:14px 18px;min-height:60px;border:1.5px dashed #cbd5e1;margin-bottom:20px;display:flex;flex-direction:column;justify-content:flex-end;">
             <div id="_osPrev" style="font-family:Georgia,serif;font-size:26pt;font-style:italic;font-weight:bold;color:#15803d;line-height:1.1;">${existing ? existing.name : ''}</div>
             <div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-top:6px;">Signature Preview</div>
           </div>
-          <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:16px;">By clicking "Sign Document" you agree this electronic signature is legally binding.</div>
-          <button id="_osConfirm" style="width:100%;background:#15803d;color:#fff;border:none;border-radius:10px;padding:14px;font-size:0.95rem;font-weight:800;cursor:pointer;transition:background .15s;">✅ Sign Document</button>
+          <label id="_osConsentWrap" style="display:flex;gap:12px;align-items:flex-start;padding:14px 16px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;margin-bottom:16px;transition:border-color .15s;">
+            <input type="checkbox" id="_osConsent" style="margin-top:2px;width:16px;height:16px;accent-color:#15803d;flex-shrink:0;cursor:pointer;"/>
+            <span style="font-size:0.8rem;color:#475569;line-height:1.6;">
+              I have reviewed this <strong>${typeLabel}</strong> and agree to the described scope, pricing, and terms.
+              I declare my consent to proceed and understand that this electronic signature is legally binding
+              under the ESIGN Act and UETA.
+            </span>
+          </label>
+          <button id="_osConfirm" disabled style="width:100%;background:#94a3b8;color:#fff;border:none;border-radius:10px;padding:14px;font-size:0.95rem;font-weight:800;cursor:not-allowed;transition:background .15s;">✅ Sign Document</button>
         </div>
       </div>
     </div>`;
@@ -2266,28 +2273,40 @@ window._docOwnerSign = async function(docId) {
     };
   }
 
-  const inp  = document.getElementById('_osInp');
-  const prev = document.getElementById('_osPrev');
+  const inp     = document.getElementById('_osInp');
+  const prev    = document.getElementById('_osPrev');
+  const consent = document.getElementById('_osConsent');
+  const btn     = document.getElementById('_osConfirm');
+  const wrap    = document.getElementById('_osConsentWrap');
+
+  function _osUpdateBtn() {
+    const ready = inp.value.trim() && consent.checked;
+    btn.disabled = !ready;
+    btn.style.background  = ready ? '#15803d' : '#94a3b8';
+    btn.style.cursor      = ready ? 'pointer'  : 'not-allowed';
+    wrap.style.borderColor = consent.checked ? '#15803d' : '#e2e8f0';
+    wrap.style.background  = consent.checked ? '#f0fdf4' : '#f8fafc';
+  }
+
   inp.focus();
-  inp.addEventListener('input', () => {
-    prev.textContent = inp.value;
-    inp.style.borderColor = inp.value.trim() ? '#e2e8f0' : '';
-  });
+  inp.addEventListener('input', () => { prev.textContent = inp.value; _osUpdateBtn(); });
+  consent.addEventListener('change', _osUpdateBtn);
 
   document.getElementById('_osc').addEventListener('click', () => overlay.remove());
 
-  document.getElementById('_osConfirm').addEventListener('click', async () => {
+  btn.addEventListener('click', async () => {
     const name = inp.value.trim();
-    if (!name) { inp.style.borderColor='#dc2626'; inp.focus(); return; }
-    const btn = document.getElementById('_osConfirm');
+    if (!name)         { inp.style.borderColor='#dc2626'; inp.focus(); return; }
+    if (!consent.checked) { wrap.style.borderColor='#dc2626'; return; }
     btn.textContent='⏳ Signing…'; btn.disabled=true;
     try {
-      await updateDoc(doc(db,'documents',docId), { ownerSig:{name,signedAt:serverTimestamp()}, updatedAt:serverTimestamp() });
-      // Inject into the iframe live
+      await updateDoc(doc(db,'documents',docId), {
+        ownerSig: { name, signedAt: serverTimestamp(), consentGiven: true, consentAt: serverTimestamp() },
+        updatedAt: serverTimestamp()
+      });
       _sigInjectInFrame(iframe, { ownerSig:{name,signedAt:new Date()}, customerSig: data.customerSig });
-      // Update local cache
       const idx = adminAllDocs.findIndex(d=>d.id===docId);
-      if (idx!==-1) adminAllDocs[idx].ownerSig={name,signedAt:new Date()};
+      if (idx!==-1) adminAllDocs[idx].ownerSig={name,signedAt:new Date(),consentGiven:true};
       renderAdminDocCards();
       showToast('Document signed!','success');
       btn.textContent='✅ Signed!';

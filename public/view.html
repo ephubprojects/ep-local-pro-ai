@@ -191,10 +191,14 @@
           <div id="sigPreview" class="empty">Your Signature</div>
           <div class="sig-preview-label">Signature Preview</div>
         </div>
-        <div class="sig-legal">
-          By clicking "Sign Document" you confirm that this electronic signature is the
-          legal equivalent of your handwritten signature on this document.
-        </div>
+        <label id="sigConsentWrap" style="display:flex;gap:12px;align-items:flex-start;padding:14px 16px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;margin-bottom:14px;transition:border-color .15s,background .15s;">
+          <input type="checkbox" id="sigConsent" style="margin-top:2px;width:16px;height:16px;accent-color:#15803d;flex-shrink:0;cursor:pointer;"/>
+          <span class="sig-legal" style="margin:0;">
+            I have reviewed this document and agree to its described scope, pricing, and terms.
+            I declare my consent to proceed and understand that this electronic signature is
+            legally binding under the ESIGN Act and UETA.
+          </span>
+        </label>
         <button id="sigSubmitBtn" disabled>✍️ Sign Document</button>
       </div>
 
@@ -321,13 +325,28 @@
       sigBar.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 
+    const sigConsent     = document.getElementById('sigConsent');
+    const sigConsentWrap = document.getElementById('sigConsentWrap');
+
+    function updateSigBtn() {
+      const ready = sigNameInp.value.trim() && sigConsent.checked;
+      sigSubmit.disabled = !ready;
+      sigConsentWrap.style.borderColor = sigConsent.checked ? '#15803d' : '#e2e8f0';
+      sigConsentWrap.style.background  = sigConsent.checked ? '#f0fdf4' : '#f8fafc';
+    }
+
     // Live preview
     sigNameInp.addEventListener('input', () => {
       const val = sigNameInp.value.trim();
       sigPreview.textContent = val || 'Your Signature';
       sigPreview.classList.toggle('empty', !val);
-      sigSubmit.disabled = !val;
       sigNameInp.classList.remove('err');
+      updateSigBtn();
+    });
+
+    sigConsent.addEventListener('change', () => {
+      if (!sigConsent.checked) sigConsentWrap.style.borderColor = '#e2e8f0';
+      updateSigBtn();
     });
 
     const id = new URLSearchParams(location.search).get('id');
@@ -367,6 +386,7 @@
     sigSubmit.addEventListener('click', async () => {
       const name = sigNameInp.value.trim();
       if (!name) { sigNameInp.classList.add('err'); sigNameInp.focus(); return; }
+      if (!sigConsent.checked) { sigConsentWrap.style.borderColor='#dc2626'; sigConsentWrap.scrollIntoView({behavior:'smooth',block:'center'}); return; }
 
       sigSubmit.disabled = true;
       sigSubmit.textContent = '⏳ Signing…';
@@ -380,7 +400,7 @@
 
       try {
         await updateDoc(doc(db, 'documents', id), {
-          customerSig: { name, ip, signedAt: serverTimestamp() },
+          customerSig: { name, ip, signedAt: serverTimestamp(), consentGiven: true, consentAt: serverTimestamp() },
           updatedAt: serverTimestamp()
         });
 
