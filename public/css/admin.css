@@ -2777,25 +2777,49 @@ textarea.doc-input { resize: vertical; }
 
 .mr-lang-toggle {
   display: flex;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 8px;
-  overflow: hidden;
+  gap: 6px;
 }
 .mr-lang-btn {
-  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
   height: 36px;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  background: #f8fafc;
-  color: #94a3b8;
-  border: none;
+  background: #fff;
+  color: #64748b;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  letter-spacing: .03em;
+  transition: all 0.18s ease;
+  letter-spacing: .02em;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
-.mr-lang-btn + .mr-lang-btn { border-left: 1.5px solid #e2e8f0; }
-.mr-lang-btn.active { background: #4f46e5; color: #fff; }
-.mr-lang-btn:not(.active):hover { background: #eef2ff; color: #4f46e5; }
+.mr-lang-btn:not(.active):hover {
+  border-color: #94a3b8;
+  color: #334155;
+  background: #f8fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+}
+.mr-lang-btn#mrLangAdminEN.active,
+.mr-lang-btn#mrLangDashEN.active {
+  background: linear-gradient(135deg,#1d4ed8,#3b82f6);
+  border-color: #1d4ed8;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(29,78,216,0.3);
+  transform: translateY(-1px);
+}
+.mr-lang-btn#mrLangAdminES.active,
+.mr-lang-btn#mrLangDashES.active {
+  background: linear-gradient(135deg,#b91c1c,#ef4444);
+  border-color: #b91c1c;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(185,28,28,0.3);
+  transform: translateY(-1px);
+}
 
 /* ── Market Rate History List ───────────────────────────────── */
 .mr-history-list { display: flex; flex-direction: column; gap: 6px; }
