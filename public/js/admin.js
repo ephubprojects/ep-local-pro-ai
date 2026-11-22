@@ -2190,53 +2190,114 @@ window._docSetStatus = async function(docId, newStatus) {
   }
 };
 
-window._docOwnerSign = function(docId) {
+function _sigInjectInFrame(iframe, data) {
+  try {
+    const fdoc = iframe.contentDocument;
+    if (!fdoc) return;
+    const toDate = v => v?.toDate ? v.toDate() : (v ? new Date(v) : null);
+    const fmtD   = d => d ? d.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}) : '';
+    const html   = (name, date, ip) =>
+      `<div style="font-family:Georgia,serif;font-size:22pt;font-style:italic;font-weight:bold;color:#15803d;line-height:1.1;">${name}</div>` +
+      `<div style="font-size:0.62rem;color:#94a3b8;margin-top:3px;">Signed ${fmtD(date)}${ip?' · IP: '+ip:''}</div>`;
+    if (data.ownerSig?.name) {
+      const el = fdoc.getElementById('ep-sig-owner');
+      if (el) { el.style.borderBottom='none'; el.style.height='auto'; el.innerHTML=html(data.ownerSig.name,toDate(data.ownerSig.signedAt),''); }
+    }
+    if (data.customerSig?.name) {
+      const el = fdoc.getElementById('ep-sig-client');
+      if (el) { el.style.borderBottom='none'; el.style.height='auto'; el.innerHTML=html(data.customerSig.name,toDate(data.customerSig.signedAt),data.customerSig.ip||''); }
+    }
+  } catch(_) {}
+}
+
+window._docOwnerSign = async function(docId) {
   const docData = adminAllDocs.find(d => d.id === docId);
   if (!docData) return;
-  const existing = docData.ownerSig;
+
+  // Load fresh data for htmlContent + current sigs
+  let snap, data;
+  try { snap = await getDoc(doc(db,'documents',docId)); data = snap.data(); }
+  catch(e) { alert('Could not load document: '+e.message); return; }
+
+  const existing = data?.ownerSig;
+  const typeLabel = (docData.type||'document').charAt(0).toUpperCase()+(docData.type||'document').slice(1);
 
   const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.id = '_ownerSignOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;flex-direction:column;';
   overlay.innerHTML = `
-    <div style="background:#fff;border-radius:16px;padding:28px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);">
-      <div style="font-size:1rem;font-weight:800;color:#1e293b;margin-bottom:4px;">✍️ Owner Signature</div>
-      <div style="font-size:0.8rem;color:#64748b;margin-bottom:20px;">Type your full legal name to sign this document electronically</div>
-      ${existing ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.82rem;color:#166534;">✅ Already signed by <strong>${existing.name}</strong></div>` : ''}
-      <input id="_ownerSigInp" type="text" placeholder="Full legal name" autocomplete="name"
-        style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:0.9rem;outline:none;margin-bottom:12px;box-sizing:border-box;"
-        value="${existing ? existing.name : ''}"/>
-      <div id="_ownerSigPrev" style="font-family:Georgia,serif;font-size:22pt;font-style:italic;font-weight:bold;color:#15803d;min-height:44px;line-height:1.2;padding:4px 0 8px;border-bottom:1px solid #e2e8f0;margin-bottom:16px;">${existing ? existing.name : ''}</div>
-      <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:16px;">By clicking Sign, you agree this is your electronic signature and is legally binding.</div>
-      <div style="display:flex;gap:10px;">
-        <button id="_ownerSigConfirm" style="flex:1;background:#15803d;color:#fff;border:none;border-radius:9px;padding:11px;font-size:0.85rem;font-weight:700;cursor:pointer;">✅ Sign Document</button>
-        <button id="_ownerSigCancel" style="flex:1;background:#f1f5f9;color:#1e293b;border:none;border-radius:9px;padding:11px;font-size:0.85rem;font-weight:700;cursor:pointer;">Cancel</button>
+    <div style="background:#0f172a;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:12px;">
+      <div style="color:#fff;font-weight:700;font-size:0.9rem;">✍️ Sign — ${typeLabel}${docData.docNumber?' #'+docData.docNumber:''}</div>
+      <button id="_osc" style="background:rgba(255,255,255,.1);border:none;color:#fff;border-radius:6px;padding:5px 12px;font-size:0.82rem;cursor:pointer;">✕ Close</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;background:#f1f5f9;" id="_osScroll">
+      <iframe id="_osFrame" style="width:100%;border:none;display:block;" scrolling="no"></iframe>
+      <div style="max-width:620px;margin:0 auto;padding:24px 16px 48px;">
+        ${existing ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:0.82rem;color:#166534;">✅ Already signed by <strong>${existing.name}</strong> — you can update it below.</div>` : ''}
+        <div style="background:#fff;border-radius:14px;padding:24px 24px 20px;box-shadow:0 4px 24px rgba(0,0,0,.08);">
+          <div style="font-size:0.95rem;font-weight:800;color:#1e293b;margin-bottom:4px;">Owner / Business Signature</div>
+          <div style="font-size:0.8rem;color:#64748b;margin-bottom:18px;">Type your full legal name below — it will appear as your signature on the document.</div>
+          <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px;">Full Legal Name</div>
+          <input id="_osInp" type="text" placeholder="Type your name…" autocomplete="name"
+            style="width:100%;padding:12px 16px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:1rem;outline:none;box-sizing:border-box;margin-bottom:14px;transition:border-color .15s;"
+            value="${existing ? existing.name : ''}"/>
+          <div style="background:#f8fafc;border-radius:10px;padding:14px 18px;min-height:60px;border:1.5px dashed #cbd5e1;margin-bottom:14px;display:flex;flex-direction:column;justify-content:flex-end;">
+            <div id="_osPrev" style="font-family:Georgia,serif;font-size:26pt;font-style:italic;font-weight:bold;color:#15803d;line-height:1.1;">${existing ? existing.name : ''}</div>
+            <div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-top:6px;">Signature Preview</div>
+          </div>
+          <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:16px;">By clicking "Sign Document" you agree this electronic signature is legally binding.</div>
+          <button id="_osConfirm" style="width:100%;background:#15803d;color:#fff;border:none;border-radius:10px;padding:14px;font-size:0.95rem;font-weight:800;cursor:pointer;transition:background .15s;">✅ Sign Document</button>
+        </div>
       </div>
     </div>`;
 
   document.body.appendChild(overlay);
-  const inp  = document.getElementById('_ownerSigInp');
-  const prev = document.getElementById('_ownerSigPrev');
-  inp.focus();
-  inp.addEventListener('input', () => { prev.textContent = inp.value; });
 
-  document.getElementById('_ownerSigConfirm').addEventListener('click', async () => {
-    const name = inp.value.trim();
-    if (!name) { inp.style.borderColor = '#dc2626'; inp.focus(); return; }
-    document.getElementById('_ownerSigConfirm').textContent = '⏳ Saving…';
-    try {
-      await updateDoc(doc(db, 'documents', docId), {
-        ownerSig: { name, signedAt: serverTimestamp() },
-        updatedAt: serverTimestamp()
-      });
-      const idx = adminAllDocs.findIndex(d => d.id === docId);
-      if (idx !== -1) adminAllDocs[idx].ownerSig = { name, signedAt: new Date() };
-      renderAdminDocCards();
-      showToast('Document signed by owner!', 'success');
-      overlay.remove();
-    } catch (e) { alert('Error saving signature: ' + e.message); }
+  // Load document into iframe
+  const iframe = document.getElementById('_osFrame');
+  if (data?.htmlContent) {
+    iframe.srcdoc = data.htmlContent;
+    iframe.onload = () => {
+      _sigInjectInFrame(iframe, data);
+      try { const h = iframe.contentDocument?.body?.scrollHeight; if (h>100) iframe.style.height=h+'px'; } catch(_) {}
+      setTimeout(() => {
+        try { const h = iframe.contentDocument?.body?.scrollHeight; if (h>100) iframe.style.height=h+'px'; } catch(_) {}
+      }, 600);
+    };
+  }
+
+  const inp  = document.getElementById('_osInp');
+  const prev = document.getElementById('_osPrev');
+  inp.focus();
+  inp.addEventListener('input', () => {
+    prev.textContent = inp.value;
+    inp.style.borderColor = inp.value.trim() ? '#e2e8f0' : '';
   });
-  document.getElementById('_ownerSigCancel').addEventListener('click', () => overlay.remove());
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+  document.getElementById('_osc').addEventListener('click', () => overlay.remove());
+
+  document.getElementById('_osConfirm').addEventListener('click', async () => {
+    const name = inp.value.trim();
+    if (!name) { inp.style.borderColor='#dc2626'; inp.focus(); return; }
+    const btn = document.getElementById('_osConfirm');
+    btn.textContent='⏳ Signing…'; btn.disabled=true;
+    try {
+      await updateDoc(doc(db,'documents',docId), { ownerSig:{name,signedAt:serverTimestamp()}, updatedAt:serverTimestamp() });
+      // Inject into the iframe live
+      _sigInjectInFrame(iframe, { ownerSig:{name,signedAt:new Date()}, customerSig: data.customerSig });
+      // Update local cache
+      const idx = adminAllDocs.findIndex(d=>d.id===docId);
+      if (idx!==-1) adminAllDocs[idx].ownerSig={name,signedAt:new Date()};
+      renderAdminDocCards();
+      showToast('Document signed!','success');
+      btn.textContent='✅ Signed!';
+      btn.style.background='#166534';
+      setTimeout(() => overlay.remove(), 1400);
+    } catch(e) {
+      btn.textContent='✅ Sign Document'; btn.disabled=false;
+      alert('Error saving signature: '+e.message);
+    }
+  });
 };
 
 // ============================================================

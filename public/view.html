@@ -6,76 +6,151 @@
   <title>Document</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #f1f5f9; }
+    body { background: #f1f5f9; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
 
     #loading {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      gap: 14px;
-      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-      color: #64748b;
-      font-size: 0.9rem;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 100vh; gap: 14px;
+      color: #64748b; font-size: 0.9rem;
     }
     .spinner {
-      width: 40px; height: 40px;
-      border: 3px solid #e2e8f0;
-      border-top-color: #4f46e5;
-      border-radius: 50%;
+      width: 40px; height: 40px; border: 3px solid #e2e8f0;
+      border-top-color: #4f46e5; border-radius: 50%;
       animation: spin .75s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     #error {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      gap: 10px;
-      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-      color: #64748b;
-      text-align: center;
-      padding: 20px;
+      display: none; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 100vh; gap: 10px;
+      color: #64748b; text-align: center; padding: 20px;
     }
     #error .err-icon { font-size: 3rem; }
     #error p { font-size: 0.95rem; max-width: 320px; line-height: 1.6; }
 
     #frame-wrap { display: none; }
-    #docFrame {
-      width: 100%;
-      border: none;
-      display: block;
-      /* height set dynamically via JS */
-    }
+    #docFrame { width: 100%; border: none; display: block; }
 
     .live-badge {
-      position: fixed;
-      bottom: 16px;
-      right: 16px;
-      background: rgba(15,23,42,.85);
-      color: #fff;
-      font-size: 0.72rem;
-      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-      padding: 6px 12px;
-      border-radius: 20px;
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      backdrop-filter: blur(4px);
-      z-index: 9999;
-      pointer-events: none;
+      position: fixed; bottom: 16px; right: 16px;
+      background: rgba(15,23,42,.85); color: #fff;
+      font-size: 0.72rem; padding: 6px 12px; border-radius: 20px;
+      display: flex; align-items: center; gap: 7px;
+      backdrop-filter: blur(4px); z-index: 50; pointer-events: none;
     }
     .live-dot {
-      width: 7px; height: 7px;
-      background: #22c55e;
-      border-radius: 50%;
-      animation: pulse 2s ease-in-out infinite;
-      flex-shrink: 0;
+      width: 7px; height: 7px; background: #22c55e; border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite; flex-shrink: 0;
     }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+    /* ── Customer signature panel ─────────────────────────── */
+    #sig-bar {
+      display: none;
+      background: #fff;
+      border-top: 3px solid #15803d;
+      padding: 0;
+    }
+
+    /* Collapsed prompt strip */
+    #sig-prompt {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      gap: 16px;
+      flex-wrap: wrap;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    #sig-prompt:hover { background: #f0fdf4; }
+    .sig-prompt-left { display: flex; align-items: center; gap: 12px; }
+    .sig-prompt-icon { font-size: 1.5rem; }
+    .sig-prompt-title { font-size: 0.95rem; font-weight: 800; color: #1e293b; }
+    .sig-prompt-sub   { font-size: 0.78rem; color: #64748b; margin-top: 1px; }
+    #sig-prompt-btn {
+      background: #15803d; color: #fff; border: none;
+      border-radius: 9px; padding: 10px 20px;
+      font-size: 0.85rem; font-weight: 700; cursor: pointer;
+      white-space: nowrap; flex-shrink: 0;
+    }
+
+    /* Expanded form */
+    #sig-form {
+      display: none;
+      padding: 0 24px 32px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .sig-form-label {
+      font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: #94a3b8; margin-bottom: 6px;
+    }
+    #sigNameInp {
+      width: 100%; padding: 12px 16px;
+      border: 1.5px solid #e2e8f0; border-radius: 10px;
+      font-size: 1rem; outline: none; transition: border-color .15s;
+      margin-bottom: 12px;
+    }
+    #sigNameInp:focus { border-color: #15803d; }
+    #sigNameInp.err   { border-color: #dc2626; }
+
+    .sig-preview-box {
+      background: #f8fafc; border-radius: 10px;
+      padding: 14px 18px; border: 1.5px dashed #cbd5e1;
+      margin-bottom: 12px; min-height: 68px;
+      display: flex; flex-direction: column; justify-content: flex-end;
+    }
+    #sigPreview {
+      font-family: Georgia, serif; font-size: 26pt;
+      font-style: italic; font-weight: bold;
+      color: #15803d; line-height: 1.1; min-height: 40px;
+    }
+    #sigPreview.empty { color: #cbd5e1; }
+    .sig-preview-label {
+      font-size: 0.6rem; text-transform: uppercase;
+      letter-spacing: .06em; color: #94a3b8; margin-top: 6px;
+    }
+    .sig-legal {
+      font-size: 0.72rem; color: #94a3b8; line-height: 1.6; margin-bottom: 14px;
+    }
+    #sigSubmitBtn {
+      width: 100%; padding: 14px; background: #15803d; color: #fff;
+      border: none; border-radius: 11px; font-size: 0.95rem;
+      font-weight: 800; cursor: pointer; transition: background .15s;
+    }
+    #sigSubmitBtn:hover:not(:disabled) { background: #166534; }
+    #sigSubmitBtn:disabled { background: #94a3b8; cursor: default; }
+
+    /* Already signed banner */
+    #sig-done {
+      display: none; padding: 20px 24px;
+      background: #f0fdf4; text-align: center;
+    }
+    #sig-done .check { font-size: 2rem; margin-bottom: 6px; }
+    #sig-done .label { font-size: 0.95rem; font-weight: 700; color: #15803d; }
+    #sig-done .detail { font-size: 0.8rem; color: #166534; margin-top: 3px; }
+
+    /* Success flash */
+    #sig-success {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.55); z-index: 9999;
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    #sig-success .box {
+      background: #fff; border-radius: 16px; padding: 36px 28px;
+      max-width: 360px; width: 100%; text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,.3);
+      animation: popIn .25s cubic-bezier(.34,1.56,.64,1);
+    }
+    @keyframes popIn { from { transform: scale(.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    #sig-success .s-icon { font-size: 3.5rem; margin-bottom: 10px; }
+    #sig-success h3 { font-size: 1.15rem; font-weight: 800; color: #15803d; margin-bottom: 6px; }
+    #sig-success .s-name {
+      font-family: Georgia, serif; font-size: 24pt; font-style: italic;
+      font-weight: bold; color: #15803d; margin: 14px 0 8px;
+    }
+    #sig-success p { font-size: 0.82rem; color: #64748b; line-height: 1.6; }
   </style>
 </head>
 <body>
@@ -92,15 +167,64 @@
 
   <div id="frame-wrap">
     <iframe id="docFrame" title="Document" scrolling="no"></iframe>
+
+    <!-- Customer signature panel — shown for estimate/contract only -->
+    <div id="sig-bar">
+
+      <!-- Prompt strip (collapsed) -->
+      <div id="sig-prompt">
+        <div class="sig-prompt-left">
+          <div class="sig-prompt-icon">✍️</div>
+          <div>
+            <div class="sig-prompt-title">Sign this document</div>
+            <div class="sig-prompt-sub">Add your electronic signature to approve</div>
+          </div>
+        </div>
+        <button id="sig-prompt-btn">Sign Now</button>
+      </div>
+
+      <!-- Expanded form -->
+      <div id="sig-form">
+        <div class="sig-form-label">Your Full Legal Name</div>
+        <input id="sigNameInp" type="text" placeholder="Type your name here…" autocomplete="name"/>
+        <div class="sig-preview-box">
+          <div id="sigPreview" class="empty">Your Signature</div>
+          <div class="sig-preview-label">Signature Preview</div>
+        </div>
+        <div class="sig-legal">
+          By clicking "Sign Document" you confirm that this electronic signature is the
+          legal equivalent of your handwritten signature on this document.
+        </div>
+        <button id="sigSubmitBtn" disabled>✍️ Sign Document</button>
+      </div>
+
+      <!-- Already signed -->
+      <div id="sig-done">
+        <div class="check">✅</div>
+        <div class="label">Document Signed</div>
+        <div class="detail" id="sig-done-detail"></div>
+      </div>
+    </div>
+
     <div class="live-badge">
       <span class="live-dot"></span>
       Live document
     </div>
   </div>
 
+  <!-- Success overlay -->
+  <div id="sig-success">
+    <div class="box">
+      <div class="s-icon">🎉</div>
+      <h3>Signed Successfully!</h3>
+      <div class="s-name" id="successName"></div>
+      <p>Your electronic signature has been saved. The business owner has been notified.</p>
+    </div>
+  </div>
+
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-    import { getFirestore, doc, onSnapshot }
+    import { getFirestore, doc, onSnapshot, updateDoc, serverTimestamp }
       from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
     const firebaseConfig = {
@@ -115,11 +239,18 @@
     const app = initializeApp(firebaseConfig);
     const db  = getFirestore(app);
 
-    const loading   = document.getElementById('loading');
-    const errorDiv  = document.getElementById('error');
-    const errorMsg  = document.getElementById('errorMsg');
-    const frameWrap = document.getElementById('frame-wrap');
-    const frame     = document.getElementById('docFrame');
+    const loading    = document.getElementById('loading');
+    const errorDiv   = document.getElementById('error');
+    const errorMsg   = document.getElementById('errorMsg');
+    const frameWrap  = document.getElementById('frame-wrap');
+    const frame      = document.getElementById('docFrame');
+    const sigBar     = document.getElementById('sig-bar');
+    const sigPrompt  = document.getElementById('sig-prompt');
+    const sigForm    = document.getElementById('sig-form');
+    const sigDone    = document.getElementById('sig-done');
+    const sigNameInp = document.getElementById('sigNameInp');
+    const sigPreview = document.getElementById('sigPreview');
+    const sigSubmit  = document.getElementById('sigSubmitBtn');
 
     function showError(msg) {
       loading.style.display   = 'none';
@@ -135,7 +266,7 @@
       } catch (_) {}
     }
 
-    function fmtSigDate(val) {
+    function fmtD(val) {
       if (!val) return '';
       const d = val.toDate ? val.toDate() : new Date(val);
       return d.toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
@@ -147,26 +278,57 @@
         if (!fdoc) return;
         const sigHtml = (name, date, ip) =>
           `<div style="font-family:Georgia,serif;font-size:22pt;font-style:italic;font-weight:bold;color:#15803d;line-height:1.1;">${name}</div>` +
-          `<div style="font-size:0.62rem;color:#94a3b8;margin-top:3px;">Signed ${date}${ip ? ' · IP: ' + ip : ''}</div>`;
+          `<div style="font-size:0.62rem;color:#94a3b8;margin-top:3px;">Signed ${date}${ip ? ' · IP: '+ip : ''}</div>`;
 
         if (data.ownerSig?.name) {
           const el = fdoc.getElementById('ep-sig-owner');
-          if (el) {
-            el.style.borderBottom = 'none';
-            el.style.height = 'auto';
-            el.innerHTML = sigHtml(data.ownerSig.name, fmtSigDate(data.ownerSig.signedAt), '');
-          }
+          if (el) { el.style.borderBottom='none'; el.style.height='auto'; el.innerHTML=sigHtml(data.ownerSig.name, fmtD(data.ownerSig.signedAt), ''); }
         }
         if (data.customerSig?.name) {
           const el = fdoc.getElementById('ep-sig-client');
-          if (el) {
-            el.style.borderBottom = 'none';
-            el.style.height = 'auto';
-            el.innerHTML = sigHtml(data.customerSig.name, fmtSigDate(data.customerSig.signedAt), data.customerSig.ip || '');
-          }
+          if (el) { el.style.borderBottom='none'; el.style.height='auto'; el.innerHTML=sigHtml(data.customerSig.name, fmtD(data.customerSig.signedAt), data.customerSig.ip||''); }
         }
       } catch (_) {}
     }
+
+    // Show/hide sig panel based on doc type + signing state
+    function updateSigBar(data) {
+      const isSignable = data.type === 'estimate' || data.type === 'contract';
+      if (!isSignable) { sigBar.style.display = 'none'; return; }
+
+      sigBar.style.display = 'block';
+
+      if (data.customerSig?.name) {
+        // Already signed
+        sigPrompt.style.display = 'none';
+        sigForm.style.display   = 'none';
+        sigDone.style.display   = 'block';
+        document.getElementById('sig-done-detail').textContent =
+          `Signed by ${data.customerSig.name} on ${fmtD(data.customerSig.signedAt)}`;
+      } else {
+        // Not yet signed
+        sigPrompt.style.display = 'flex';
+        sigForm.style.display   = 'none';
+        sigDone.style.display   = 'none';
+      }
+    }
+
+    // Expand/collapse form
+    sigPrompt.addEventListener('click', () => {
+      sigPrompt.style.display = 'none';
+      sigForm.style.display   = 'block';
+      sigNameInp.focus();
+      sigBar.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    // Live preview
+    sigNameInp.addEventListener('input', () => {
+      const val = sigNameInp.value.trim();
+      sigPreview.textContent = val || 'Your Signature';
+      sigPreview.classList.toggle('empty', !val);
+      sigSubmit.disabled = !val;
+      sigNameInp.classList.remove('err');
+    });
 
     const id = new URLSearchParams(location.search).get('id');
 
@@ -176,23 +338,13 @@
       onSnapshot(
         doc(db, 'documents', id),
         snap => {
-          if (!snap.exists()) {
-            showError('This document was not found or has been deleted.');
-            return;
-          }
+          if (!snap.exists()) { showError('This document was not found or has been deleted.'); return; }
           const data = snap.data();
-          if (!data.htmlContent) {
-            showError('No preview is available for this document.');
-            return;
-          }
+          if (!data.htmlContent) { showError('No preview is available for this document.'); return; }
 
-          // Set page title
-          const typeName = data.type
-            ? data.type.charAt(0).toUpperCase() + data.type.slice(1)
-            : 'Document';
-          document.title = `${typeName}${data.docNumber ? ' ' + data.docNumber : ''}`;
+          const typeName = data.type ? data.type.charAt(0).toUpperCase()+data.type.slice(1) : 'Document';
+          document.title = `${typeName}${data.docNumber ? ' '+data.docNumber : ''}`;
 
-          // Render into iframe then inject any saved signatures
           frame.srcdoc = data.htmlContent;
           frame.onload = () => {
             injectSignatures(data);
@@ -200,15 +352,70 @@
             setTimeout(resizeFrame, 600);
           };
 
+          updateSigBar(data);
           loading.style.display   = 'none';
           frameWrap.style.display = 'block';
         },
         err => {
-          console.error('view.html onSnapshot error:', err);
-          showError('Could not load this document. The link may have expired or the document is private.');
+          console.error('view.html error:', err);
+          showError('Could not load this document.');
         }
       );
     }
+
+    // Sign button
+    sigSubmit.addEventListener('click', async () => {
+      const name = sigNameInp.value.trim();
+      if (!name) { sigNameInp.classList.add('err'); sigNameInp.focus(); return; }
+
+      sigSubmit.disabled = true;
+      sigSubmit.textContent = '⏳ Signing…';
+
+      // Get IP
+      let ip = '—';
+      try {
+        const r = await fetch('/.netlify/functions/get-ip');
+        if (r.ok) { const d = await r.json(); ip = d.ip || '—'; }
+      } catch(_) {}
+
+      try {
+        await updateDoc(doc(db, 'documents', id), {
+          customerSig: { name, ip, signedAt: serverTimestamp() },
+          updatedAt: serverTimestamp()
+        });
+
+        // Inject into iframe immediately (onSnapshot will also fire)
+        try {
+          const fdoc = frame.contentDocument;
+          const el = fdoc?.getElementById('ep-sig-client');
+          if (el) {
+            el.style.borderBottom = 'none';
+            el.style.height = 'auto';
+            el.innerHTML =
+              `<div style="font-family:Georgia,serif;font-size:22pt;font-style:italic;font-weight:bold;color:#15803d;line-height:1.1;">${name}</div>` +
+              `<div style="font-size:0.62rem;color:#94a3b8;margin-top:3px;">Signed today · IP: ${ip}</div>`;
+            resizeFrame();
+          }
+        } catch(_) {}
+
+        // Show success overlay
+        document.getElementById('successName').textContent = name;
+        const successEl = document.getElementById('sig-success');
+        successEl.style.display = 'flex';
+        setTimeout(() => { successEl.style.display = 'none'; }, 3500);
+
+        // Swap to signed state
+        sigForm.style.display   = 'none';
+        sigDone.style.display   = 'block';
+        document.getElementById('sig-done-detail').textContent =
+          `Signed by ${name} · ${new Date().toLocaleDateString()}`;
+
+      } catch(e) {
+        sigSubmit.disabled = false;
+        sigSubmit.textContent = '✍️ Sign Document';
+        alert('Could not save signature. Please try again.\n\n' + e.message);
+      }
+    });
   </script>
 </body>
 </html>
