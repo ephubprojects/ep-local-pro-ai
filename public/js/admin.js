@@ -4189,26 +4189,54 @@ window._mrSetLang = function(ctx, lang) {
   document.getElementById('mrLangAdminES')?.classList.toggle('active', lang === 'es-MX');
 };
 
+let _mrVoiceActive = null; // { recognizer, fieldId }
+
 window._mrVoice = function(fieldId, ctx) {
+  const btn = document.querySelector(`[data-mr-voice-for="${fieldId}"]`);
+
+  // Second click = stop
+  if (_mrVoiceActive) {
+    _mrVoiceActive.recognizer.stop();
+    return;
+  }
+
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { showToast('Voice input is not supported in this browser.', 'error'); return; }
-  const btn = document.querySelector(`[data-mr-voice-for="${fieldId}"]`);
+
   const lang = _mrLangs[ctx] || 'en-US';
-  const sr = new SR();
-  sr.lang = lang;
-  sr.interimResults = false;
+  const inp  = document.getElementById(fieldId);
+  const sr   = new SR();
+  sr.lang           = lang;
+  sr.continuous     = true;   // keep listening through pauses
+  sr.interimResults = true;   // show live text as user speaks
   sr.maxAlternatives = 1;
-  if (btn) { btn.textContent = '🔴'; btn.disabled = true; }
+
+  _mrVoiceActive = { recognizer: sr, fieldId };
+  if (btn) { btn.textContent = '🔴'; btn.title = 'Tap to stop'; btn.classList.add('mr-voice-active'); }
+
+  let finalText = '';
+
   sr.onresult = e => {
-    const txt = e.results[0][0].transcript;
-    const inp = document.getElementById(fieldId);
-    if (inp) { inp.value = txt; inp.dispatchEvent(new Event('input')); }
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' ';
+      else interim += e.results[i][0].transcript;
+    }
+    if (inp) inp.value = (finalText + interim).trim();
   };
-  sr.onend = () => { if (btn) { btn.textContent = '🎤'; btn.disabled = false; } };
+
+  sr.onend = () => {
+    _mrVoiceActive = null;
+    if (btn) { btn.textContent = '🎤'; btn.title = 'Voice input'; btn.classList.remove('mr-voice-active'); }
+    if (inp && inp.value) inp.dispatchEvent(new Event('input'));
+  };
+
   sr.onerror = e => {
-    if (btn) { btn.textContent = '🎤'; btn.disabled = false; }
-    if (e.error !== 'no-speech') showToast('Voice error: ' + e.error, 'error');
+    _mrVoiceActive = null;
+    if (btn) { btn.textContent = '🎤'; btn.title = 'Voice input'; btn.classList.remove('mr-voice-active'); }
+    if (e.error !== 'no-speech' && e.error !== 'aborted') showToast('Voice error: ' + e.error, 'error');
   };
+
   sr.start();
 };
 

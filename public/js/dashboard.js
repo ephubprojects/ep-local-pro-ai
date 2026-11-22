@@ -2432,25 +2432,53 @@ window._mrSetLangDash = function(lang) {
   document.getElementById('mrLangDashES')?.classList.toggle('active', lang === 'es-MX');
 };
 
+let _mrVoiceActiveDash = null;
+
 window._mrVoiceDash = function(fieldId) {
+  const btn = document.querySelector(`[data-mr-voice-for="${fieldId}"]`);
+
+  // Second click = stop
+  if (_mrVoiceActiveDash) {
+    _mrVoiceActiveDash.stop();
+    return;
+  }
+
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { showToast('Voice input is not supported in this browser.', 'error'); return; }
-  const btn = document.querySelector(`[data-mr-voice-for="${fieldId}"]`);
-  const sr = new SR();
-  sr.lang = _mrLangDash;
-  sr.interimResults = false;
+
+  const inp = document.getElementById(fieldId);
+  const sr  = new SR();
+  sr.lang           = _mrLangDash;
+  sr.continuous     = true;
+  sr.interimResults = true;
   sr.maxAlternatives = 1;
-  if (btn) { btn.textContent = '🔴'; btn.disabled = true; }
+
+  _mrVoiceActiveDash = sr;
+  if (btn) { btn.textContent = '🔴'; btn.title = 'Tap to stop'; btn.classList.add('mr-voice-active'); }
+
+  let finalText = '';
+
   sr.onresult = e => {
-    const txt = e.results[0][0].transcript;
-    const inp = document.getElementById(fieldId);
-    if (inp) { inp.value = txt; inp.dispatchEvent(new Event('input')); }
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' ';
+      else interim += e.results[i][0].transcript;
+    }
+    if (inp) inp.value = (finalText + interim).trim();
   };
-  sr.onend  = () => { if (btn) { btn.textContent = '🎤'; btn.disabled = false; } };
+
+  sr.onend = () => {
+    _mrVoiceActiveDash = null;
+    if (btn) { btn.textContent = '🎤'; btn.title = 'Voice input'; btn.classList.remove('mr-voice-active'); }
+    if (inp && inp.value) inp.dispatchEvent(new Event('input'));
+  };
+
   sr.onerror = e => {
-    if (btn) { btn.textContent = '🎤'; btn.disabled = false; }
-    if (e.error !== 'no-speech') showToast('Voice error: ' + e.error, 'error');
+    _mrVoiceActiveDash = null;
+    if (btn) { btn.textContent = '🎤'; btn.title = 'Voice input'; btn.classList.remove('mr-voice-active'); }
+    if (e.error !== 'no-speech' && e.error !== 'aborted') showToast('Voice error: ' + e.error, 'error');
   };
+
   sr.start();
 };
 
