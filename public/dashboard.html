@@ -1063,6 +1063,15 @@
           <button class="btn-save" id="dashDocSaveBtn" onclick="window._dashDocSave()" style="flex:1">
             💾 <span data-en="Save Document" data-es="Guardar">Save Document</span>
           </button>
+          <div class="doc-tpl-wrap">
+            <button class="btn-secondary" onclick="window._dashDocToggleTplMenu()">
+              📂 Templates ▾
+            </button>
+            <div class="doc-tpl-menu hidden" id="dashDocTplMenu">
+              <button onclick="window._dashDocSaveTemplate()">💾 Save as Template</button>
+              <button onclick="window._dashDocOpenTemplates()">📂 Load Template</button>
+            </div>
+          </div>
         </div>
 
       </div><!-- /doc-form-col -->
@@ -1142,6 +1151,19 @@
   </div>
 </div>
 
+
+<!-- ══════════════ MODAL: Template Picker ══════════════ -->
+<div class="modal-overlay hidden" id="dashDocTemplatePickerModal">
+  <div class="modal-card" style="max-width:480px">
+    <div class="modal-header">
+      <h3>📂 Load Template</h3>
+      <button class="modal-close" data-close="dashDocTemplatePickerModal">✕</button>
+    </div>
+    <div class="modal-body" id="dashDocTemplatePickerList">
+      <p style="color:#94a3b8;text-align:center;padding:20px">No templates saved yet.</p>
+    </div>
+  </div>
+</div>
 
 <script type="module" src="/js/dashboard.js?v=22"></script>
 </body>

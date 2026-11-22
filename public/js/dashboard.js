@@ -3542,3 +3542,143 @@ function _dashCloseCreator() {
   if (modal) modal.classList.add('hidden');
   document.body.style.overflow = '';
 }
+
+// ── Document Templates ────────────────────────────────────────
+let _dAllTemplates = [];
+
+window._dashDocToggleTplMenu = function() {
+  document.getElementById('dashDocTplMenu')?.classList.toggle('hidden');
+};
+
+window._dashDocSaveTemplate = async function() {
+  document.getElementById('dashDocTplMenu')?.classList.add('hidden');
+  const name = prompt('Template name:');
+  if (!name) return;
+  const user = auth.currentUser;
+  if (!user) return;
+  try {
+    await addDoc(collection(db, 'docTemplates'), {
+      name,
+      type:         _dType,
+      lang:         _dLang,
+      bizName:      document.getElementById('docBizName')?.value     || '',
+      bizAddress:   document.getElementById('docBizAddress')?.value  || '',
+      bizPhone:     document.getElementById('docBizPhone')?.value    || '',
+      bizEmail:     document.getElementById('docBizEmail')?.value    || '',
+      notes:        document.getElementById('docNotes')?.value         || '',
+      contractText: document.getElementById('docContractText')?.value  || '',
+      projectTitle: document.getElementById('docProjectTitle')?.value  || '',
+      jobOrderedBy: document.getElementById('docJobOrderedBy')?.value  || '',
+      jobLocation:  document.getElementById('docJobLocation')?.value   || '',
+      duration:     document.getElementById('docDuration')?.value      || '',
+      jobScope:     document.getElementById('docJobScope')?.value      || '',
+      showPricing:  _dShowPricing,
+      includeTC:    document.getElementById('docIncludeTC')?.checked   || false,
+      termsText:    document.getElementById('docTermsText')?.value     || '',
+      taxRate:      parseFloat(document.getElementById('docTaxRate')?.value || 0),
+      paymentMethod:document.getElementById('docPaymentMethod')?.value || '',
+      items:        _dItems,
+      logoUrl:      _dLogoUrl,
+      designTemplate: _dDesign,
+      ownerUid:     user.uid,
+      createdAt:    serverTimestamp()
+    });
+    showToast('Template saved!', 'success');
+  } catch(e) {
+    showToast('Error saving template: ' + e.message, 'error');
+  }
+};
+
+window._dashDocOpenTemplates = async function() {
+  document.getElementById('dashDocTplMenu')?.classList.add('hidden');
+  await _dashLoadTemplates();
+  _dashRenderTemplates();
+  document.getElementById('dashDocTemplatePickerModal')?.classList.remove('hidden');
+};
+
+async function _dashLoadTemplates() {
+  const user = auth.currentUser;
+  if (!user) return;
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'docTemplates'),
+      where('ownerUid', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    ));
+    _dAllTemplates = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) { _dAllTemplates = []; }
+}
+
+function _dashRenderTemplates() {
+  const list = document.getElementById('dashDocTemplatePickerList');
+  if (!list) return;
+  if (!_dAllTemplates.length) {
+    list.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:20px">No templates saved yet.</p>';
+    return;
+  }
+  list.innerHTML = _dAllTemplates.map(t => `
+    <div class="doc-tpl-item">
+      <span class="tpl-name">${_dEsc(t.name)}</span>
+      <span class="tpl-type">${t.type || ''}</span>
+      <button class="tpl-load" onclick="window._dashDocLoadTemplate('${t.id}')">Load</button>
+      <button class="tpl-del"  onclick="window._dashDocDeleteTemplate('${t.id}')">✕</button>
+    </div>`).join('');
+}
+
+window._dashDocLoadTemplate = function(id) {
+  const tpl = _dAllTemplates.find(t => t.id === id);
+  if (!tpl) return;
+  document.getElementById('dashDocTemplatePickerModal')?.classList.add('hidden');
+  _dItems       = tpl.items?.length ? [...tpl.items] : [{ desc:'', price:0, type:'labor' }];
+  _dLogoUrl     = tpl.logoUrl || '';
+  window._dashDocSetType(tpl.type || 'invoice');
+  window._dashDocSetDesign(tpl.designTemplate || 'classic');
+  _dSetVal('docBizName',     tpl.bizName     || '');
+  _dSetVal('docBizAddress',  tpl.bizAddress  || '');
+  _dSetVal('docBizPhone',    tpl.bizPhone    || '');
+  _dSetVal('docBizEmail',    tpl.bizEmail    || '');
+  _dSetVal('docNotes',         tpl.notes        || '');
+  _dSetVal('docContractText',  tpl.contractText || '');
+  _dSetVal('docProjectTitle',  tpl.projectTitle || '');
+  _dSetVal('docJobOrderedBy',  tpl.jobOrderedBy || '');
+  _dSetVal('docJobLocation',   tpl.jobLocation  || '');
+  _dSetVal('docDuration',      tpl.duration     || '');
+  _dSetVal('docJobScope',      tpl.jobScope     || '');
+  _dSetVal('docTaxRate',       tpl.taxRate      || 0);
+  _dSetVal('docAdvancePayment', 0);
+  _dShowPricing = tpl.showPricing !== false;
+  const pChk = document.getElementById('docShowPricing');
+  if (pChk) pChk.checked = _dShowPricing;
+  document.getElementById('docPricingContent')?.classList.toggle('hidden', !_dShowPricing);
+  if (tpl.paymentMethod) {
+    const pmEl = document.getElementById('docPaymentMethod');
+    if (pmEl) pmEl.value = tpl.paymentMethod;
+  }
+  const tcChk = document.getElementById('docIncludeTC');
+  const tcChecked = !!tpl.includeTC;
+  if (tcChk) tcChk.checked = tcChecked;
+  document.getElementById('docTCSection')?.classList.toggle('hidden', !tcChecked);
+  _dSetVal('docTermsText', tpl.termsText || '');
+  if (_dLogoUrl) {
+    const img = document.getElementById('docLogoImg');
+    const ph  = document.getElementById('docLogoPlaceholder');
+    if (img) { img.src = _dLogoUrl; img.style.display = 'block'; }
+    if (ph)  ph.style.display = 'none';
+  }
+  window._dashDocRenderItems();
+  window._dashDocUpdateTotals();
+  window._dashDocUpdatePreview();
+  showToast('Template loaded', 'success');
+};
+
+window._dashDocDeleteTemplate = async function(id) {
+  if (!confirm('Delete this template?')) return;
+  try {
+    await deleteDoc(doc(db, 'docTemplates', id));
+    _dAllTemplates = _dAllTemplates.filter(t => t.id !== id);
+    _dashRenderTemplates();
+    showToast('Template deleted', 'success');
+  } catch(e) {
+    showToast('Error deleting template', 'error');
+  }
+};
