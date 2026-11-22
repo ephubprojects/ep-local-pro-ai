@@ -485,36 +485,47 @@
   color: var(--indigo-700, #3730a3);
 }
 
-/* ── Filter Tabs ──────────────────────────────────────────── */
+/* ── Orders Filter Tabs ───────────────────────────────────── */
 .filter-tabs {
   display: flex;
-  gap: 4px;
+  gap: 8px;
   flex-wrap: wrap;
   margin-bottom: 20px;
 }
 
 .filter-tab {
-  padding: 7px 14px;
-  border: 1px solid var(--border, #e2e8f0);
-  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 15px;
+  border: 1.5px solid var(--border, #e2e8f0);
+  border-radius: 10px;
   background: #fff;
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--muted, #64748b);
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
+
+.filter-tab-icon { font-size: 0.95rem; line-height: 1; }
+.filter-tab-label { font-size: 0.8rem; }
 
 .filter-tab:hover {
-  background: var(--light, #f8fafc);
-  border-color: #c8d1dc;
+  border-color: #94a3b8;
+  color: #334155;
+  background: #f8fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.08);
 }
 
-.filter-tab.active {
-  background: var(--indigo, #4f46e5);
-  border-color: var(--indigo, #4f46e5);
-  color: #fff;
-}
+.filter-tab[data-filter="all"].active        { background: linear-gradient(135deg,#1e293b,#334155); border-color:#1e293b; color:#fff; box-shadow:0 4px 12px rgba(30,41,59,.25); transform:translateY(-1px); }
+.filter-tab[data-filter="new"].active        { background: linear-gradient(135deg,#1d4ed8,#3b82f6); border-color:#1d4ed8; color:#fff; box-shadow:0 4px 12px rgba(29,78,216,.28); transform:translateY(-1px); }
+.filter-tab[data-filter="preparing"].active  { background: linear-gradient(135deg,#b45309,#f59e0b); border-color:#b45309; color:#fff; box-shadow:0 4px 12px rgba(180,83,9,.28);  transform:translateY(-1px); }
+.filter-tab[data-filter="ready"].active      { background: linear-gradient(135deg,#047857,#10b981); border-color:#047857; color:#fff; box-shadow:0 4px 12px rgba(4,120,87,.28);  transform:translateY(-1px); }
+.filter-tab[data-filter="completed"].active  { background: linear-gradient(135deg,#4338ca,#6366f1); border-color:#4338ca; color:#fff; box-shadow:0 4px 12px rgba(67,56,202,.28); transform:translateY(-1px); }
 
 /* ── Menu Grid ────────────────────────────────────────────── */
 .menu-grid {
@@ -1900,9 +1911,20 @@
   }
 
   .filter-tab {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     padding: 6px 10px;
+    gap: 4px;
   }
+
+  .filter-tab-label { display: none; }
+
+  .docs-tab {
+    font-size: 0.72rem;
+    padding: 6px 10px;
+    gap: 4px;
+  }
+
+  .docs-tab-label { display: none; }
 
   .btn-open-page span:last-child {
     display: none;
@@ -1983,34 +2005,48 @@
 .dcc-receipt  { background: #ecfdf5; color: #065f46; }
 .dcc-receipt:hover  { border-color: #34d399; }
 
-/* ── Filter Tabs ──────────────────────────────────────────── */
+/* ── Documents Filter Tabs ────────────────────────────────── */
 .docs-tabs-bar {
   display: flex;
-  gap: 2px;
+  gap: 8px;
   margin-bottom: 16px;
-  border-bottom: 2px solid var(--border, #e2e8f0);
-  overflow-x: auto;
+  flex-wrap: wrap;
 }
 
 .docs-tab {
-  padding: 9px 16px;
-  border: none;
-  background: none;
-  font-size: 0.875rem;
-  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 15px;
+  border: 1.5px solid var(--border, #e2e8f0);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
   color: var(--muted, #64748b);
   cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -2px;
+  transition: all 0.18s ease;
   white-space: nowrap;
-  transition: color 0.12s, border-color 0.12s;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   font-family: var(--font);
 }
-.docs-tab:hover { color: var(--navy, #0f172a); }
-.docs-tab.active { color: var(--indigo, #4f46e5); border-bottom-color: var(--indigo, #4f46e5); font-weight: 600; }
+
+.docs-tab-icon  { font-size: 0.95rem; line-height: 1; }
+.docs-tab-label { font-size: 0.82rem; }
+
+.docs-tab:hover {
+  border-color: #94a3b8;
+  color: #334155;
+  background: #f8fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+}
+
+.docs-tab[data-filter="all"].active      { background:linear-gradient(135deg,#1e293b,#334155); border-color:#1e293b; color:#fff; box-shadow:0 4px 12px rgba(30,41,59,.25);  transform:translateY(-1px); }
+.docs-tab[data-filter="invoice"].active  { background:linear-gradient(135deg,#4338ca,#6366f1); border-color:#4338ca; color:#fff; box-shadow:0 4px 12px rgba(67,56,202,.28); transform:translateY(-1px); }
+.docs-tab[data-filter="estimate"].active { background:linear-gradient(135deg,#b45309,#f59e0b); border-color:#b45309; color:#fff; box-shadow:0 4px 12px rgba(180,83,9,.28);  transform:translateY(-1px); }
+.docs-tab[data-filter="contract"].active { background:linear-gradient(135deg,#6d28d9,#7c3aed); border-color:#6d28d9; color:#fff; box-shadow:0 4px 12px rgba(109,40,217,.28); transform:translateY(-1px); }
+.docs-tab[data-filter="receipt"].active  { background:linear-gradient(135deg,#047857,#10b981); border-color:#047857; color:#fff; box-shadow:0 4px 12px rgba(4,120,87,.28);  transform:translateY(-1px); }
 
 .docs-tab-count {
   display: inline-flex;
@@ -2019,19 +2055,15 @@
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
-  border-radius: 10px;
+  border-radius: 20px;
   background: var(--light, #f8fafc);
   border: 1px solid var(--border, #e2e8f0);
   font-size: 0.7rem;
   font-weight: 700;
   color: var(--muted, #64748b);
-  transition: background 0.12s, color 0.12s;
+  transition: background 0.18s, color 0.18s, border-color 0.18s;
 }
-.docs-tab.active .docs-tab-count {
-  background: #eef2ff;
-  border-color: #c7d2fe;
-  color: var(--indigo, #4f46e5);
-}
+.docs-tab.active .docs-tab-count { background: rgba(255,255,255,0.25); border-color: transparent; color: #fff; }
 
 /* ── Document Cards ───────────────────────────────────────── */
 .docs-list {

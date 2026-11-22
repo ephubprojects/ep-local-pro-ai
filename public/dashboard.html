@@ -138,11 +138,21 @@
         </div>
 
         <div class="filter-tabs" id="orderFilterTabs">
-          <button class="filter-tab active" data-filter="all">All</button>
-          <button class="filter-tab" data-filter="new">New</button>
-          <button class="filter-tab" data-filter="preparing">Preparing</button>
-          <button class="filter-tab" data-filter="ready">Ready</button>
-          <button class="filter-tab" data-filter="completed">Completed</button>
+          <button class="filter-tab active" data-filter="all">
+            <span class="filter-tab-icon">📋</span><span class="filter-tab-label">All</span>
+          </button>
+          <button class="filter-tab" data-filter="new">
+            <span class="filter-tab-icon">🆕</span><span class="filter-tab-label">New</span>
+          </button>
+          <button class="filter-tab" data-filter="preparing">
+            <span class="filter-tab-icon">⚙️</span><span class="filter-tab-label">Preparing</span>
+          </button>
+          <button class="filter-tab" data-filter="ready">
+            <span class="filter-tab-icon">✅</span><span class="filter-tab-label">Ready</span>
+          </button>
+          <button class="filter-tab" data-filter="completed">
+            <span class="filter-tab-icon">🎉</span><span class="filter-tab-label">Completed</span>
+          </button>
         </div>
 
         <div class="orders-list" id="ordersList">
@@ -213,11 +223,31 @@
 
       <!-- Filter tabs -->
       <div class="docs-tabs-bar">
-        <button class="docs-tab active" data-filter="all">All <span class="docs-tab-count" id="countAll">0</span></button>
-        <button class="docs-tab" data-filter="invoice">Invoices <span class="docs-tab-count" id="countInvoice">0</span></button>
-        <button class="docs-tab" data-filter="estimate">Estimates <span class="docs-tab-count" id="countEstimate">0</span></button>
-        <button class="docs-tab" data-filter="contract">Contracts <span class="docs-tab-count" id="countContract">0</span></button>
-        <button class="docs-tab" data-filter="receipt">Receipts <span class="docs-tab-count" id="countReceipt">0</span></button>
+        <button class="docs-tab active" data-filter="all">
+          <span class="docs-tab-icon">📋</span>
+          <span class="docs-tab-label">All</span>
+          <span class="docs-tab-count" id="countAll">0</span>
+        </button>
+        <button class="docs-tab" data-filter="invoice">
+          <span class="docs-tab-icon">🧾</span>
+          <span class="docs-tab-label">Invoices</span>
+          <span class="docs-tab-count" id="countInvoice">0</span>
+        </button>
+        <button class="docs-tab" data-filter="estimate">
+          <span class="docs-tab-icon">📝</span>
+          <span class="docs-tab-label">Estimates</span>
+          <span class="docs-tab-count" id="countEstimate">0</span>
+        </button>
+        <button class="docs-tab" data-filter="contract">
+          <span class="docs-tab-icon">📄</span>
+          <span class="docs-tab-label">Contracts</span>
+          <span class="docs-tab-count" id="countContract">0</span>
+        </button>
+        <button class="docs-tab" data-filter="receipt">
+          <span class="docs-tab-icon">🧮</span>
+          <span class="docs-tab-label">Receipts</span>
+          <span class="docs-tab-count" id="countReceipt">0</span>
+        </button>
       </div>
 
       <!-- Documents list -->
