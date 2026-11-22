@@ -46,6 +46,7 @@ let chatMessages = [];
     setText('cal-biz-name', bizData.name || 'Book an Appointment');
     setText('cal-biz-desc', bizData.description || '');
 
+    applyBizTheme(bizData);
     await loadTakenSlots();
     renderCalendar();
 
@@ -61,6 +62,35 @@ function showError(msg) {
   document.getElementById('cal-loading').style.display = 'none';
   setText('cal-error-msg', msg);
   document.getElementById('cal-error').classList.remove('hidden');
+}
+
+function applyBizTheme(biz) {
+  const accent = biz.colorAccent || biz.color || '#4f46e5';
+  const bg     = biz.colorBg    || '#1e293b';
+  const hex    = accent.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  const root = document.documentElement;
+  root.style.setProperty('--page-bg',       bg);
+  root.style.setProperty('--accent',        accent);
+  root.style.setProperty('--accent-bg',     `rgba(${r},${g},${b},0.10)`);
+  root.style.setProperty('--accent-border', `rgba(${r},${g},${b},0.35)`);
+
+  const prof = biz.profile || {};
+  if (prof.displayName) {
+    setText('calProfileName',  prof.displayName);
+    setText('calProfileTitle', prof.title || '');
+    const phoneSpan = document.getElementById('calProfilePhoneNum');
+    if (phoneSpan) phoneSpan.textContent = prof.phone || '';
+    if (prof.photoUrl) {
+      const img = document.getElementById('calProfilePhoto');
+      if (img) { img.src = prof.photoUrl; img.style.display = ''; }
+    }
+    document.getElementById('calProfileCard')?.classList.remove('hidden');
+  }
+
+  if (biz.calLabel) setText('calLabel', biz.calLabel);
 }
 
 function setText(id, val) {
