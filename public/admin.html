@@ -920,41 +920,55 @@
 
     <!-- ════════════ SECTION: Market Rate ════════════ -->
     <div data-section="market-rate" class="hidden">
-      <div class="section-card">
-        <div class="section-card-header">
+
+      <!-- Hero banner -->
+      <div class="mr-hero">
+        <div class="mr-hero-glow"></div>
+        <div class="mr-hero-content">
+          <div class="mr-hero-icon">📊</div>
           <div>
-            <h2>📊 Market Rate Calculator</h2>
-            <p style="margin:4px 0 0;font-size:0.82rem;color:#64748b;">Research what local contractors charge for any service in any city — powered by AI.</p>
+            <div class="mr-hero-title">Market Rate Calculator</div>
+            <div class="mr-hero-sub">Research what local contractors charge for any service in any city — powered by AI</div>
           </div>
         </div>
-        <div class="mr-standalone-form">
-          <div class="mr-standalone-inputs">
-            <div style="flex:2;min-width:180px">
-              <label class="form-label">Service / Job Type</label>
-              <div class="mr-input-wrap">
-                <input type="text" id="mrServiceAdmin" class="form-input" placeholder="e.g. 100 person wedding catering, Roof repair, Lawn care…" oninput="window._mrClearAdmin()"/>
-                <button class="mr-voice-btn" data-mr-voice-for="mrServiceAdmin" onclick="window._mrVoice('mrServiceAdmin','admin')" title="Voice input">🎤</button>
-              </div>
-            </div>
-            <div style="flex:1;min-width:140px">
-              <label class="form-label">City / County, State</label>
-              <div class="mr-input-wrap">
-                <input type="text" id="mrCityAdmin" class="form-input" placeholder="e.g. Ventura County, CA" oninput="window._mrClearAdmin()"/>
-                <button class="mr-voice-btn" data-mr-voice-for="mrCityAdmin" onclick="window._mrVoice('mrCityAdmin','admin')" title="Voice input">🎤</button>
-              </div>
-            </div>
-            <div class="mr-controls">
-              <div class="mr-lang-toggle">
-                <button class="mr-lang-btn active" id="mrLangAdminEN" onclick="window._mrSetLang('admin','en-US')">🇺🇸 EN</button>
-                <button class="mr-lang-btn" id="mrLangAdminES" onclick="window._mrSetLang('admin','es-MX')">🇲🇽 ES</button>
-              </div>
-              <button class="btn-primary" id="mrBtnAdmin" onclick="window._mrGetRatesAdmin()" style="white-space:nowrap">📊 Get Market Rates</button>
-            </div>
-          </div>
+        <div class="mr-hero-badges">
+          <span class="mr-hero-badge">🤖 AI Powered</span>
+          <span class="mr-hero-badge">📍 Location-Based</span>
+          <span class="mr-hero-badge">⚡ Instant Results</span>
         </div>
-        <div id="mrResultAdmin" style="margin-top:16px"></div>
-        <div id="mrHistoryAdmin" style="margin-top:24px"></div>
       </div>
+
+      <!-- Search card -->
+      <div class="mr-search-card">
+        <div class="mr-search-fields">
+          <div class="mr-field-wrap">
+            <label class="mr-field-label"><span class="mr-field-icon">🔧</span> Service / Job Type</label>
+            <div class="mr-input-wrap">
+              <input type="text" id="mrServiceAdmin" class="mr-input" placeholder="e.g. 100 person wedding catering, Roof repair, Lawn care…" oninput="window._mrClearAdmin()"/>
+              <button class="mr-voice-btn" data-mr-voice-for="mrServiceAdmin" onclick="window._mrVoice('mrServiceAdmin','admin')" title="Voice input">🎤</button>
+            </div>
+          </div>
+          <div class="mr-field-wrap mr-field-city">
+            <label class="mr-field-label"><span class="mr-field-icon">📍</span> City / County, State</label>
+            <div class="mr-input-wrap">
+              <input type="text" id="mrCityAdmin" class="mr-input" placeholder="e.g. Ventura County, CA" oninput="window._mrClearAdmin()"/>
+              <button class="mr-voice-btn" data-mr-voice-for="mrCityAdmin" onclick="window._mrVoice('mrCityAdmin','admin')" title="Voice input">🎤</button>
+            </div>
+          </div>
+        </div>
+        <div class="mr-action-row">
+          <div class="mr-lang-toggle">
+            <button class="mr-lang-btn active" id="mrLangAdminEN" onclick="window._mrSetLang('admin','en-US')">🇺🇸 EN</button>
+            <button class="mr-lang-btn" id="mrLangAdminES" onclick="window._mrSetLang('admin','es-MX')">🇲🇽 ES</button>
+          </div>
+          <button class="mr-get-btn" id="mrBtnAdmin" onclick="window._mrGetRatesAdmin()">
+            <span>📊</span> Get Market Rates
+          </button>
+        </div>
+      </div>
+
+      <div id="mrResultAdmin" style="margin-top:20px"></div>
+      <div id="mrHistoryAdmin" style="margin-top:24px"></div>
     </div><!-- /market-rate -->
 
     <!-- ════════════ SECTION: Settings ════════════ -->

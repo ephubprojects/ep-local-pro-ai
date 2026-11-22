@@ -2134,9 +2134,11 @@ async function loadAdminDocuments() {
   });
 
   try {
-    const snap = await getDocs(query(collection(db, 'documents'), orderBy('createdAt', 'desc'), limit(300)));
+    const adminUid = auth.currentUser?.uid || '';
+    const snap = await getDocs(query(collection(db, 'documents'), where('ownerUid', '==', adminUid), limit(300)));
     adminAllDocs = [];
     snap.forEach(d => adminAllDocs.push({ id: d.id, ...d.data() }));
+    adminAllDocs.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
     updateAdminDocCounts();
     renderAdminDocCards();
   } catch (err) {
@@ -3378,6 +3380,10 @@ function _docGetData() {
     ? (_docLang === 'es' ? 'COSTO ESTIMADO DEL PROYECTO' : 'ESTIMATED PROJECT COST')
     : L.grandTotal;
   const typeLabel  = L[_docType] || _docType;
+  const custLabel  = _docType === 'receipt'  ? (_docLang === 'es' ? 'Recibido De'    : 'Received From')
+                   : _docType === 'contract' ? (_docLang === 'es' ? 'Cliente'        : 'Client')
+                   : _docType === 'estimate' ? (_docLang === 'es' ? 'Preparado Para' : 'Prepared For')
+                   :                           (_docLang === 'es' ? 'Facturar a'     : 'Bill To');
   const fmtDate    = d => { if (!d) return ''; const [y,m,day] = d.split('-'); return `${m}/${day}/${y}`; };
   const TYPE_COLORS   = { labor:'#4f46e5', parts:'#0891b2', material:'#059669', equipment:'#d97706', permit:'#7c3aed', service:'#db2777', other:'#64748b' };
   const TYPE_LABELS_ES= { labor:'Mano de Obra', parts:'Partes', material:'Material', equipment:'Equipo', permit:'Permiso', service:'Servicio', other:'Otro' };
@@ -3418,7 +3424,7 @@ function _docGetData() {
   return { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
     docNumber, docDate, docDueDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
     duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
-    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_COLORS, TYPE_LABELS_ES, scopeHtml,
+    grandTotalLabel, typeLabel, custLabel, fmtDate, logoHtml, TYPE_COLORS, TYPE_LABELS_ES, scopeHtml,
     paymentMethod, paymentMethodLabel, receiptPaymentHtml, invoiceRef, paidInFullHtml,
     payInstructions, payInstructionsHtml, paymentBlockHtml: _buildPaymentBlockHtml() };
 }
@@ -3544,6 +3550,10 @@ function _docTplClassic() {
   const paymentBlockHtml = _buildPaymentBlockHtml();
 
   const typeLabel = L[_docType] || _docType;
+  const custLabel = _docType === 'receipt'  ? (_docLang === 'es' ? 'Recibido De'    : 'Received From')
+                  : _docType === 'contract' ? (_docLang === 'es' ? 'Cliente'        : 'Client')
+                  : _docType === 'estimate' ? (_docLang === 'es' ? 'Preparado Para' : 'Prepared For')
+                  :                           (_docLang === 'es' ? 'Facturar a'     : 'Bill To');
 
   // Format dates nicely
   const fmtDate = d => {
@@ -3638,7 +3648,7 @@ function _docTplClassic() {
       ${bizEmail   ? `<div class="party-detail">${_esc(bizEmail)}</div>` : ''}
     </div>
     <div class="doc-party">
-      <div class="party-label">${L.billTo}</div>
+      <div class="party-label">${custLabel}</div>
       <div class="party-name">${_esc(custName) || '—'}</div>
       ${custAddr  ? `<div class="party-detail">${_esc(custAddr)}</div>` : ''}
       ${custPhone ? `<div class="party-detail">${_esc(custPhone)}</div>` : ''}
@@ -3750,7 +3760,7 @@ function _docTplBold() {
   const { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
     docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
     duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
-    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
+    grandTotalLabel, typeLabel, custLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
     receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef, paymentBlockHtml } = _docGetData();
 
   const itemsHtml = _docType !== 'contract' ? _docItems.map(it => {
@@ -3781,7 +3791,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}thead tr{background
   <div class="red-bar"></div>
   <div class="info-row">
     <div class="info-box"><div class="info-lbl">${_docLang==='es'?'Empresa':'Company'}</div><div class="info-name">${_esc(bizName)||'—'}</div><div class="info-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
-    <div class="info-box red"><div class="info-lbl">${L.billTo}</div><div class="info-name">${_esc(custName)||'—'}</div><div class="info-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
+    <div class="info-box red"><div class="info-lbl">${custLabel}</div><div class="info-name">${_esc(custName)||'—'}</div><div class="info-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
   </div>
   <div class="body">
     ${(projectTitle||jobOrderedBy||jobLocation||duration)?`<div class="field-row">${projectTitle?`<div class="field-item"><div class="field-lbl">${_docLang==='es'?'Proyecto':'Project'}</div><div class="field-val">${_esc(projectTitle)}</div></div>`:''} ${jobOrderedBy?`<div class="field-item"><div class="field-lbl">${_docLang==='es'?'Ordenado Por':'Ordered By'}</div><div class="field-val">${_esc(jobOrderedBy)}</div></div>`:''} ${jobLocation?`<div class="field-item"><div class="field-lbl">${_docLang==='es'?'Ubicación':'Location'}</div><div class="field-val">${_esc(jobLocation)}</div></div>`:''} ${duration?`<div class="field-item"><div class="field-lbl">${_docLang==='es'?'Duración':'Duration'}</div><div class="field-val">${_esc(duration)}</div></div>`:''}</div>`:''}
@@ -3803,7 +3813,7 @@ function _docTplExecutive() {
   const { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
     docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
     duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
-    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
+    grandTotalLabel, typeLabel, custLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
     receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef, paymentBlockHtml } = _docGetData();
 
   const gold = '#c9972b'; const navy = '#0f172a';
@@ -3834,7 +3844,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}thead tr{background
   <div class="gold-bar"></div>
   <div class="party-row">
     <div class="party"><div class="plbl">${_esc(bizName)||'From'}</div><div class="pname">${_esc(bizName)}</div><div class="pdet">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
-    <div class="party client"><div class="plbl" style="color:${navy}">${L.billTo}</div><div class="pname">${_esc(custName)||'—'}</div><div class="pdet">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
+    <div class="party client"><div class="plbl" style="color:${navy}">${custLabel}</div><div class="pname">${_esc(custName)||'—'}</div><div class="pdet">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
   </div>
   <div class="body">
     ${(projectTitle||jobOrderedBy||jobLocation||duration)?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">${projectTitle?`<div style="padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;border-left:3px solid ${gold};"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_docLang==='es'?'Proyecto':'Project'}</div><div style="font-size:0.9rem;font-weight:700;color:${navy};">${_esc(projectTitle)}</div></div>`:''} ${jobOrderedBy?`<div style="padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_docLang==='es'?'Ordenado Por':'Ordered By'}</div><div style="font-size:0.85rem;font-weight:600;">${_esc(jobOrderedBy)}</div></div>`:''} ${jobLocation?`<div style="padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_docLang==='es'?'Ubicación':'Location'}</div><div style="font-size:0.85rem;font-weight:600;">${_esc(jobLocation)}</div></div>`:''} ${duration?`<div style="padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_docLang==='es'?'Duración':'Duration'}</div><div style="font-size:0.85rem;font-weight:600;">${_esc(duration)}</div></div>`:''}</div>`:''}
@@ -3886,7 +3896,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px;border-radius:12px;
   </div>
   <div class="party-cards">
     <div class="card"><div class="card-lbl">${_esc(bizName)||'From'}</div><div class="card-name">${_esc(bizName)}</div><div class="card-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
-    <div class="card"><div class="card-lbl">${L.billTo}</div><div class="card-name">${_esc(custName)||'—'}</div><div class="card-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
+    <div class="card"><div class="card-lbl">${custLabel}</div><div class="card-name">${_esc(custName)||'—'}</div><div class="card-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
   </div>
   <div class="body">
     ${(projectTitle||jobOrderedBy||jobLocation||duration)?`<div class="info-cards">${projectTitle?`<div class="ic" style="border-left:3px solid #7c3aed;"><div class="ic-lbl">${_docLang==='es'?'Proyecto':'Project'}</div><div class="ic-val">${_esc(projectTitle)}</div></div>`:''} ${jobOrderedBy?`<div class="ic"><div class="ic-lbl">${_docLang==='es'?'Ordenado Por':'Ordered By'}</div><div class="ic-val">${_esc(jobOrderedBy)}</div></div>`:''} ${jobLocation?`<div class="ic"><div class="ic-lbl">${_docLang==='es'?'Ubicación':'Location'}</div><div class="ic-val">${_esc(jobLocation)}</div></div>`:''} ${duration?`<div class="ic"><div class="ic-lbl">${_docLang==='es'?'Duración':'Duration'}</div><div class="ic-val">${_esc(duration)}</div></div>`:''}</div>`:''}
@@ -3908,7 +3918,7 @@ function _docTplMinimal() {
   const { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
     docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
     duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
-    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
+    grandTotalLabel, typeLabel, custLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
     receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef, paymentBlockHtml } = _docGetData();
 
   const itemsHtml = _docType !== 'contract' ? _docItems.map(it => {
@@ -3935,7 +3945,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}thead th{padding:8p
   </div>
   <div class="parties">
     <div class="party"><div class="party-lbl">${_docLang==='es'?'De':'From'}</div><div class="party-name">${_esc(bizName)||'—'}</div><div class="party-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
-    <div class="party"><div class="party-lbl">${L.billTo}</div><div class="party-name">${_esc(custName)||'—'}</div><div class="party-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
+    <div class="party"><div class="party-lbl">${custLabel}</div><div class="party-name">${_esc(custName)||'—'}</div><div class="party-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
     ${jobOrderedBy||jobLocation?`<div class="party">${jobOrderedBy?`<div class="party-lbl">${_docLang==='es'?'Ordenado Por':'Ordered By'}</div><div class="party-name">${_esc(jobOrderedBy)}</div>`:''} ${jobLocation?`<div class="party-lbl" style="margin-top:8px;">${_docLang==='es'?'Ubicación':'Location'}</div><div class="party-det">${_esc(jobLocation)}</div>`:''}</div>`:''}
   </div>
   ${projectTitle?`<div style="margin-bottom:20px;"><div class="section-head">${_docLang==='es'?'Proyecto':'Project'}</div><div style="font-size:1rem;font-weight:600;">${_esc(projectTitle)}</div></div>`:''}
@@ -4510,21 +4520,23 @@ async function _mrFetch(service, city, lang, resultEl, btnEl) {
   }
 }
 
+const _mrKey = () => `mr_history_${currentUser?.uid || 'anon'}`;
+
 function _mrSaveHistory(service, city, data) {
   try {
-    const hist = JSON.parse(localStorage.getItem('mr_history') || '[]');
+    const hist = JSON.parse(localStorage.getItem(_mrKey()) || '[]');
     const entry = { service, city, min: data.min, max: data.max, average: data.average, unit: data.unit, ts: Date.now() };
     const filtered = hist.filter(h => !(h.service === service && h.city === city));
     filtered.unshift(entry);
-    localStorage.setItem('mr_history', JSON.stringify(filtered.slice(0, 10)));
+    localStorage.setItem(_mrKey(), JSON.stringify(filtered.slice(0, 10)));
   } catch {}
 }
 
 function _mrDeleteHistoryItem(idx, containerEl, onSelect) {
   try {
-    const hist = JSON.parse(localStorage.getItem('mr_history') || '[]');
+    const hist = JSON.parse(localStorage.getItem(_mrKey()) || '[]');
     hist.splice(idx, 1);
-    localStorage.setItem('mr_history', JSON.stringify(hist));
+    localStorage.setItem(_mrKey(), JSON.stringify(hist));
   } catch {}
   _mrRenderHistory(containerEl, onSelect);
 }
@@ -4532,18 +4544,19 @@ function _mrDeleteHistoryItem(idx, containerEl, onSelect) {
 function _mrRenderHistory(containerEl, onSelect) {
   if (!containerEl) return;
   try {
-    const hist = JSON.parse(localStorage.getItem('mr_history') || '[]');
+    const hist = JSON.parse(localStorage.getItem(_mrKey()) || '[]');
     if (!hist.length) { containerEl.innerHTML = ''; return; }
     containerEl.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <h3 style="font-size:0.85rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin:0">Recent Lookups</h3>
+      <div class="mr-history-header">
+        <span class="mr-history-title">🕐 Recent Lookups</span>
         <button class="mr-clear-all-btn" data-clear-all>Clear all</button>
       </div>
       <div class="mr-history-list">
         ${hist.map((h, i) => `
           <div class="mr-history-item" data-idx="${i}">
-            <div class="mr-history-svc">${h.service}</div>
-            <div class="mr-history-city">${h.city}</div>
+            <div class="mr-history-num">${i + 1}</div>
+            <div class="mr-history-svc" title="${h.service}">${h.service}</div>
+            <div class="mr-history-city">📍 ${h.city}</div>
             <div class="mr-history-range">${_mrFmt(h.min)} – ${_mrFmt(h.max)} <span class="mr-history-unit">${h.unit || 'per job'}</span></div>
             <button class="mr-del-btn" data-del="${i}" title="Remove">✕</button>
           </div>`).join('')}
@@ -4563,7 +4576,7 @@ function _mrRenderHistory(containerEl, onSelect) {
       });
     });
     containerEl.querySelector('[data-clear-all]')?.addEventListener('click', () => {
-      localStorage.removeItem('mr_history');
+      localStorage.removeItem(_mrKey());
       containerEl.innerHTML = '';
     });
   } catch {}

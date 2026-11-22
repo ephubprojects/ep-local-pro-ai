@@ -583,6 +583,9 @@ async function loadMenu() {
   const grid = qs('#menuGrid');
   grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><p>Loading menu…</p></div>';
 
+  // Wire add button first so it always works regardless of item count
+  qs('#addMenuItemBtn').onclick = openAddMenuItemModal;
+
   try {
     const bizRef  = doc(db, 'businesses', bizId);
     const bizSnap = await getDoc(bizRef);
@@ -603,9 +606,6 @@ async function loadMenu() {
     console.error('loadMenu error:', err);
     grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><p>Failed to load menu.</p></div>';
   }
-
-  // Wire add button
-  qs('#addMenuItemBtn').onclick = openAddMenuItemModal;
 }
 
 function renderMenuCard(item, index) {
@@ -732,12 +732,11 @@ async function loadDocuments() {
   try {
     const q = query(
       collection(db, 'documents'),
-      where('businessId', '==', bizId),
-      orderBy('createdAt', 'desc')
+      where('businessId', '==', bizId)
     );
     const snap = await getDocs(q);
-    allDocs = [];
-    snap.forEach(d => allDocs.push({ id: d.id, ...d.data() }));
+    allDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    allDocs.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
     updateDocCounts();
     renderDocCards();
   } catch (err) {
@@ -771,48 +770,91 @@ function renderDocCards() {
     return;
   }
 
-  const typeLabels  = { invoice: 'Invoice', estimate: 'Estimate', contract: 'Contract', receipt: 'Receipt' };
-  const badgeCls    = { invoice: 'badge-invoice', estimate: 'badge-estimate', contract: 'badge-contract', receipt: 'badge-receipt' };
+  const typeLabels = { invoice: 'Invoice', estimate: 'Estimate', contract: 'Contract', receipt: 'Receipt' };
+  const typeIcons  = { invoice: '🧾', estimate: '📋', contract: '📝', receipt: '🧾' };
+  const badgeCls   = { invoice: 'badge-invoice', estimate: 'badge-estimate', contract: 'badge-contract', receipt: 'badge-receipt' };
 
   list.innerHTML = '';
   filtered.forEach(docData => {
-    const typeLbl   = typeLabels[docData.type] || docData.type || '—';
+    const typeLbl    = typeLabels[docData.type] || docData.type || '—';
+    const typeIcon   = typeIcons[docData.type] || '📄';
     const badgeClass = badgeCls[docData.type] || '';
-    const amount    = docData.amount
+    const amount     = docData.amount
       ? `$${Number(docData.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
       : '—';
+    const label      = docData.docNumber ? `#${docData.docNumber}` : typeLbl;
+    const statusTxt  = docData.status || 'draft';
+    const viewUrl    = docData.id ? `${location.origin}/view-doc.html?id=${docData.id}` : '';
+    const canSign    = docData.type === 'estimate' || docData.type === 'contract';
 
-    const card = document.createElement('div');
-    card.className = 'doc-card';
-    card.innerHTML = `
-      <div class="doc-card-stripe stripe-${docData.type || ''}"></div>
-      <div class="doc-card-body">
-        <div class="doc-card-type">
-          <span class="badge ${badgeClass}">${typeLbl}</span>
-          ${docData.docNumber ? `<div class="doc-card-num">${docData.docNumber}</div>` : ''}
-        </div>
-        <div class="doc-card-info">
-          <div class="doc-card-customer">${docData.customerName || '—'}</div>
-          <div class="doc-card-meta">
-            <span>${fmtDate(docData.createdAt)}</span>
-            ${docData.status ? `<span class="doc-card-meta-dot">${docData.status}</span>` : ''}
+    const row = document.createElement('div');
+    row.className = 'doc-row';
+    row.innerHTML = `
+      <div class="doc-row-bar bar-${docData.type || 'default'}"></div>
+      <div class="doc-row-main">
+        <div class="doc-row-type">
+          <span class="doc-row-icon">${typeIcon}</span>
+          <div>
+            <span class="badge ${badgeClass}">${typeLbl}</span>
+            ${docData.docNumber ? `<div class="doc-row-num">#${docData.docNumber}</div>` : ''}
           </div>
         </div>
-        <div class="doc-card-amount">${amount}</div>
-      </div>
-      <div class="doc-card-actions">
-        ${docData.htmlContent ? `<button class="btn-action" data-view>👁 View</button>` : ''}
-        ${docData.htmlContent ? `<button class="btn-action primary" data-dl>↓ PDF</button>` : ''}
-        ${(docData.type==='estimate'||docData.type==='contract') ? `<button class="btn-action btn-action-sign" data-sign title="${docData.ownerSig ? 'Re-sign / View Signature' : 'Sign Document'}">✍️ Sign</button>` : ''}
+        <div class="doc-row-customer">
+          <div class="doc-row-cust-name">${docData.customerName || '—'}</div>
+          ${docData.bizName ? `<div class="doc-row-cust-biz">${docData.bizName}</div>` : ''}
+        </div>
+        <div class="doc-row-date">${fmtDate(docData.createdAt)}</div>
+        <div class="doc-row-amount">${amount}</div>
+        <div class="doc-row-status">
+          <span class="status-btn status-${statusTxt.toLowerCase()}">${statusTxt.charAt(0).toUpperCase() + statusTxt.slice(1)}</span>
+        </div>
+        <div class="doc-row-actions">
+          ${docData.htmlContent ? `<button class="btn-action btn-action-view" data-view>👁 View</button>` : ''}
+          <button class="btn-action btn-action-edit" data-edit>✏️ Edit</button>
+          ${viewUrl ? `<button class="btn-action btn-action-share" data-share>📤 Share</button>` : ''}
+          ${viewUrl ? `<button class="btn-action btn-action-copy" data-copy>🔗 Copy Link</button>` : ''}
+          ${canSign ? `<button class="btn-action btn-action-sign" data-sign>✍️ Sign</button>` : ''}
+          <button class="btn-action btn-action-delete" data-del>🗑 Delete</button>
+        </div>
       </div>`;
 
+    const viewLabel = docData.docNumber || typeLbl;
     if (docData.htmlContent) {
-      const label = docData.docNumber || typeLbl;
-      card.querySelector('[data-view]')?.addEventListener('click', () => viewDocument(docData, label));
-      card.querySelector('[data-dl]')?.addEventListener('click',   () => downloadDocument(docData.htmlContent, label));
+      row.querySelector('[data-view]')?.addEventListener('click', () => viewDocument(docData, viewLabel));
     }
-    card.querySelector('[data-sign]')?.addEventListener('click', () => dashOwnerSign(docData.id, docData));
-    list.appendChild(card);
+    row.querySelector('[data-edit]')?.addEventListener('click', () => openDocCreator(docData.type, docData));
+    row.querySelector('[data-sign]')?.addEventListener('click', () => dashOwnerSign(docData.id, docData));
+
+    if (viewUrl) {
+      row.querySelector('[data-share]')?.addEventListener('click', () => {
+        _dShowShareModal(viewUrl, typeLbl, docData.docNumber || '', docData.type);
+      });
+      row.querySelector('[data-copy]')?.addEventListener('click', (e) => {
+        const btn = e.currentTarget;
+        navigator.clipboard.writeText(viewUrl).then(() => {
+          const orig = btn.innerHTML;
+          btn.innerHTML = '✅ Copied!';
+          btn.style.background = '#10b981';
+          setTimeout(() => { btn.innerHTML = orig; btn.style.background = ''; }, 2000);
+        });
+      });
+    }
+
+    row.querySelector('[data-del]')?.addEventListener('click', async () => {
+      if (!confirm(`Delete this ${typeLbl}? This cannot be undone.`)) return;
+      try {
+        await deleteDoc(doc(db, 'documents', docData.id));
+        allDocs = allDocs.filter(d => d.id !== docData.id);
+        updateDocCounts();
+        renderDocCards();
+        showToast(`${typeLbl} deleted.`, 'success');
+      } catch (err) {
+        console.error('deleteDoc error:', err);
+        showToast('Failed to delete document.', 'error');
+      }
+    });
+
+    list.appendChild(row);
   });
 }
 
@@ -2342,13 +2384,15 @@ function _mrRenderResultDash(container, d, service, city, fromCache) {
     </div>`;
 }
 
+const _mrKey = () => `mr_history_${currentUser?.uid || 'anon'}`;
+
 function _mrSaveHistoryDash(service, city, data) {
   try {
-    const hist = JSON.parse(localStorage.getItem('mr_history') || '[]');
+    const hist = JSON.parse(localStorage.getItem(_mrKey()) || '[]');
     const entry = { service, city, min: data.min, max: data.max, average: data.average, unit: data.unit, ts: Date.now() };
     const filtered = hist.filter(h => !(h.service === service && h.city === city));
     filtered.unshift(entry);
-    localStorage.setItem('mr_history', JSON.stringify(filtered.slice(0, 10)));
+    localStorage.setItem(_mrKey(), JSON.stringify(filtered.slice(0, 10)));
   } catch {}
 }
 
@@ -2356,18 +2400,19 @@ function _mrRenderHistoryDash() {
   const container = document.getElementById('mrHistoryDash');
   if (!container) return;
   try {
-    const hist = JSON.parse(localStorage.getItem('mr_history') || '[]');
+    const hist = JSON.parse(localStorage.getItem(_mrKey()) || '[]');
     if (!hist.length) { container.innerHTML = ''; return; }
     container.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <h3 style="font-size:0.85rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin:0">Recent Lookups</h3>
+      <div class="mr-history-header">
+        <span class="mr-history-title">🕐 Recent Lookups</span>
         <button class="mr-clear-all-btn" data-clear-all>Clear all</button>
       </div>
       <div class="mr-history-list">
         ${hist.map((h, i) => `
           <div class="mr-history-item" data-idx="${i}">
-            <div class="mr-history-svc">${h.service}</div>
-            <div class="mr-history-city">${h.city}</div>
+            <div class="mr-history-num">${i + 1}</div>
+            <div class="mr-history-svc" title="${h.service}">${h.service}</div>
+            <div class="mr-history-city">📍 ${h.city}</div>
             <div class="mr-history-range">${_mrFmtDash(h.min)} – ${_mrFmtDash(h.max)} <span class="mr-history-unit">${h.unit || 'per job'}</span></div>
             <button class="mr-del-btn" data-del="${i}" title="Remove">✕</button>
           </div>`).join('')}
@@ -2388,15 +2433,15 @@ function _mrRenderHistoryDash() {
       btn.addEventListener('click', e => {
         e.stopPropagation();
         try {
-          const h2 = JSON.parse(localStorage.getItem('mr_history') || '[]');
+          const h2 = JSON.parse(localStorage.getItem(_mrKey()) || '[]');
           h2.splice(+btn.dataset.del, 1);
-          localStorage.setItem('mr_history', JSON.stringify(h2));
+          localStorage.setItem(_mrKey(), JSON.stringify(h2));
         } catch {}
         _mrRenderHistoryDash();
       });
     });
     container.querySelector('[data-clear-all]')?.addEventListener('click', () => {
-      localStorage.removeItem('mr_history');
+      localStorage.removeItem(_mrKey());
       container.innerHTML = '';
     });
   } catch {}
@@ -2860,6 +2905,10 @@ function _dGetData() {
     ? (_dLang === 'es' ? 'COSTO ESTIMADO DEL PROYECTO' : 'ESTIMATED PROJECT COST')
     : L.grandTotal;
   const typeLabel  = L[_dType] || _dType;
+  const custLabel  = _dType === 'receipt'   ? (_dLang === 'es' ? 'Recibido De'    : 'Received From')
+                   : _dType === 'contract'  ? (_dLang === 'es' ? 'Cliente'        : 'Client')
+                   : _dType === 'estimate'  ? (_dLang === 'es' ? 'Preparado Para' : 'Prepared For')
+                   :                          (_dLang === 'es' ? 'Facturar a'     : 'Bill To');
   const fmtDate    = d => { if (!d) return ''; const [y,m,day] = d.split('-'); return `${m}/${day}/${y}`; };
   const TYPE_COLORS   = { labor:'#4f46e5', parts:'#0891b2', material:'#059669', equipment:'#d97706', permit:'#7c3aed', service:'#db2777', other:'#64748b' };
   const TYPE_LABELS_ES= { labor:'Mano de Obra', parts:'Partes', material:'Material', equipment:'Equipo', permit:'Permiso', service:'Servicio', other:'Otro' };
@@ -2895,7 +2944,7 @@ function _dGetData() {
   return { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
     docNumber, docDate, docDueDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
     duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
-    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_COLORS, TYPE_LABELS_ES, scopeHtml,
+    grandTotalLabel, typeLabel, custLabel, fmtDate, logoHtml, TYPE_COLORS, TYPE_LABELS_ES, scopeHtml,
     paymentMethod, paymentMethodLabel, receiptPaymentHtml, invoiceRef, paidInFullHtml,
     payInstructions, payInstructionsHtml, paymentBlockHtml: _dPaymentBlock() };
 }
@@ -2980,6 +3029,10 @@ function _dTplClassic() {
     ? `<div style="margin-top:12px;padding:12px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #4f46e5;border-radius:6px;"><div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:5px;">${_dLang==='es'?'Instrucciones de Pago':'Payment Instructions'}</div><div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;">${_dEsc(payInstructions)}</div></div>` : '';
   const paymentBlockHtml = _dPaymentBlock();
   const typeLabel = L[_dType] || _dType;
+  const custLabel = _dType === 'receipt'  ? (_dLang === 'es' ? 'Recibido De'    : 'Received From')
+                  : _dType === 'contract' ? (_dLang === 'es' ? 'Cliente'        : 'Client')
+                  : _dType === 'estimate' ? (_dLang === 'es' ? 'Preparado Para' : 'Prepared For')
+                  :                         (_dLang === 'es' ? 'Facturar a'     : 'Bill To');
   const fmtDate = d => { if (!d) return ''; const [y,m,day] = d.split('-'); return `${m}/${day}/${y}`; };
   const TYPE_COLORS = { labor:'#4f46e5', parts:'#0891b2', material:'#059669', equipment:'#d97706', permit:'#7c3aed', service:'#db2777', other:'#64748b' };
   const TYPE_LABELS_ES = { labor:'Mano de Obra', parts:'Partes', material:'Material', equipment:'Equipo', permit:'Permiso', service:'Servicio', other:'Otro' };
@@ -3001,7 +3054,7 @@ function _dTplClassic() {
   </div>
   <div class="doc-parties">
     <div class="doc-party"><div class="party-label">${_dEsc(bizName)||'From'}</div><div class="party-name">${_dEsc(bizName)}</div>${bizAddress?`<div class="party-detail">${_dEsc(bizAddress)}</div>`:''}${bizPhone?`<div class="party-detail">${_dEsc(bizPhone)}</div>`:''}${bizEmail?`<div class="party-detail">${_dEsc(bizEmail)}</div>`:''}</div>
-    <div class="doc-party"><div class="party-label">${L.billTo}</div><div class="party-name">${_dEsc(custName)||'--'}</div>${custAddr?`<div class="party-detail">${_dEsc(custAddr)}</div>`:''}${custPhone?`<div class="party-detail">${_dEsc(custPhone)}</div>`:''}${custEmail?`<div class="party-detail">${_dEsc(custEmail)}</div>`:''}</div>
+    <div class="doc-party"><div class="party-label">${custLabel}</div><div class="party-name">${_dEsc(custName)||'--'}</div>${custAddr?`<div class="party-detail">${_dEsc(custAddr)}</div>`:''}${custPhone?`<div class="party-detail">${_dEsc(custPhone)}</div>`:''}${custEmail?`<div class="party-detail">${_dEsc(custEmail)}</div>`:''}</div>
   </div>
   ${(jobOrderedBy||jobLocation)?`<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">${jobOrderedBy?`<div style="flex:1;min-width:160px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;"><div style="font-size:0.68rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">${_dLang==='es'?'Ordenado Por':'Ordered By'}</div><div style="font-size:0.9rem;font-weight:600;color:#1e293b;">${_dEsc(jobOrderedBy)}</div></div>`:''}${jobLocation?`<div style="flex:1;min-width:160px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;"><div style="font-size:0.68rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">${_dLang==='es'?'Ubicacion del Trabajo':'Job Location'}</div><div style="font-size:0.9rem;font-weight:600;color:#1e293b;">${_dEsc(jobLocation)}</div></div>`:''}</div>`:''}
   ${projectTitle?`<div style="margin-bottom:20px;border-left:4px solid #4f46e5;padding-left:14px;"><div style="font-size:1.05rem;font-weight:800;color:#1e293b;line-height:1.3;">${_dEsc(projectTitle)}</div></div>`:''}
@@ -3025,7 +3078,7 @@ function _dTplBold() {
   const { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
     docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
     duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
-    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
+    grandTotalLabel, typeLabel, custLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
     receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef, paymentBlockHtml } = _dGetData();
   const itemsHtml = _dType !== 'contract' ? _dItems.map(it => {
     const k = it.type || 'other'; const tl = _dLang==='es'?(TYPE_LABELS_ES[k]||k):k.charAt(0).toUpperCase()+k.slice(1);
@@ -3042,7 +3095,7 @@ function _dTplBold() {
   <div class="red-bar"></div>
   <div class="info-row">
     <div class="info-box"><div class="info-lbl">${_dLang==='es'?'Empresa':'Company'}</div><div class="info-name">${_dEsc(bizName)||'--'}</div><div class="info-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
-    <div class="info-box red"><div class="info-lbl">${L.billTo}</div><div class="info-name">${_dEsc(custName)||'--'}</div><div class="info-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
+    <div class="info-box red"><div class="info-lbl">${custLabel}</div><div class="info-name">${_dEsc(custName)||'--'}</div><div class="info-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
   </div>
   <div class="body">
     ${(projectTitle||jobOrderedBy||jobLocation||duration)?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">${projectTitle?`<div><div style="font-size:0.62rem;font-weight:800;text-transform:uppercase;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Proyecto':'Project'}</div><div style="font-size:0.85rem;font-weight:600;border-bottom:1px solid #e2e8f0;padding-bottom:3px;">${_dEsc(projectTitle)}</div></div>`:''}${jobOrderedBy?`<div><div style="font-size:0.62rem;font-weight:800;text-transform:uppercase;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Ordenado Por':'Ordered By'}</div><div style="font-size:0.85rem;font-weight:600;border-bottom:1px solid #e2e8f0;padding-bottom:3px;">${_dEsc(jobOrderedBy)}</div></div>`:''}${jobLocation?`<div><div style="font-size:0.62rem;font-weight:800;text-transform:uppercase;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Ubicacion':'Location'}</div><div style="font-size:0.85rem;font-weight:600;border-bottom:1px solid #e2e8f0;padding-bottom:3px;">${_dEsc(jobLocation)}</div></div>`:''}${duration?`<div><div style="font-size:0.62rem;font-weight:800;text-transform:uppercase;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Duracion':'Duration'}</div><div style="font-size:0.85rem;font-weight:600;border-bottom:1px solid #e2e8f0;padding-bottom:3px;">${_dEsc(duration)}</div></div>`:''}</div>`:''}
@@ -3064,7 +3117,7 @@ function _dTplExecutive() {
   const { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
     docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
     duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
-    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
+    grandTotalLabel, typeLabel, custLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
     receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef, paymentBlockHtml } = _dGetData();
   const gold = '#c9972b'; const navy = '#0f172a';
   const itemsHtml = _dType !== 'contract' ? _dItems.map(it => {
@@ -3081,7 +3134,7 @@ function _dTplExecutive() {
   <div class="gold-bar"></div>
   <div class="party-row">
     <div class="party"><div class="plbl">${_dEsc(bizName)||'From'}</div><div class="pname">${_dEsc(bizName)}</div><div class="pdet">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
-    <div class="party client"><div class="plbl" style="color:${navy}">${L.billTo}</div><div class="pname">${_dEsc(custName)||'--'}</div><div class="pdet">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
+    <div class="party client"><div class="plbl" style="color:${navy}">${custLabel}</div><div class="pname">${_dEsc(custName)||'--'}</div><div class="pdet">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
   </div>
   <div class="body">
     ${(projectTitle||jobOrderedBy||jobLocation||duration)?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">${projectTitle?`<div style="padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;border-left:3px solid ${gold};"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Proyecto':'Project'}</div><div style="font-size:0.9rem;font-weight:700;color:${navy};">${_dEsc(projectTitle)}</div></div>`:''}${jobOrderedBy?`<div style="padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Ordenado Por':'Ordered By'}</div><div style="font-size:0.85rem;font-weight:600;">${_dEsc(jobOrderedBy)}</div></div>`:''}${jobLocation?`<div style="padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Ubicacion':'Location'}</div><div style="font-size:0.85rem;font-weight:600;">${_dEsc(jobLocation)}</div></div>`:''}${duration?`<div style="padding:10px 14px;background:#fafaf8;border:1px solid #e2e8f0;"><div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Duracion':'Duration'}</div><div style="font-size:0.85rem;font-weight:600;">${_dEsc(duration)}</div></div>`:''}</div>`:''}
@@ -3118,7 +3171,7 @@ function _dTplModern() {
   </div>
   <div class="party-cards">
     <div class="card"><div class="card-lbl">${_dEsc(bizName)||'From'}</div><div class="card-name">${_dEsc(bizName)}</div><div class="card-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
-    <div class="card"><div class="card-lbl">${L.billTo}</div><div class="card-name">${_dEsc(custName)||'--'}</div><div class="card-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
+    <div class="card"><div class="card-lbl">${custLabel}</div><div class="card-name">${_dEsc(custName)||'--'}</div><div class="card-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
   </div>
   <div class="body">
     ${(projectTitle||jobOrderedBy||jobLocation||duration)?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">${projectTitle?`<div style="background:#f8fafc;border-radius:10px;padding:12px 14px;border:1px solid #e2e8f0;border-left:3px solid #7c3aed;"><div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Proyecto':'Project'}</div><div style="font-size:0.85rem;font-weight:600;color:#1e293b;">${_dEsc(projectTitle)}</div></div>`:''}${jobOrderedBy?`<div style="background:#f8fafc;border-radius:10px;padding:12px 14px;border:1px solid #e2e8f0;"><div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Ordenado Por':'Ordered By'}</div><div style="font-size:0.85rem;font-weight:600;color:#1e293b;">${_dEsc(jobOrderedBy)}</div></div>`:''}${jobLocation?`<div style="background:#f8fafc;border-radius:10px;padding:12px 14px;border:1px solid #e2e8f0;"><div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Ubicacion':'Location'}</div><div style="font-size:0.85rem;font-weight:600;color:#1e293b;">${_dEsc(jobLocation)}</div></div>`:''}${duration?`<div style="background:#f8fafc;border-radius:10px;padding:12px 14px;border:1px solid #e2e8f0;"><div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">${_dLang==='es'?'Duracion':'Duration'}</div><div style="font-size:0.85rem;font-weight:600;color:#1e293b;">${_dEsc(duration)}</div></div>`:''}</div>`:''}
@@ -3140,7 +3193,7 @@ function _dTplMinimal() {
   const { L, bizName, bizAddress, bizPhone, bizEmail, custName, custEmail, custPhone, custAddr,
     docNumber, docDate, notes, contractTxt, projectTitle, jobOrderedBy, jobLocation,
     duration, jobScope, taxRate, advance, includeTC, termsText, subtotal, taxAmt, grand, balance,
-    grandTotalLabel, typeLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
+    grandTotalLabel, typeLabel, custLabel, fmtDate, logoHtml, TYPE_LABELS_ES, scopeHtml,
     receiptPaymentHtml, paidInFullHtml, payInstructionsHtml, invoiceRef, paymentBlockHtml } = _dGetData();
   const itemsHtml = _dType !== 'contract' ? _dItems.map(it => {
     const k = it.type || 'other'; const tl = _dLang==='es'?(TYPE_LABELS_ES[k]||k):k.charAt(0).toUpperCase()+k.slice(1);
@@ -3155,7 +3208,7 @@ function _dTplMinimal() {
   </div>
   <div class="parties">
     <div class="party"><div class="party-lbl">${_dLang==='es'?'De':'From'}</div><div class="party-name">${_dEsc(bizName)||'--'}</div><div class="party-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
-    <div class="party"><div class="party-lbl">${L.billTo}</div><div class="party-name">${_dEsc(custName)||'--'}</div><div class="party-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
+    <div class="party"><div class="party-lbl">${custLabel}</div><div class="party-name">${_dEsc(custName)||'--'}</div><div class="party-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
     ${jobOrderedBy||jobLocation?`<div class="party">${jobOrderedBy?`<div class="party-lbl">${_dLang==='es'?'Ordenado Por':'Ordered By'}</div><div class="party-name">${_dEsc(jobOrderedBy)}</div>`:''} ${jobLocation?`<div class="party-lbl" style="margin-top:8px;">${_dLang==='es'?'Ubicacion':'Location'}</div><div class="party-det">${_dEsc(jobLocation)}</div>`:''}</div>`:''}
   </div>
   ${projectTitle?`<div style="margin-bottom:20px;"><div class="section-head">${_dLang==='es'?'Proyecto':'Project'}</div><div style="font-size:1rem;font-weight:600;">${_dEsc(projectTitle)}</div></div>`:''}
@@ -3353,11 +3406,12 @@ window._dashDocSave = async function() {
       showPricing:  _dShowPricing,
       includeTC:    document.getElementById('docIncludeTC')?.checked || false,
       termsText:    document.getElementById('docTermsText')?.value || '',
-      paymentMethod: document.getElementById('docPaymentMethod')?.value || '',
+      paymentMethod:    document.getElementById('docPaymentMethod')?.value  || '',
+      payInstructions:  document.getElementById('docPayInstructions')?.value || '',
+      invoiceRef:       document.getElementById('docInvoiceRef')?.value      || '',
       logoUrl:      _dLogoUrl,
       htmlContent,
       amount:       grand.toFixed(2),
-      status:       'pending',
       createdAt:    serverTimestamp()
     };
 
@@ -3369,7 +3423,7 @@ window._dashDocSave = async function() {
     if (_dCurrentDocId) {
       await updateDoc(doc(db, 'documents', _dCurrentDocId), { ...data, updatedAt: serverTimestamp() });
     } else {
-      const ref = await addDoc(collection(db, 'documents'), data);
+      const ref = await addDoc(collection(db, 'documents'), { ...data, status: 'pending', ownerUid: currentUser?.uid || '' });
       savedId = ref.id;
       _dCurrentDocId = savedId;
     }
@@ -3438,14 +3492,14 @@ function _dShowShareModal(viewUrl, typeLabel, docNumber, type) {
 }
 
 // ── Open Doc Creator ──────────────────────────────────────────
-function openDocCreator(type = 'invoice') {
-  _dType        = type;
-  _dDesign      = 'classic';
-  _dItems       = [{ desc:'', price:0, type:'labor' }];
-  _dLogoUrl     = '';
-  _dCurrentDocId = null;
-  _dShowPricing  = true;
-  _dLang         = 'en';
+function openDocCreator(type = 'invoice', existingDoc = null) {
+  _dType        = existingDoc?.type || type;
+  _dDesign      = existingDoc?.template || existingDoc?.design || 'classic';
+  _dItems       = existingDoc?.items?.length ? existingDoc.items : [{ desc:'', price:0, type:'labor' }];
+  _dLogoUrl     = existingDoc?.logoUrl || '';
+  _dCurrentDocId = existingDoc?.id || null;
+  _dShowPricing  = existingDoc ? (existingDoc.showPricing !== false) : true;
+  _dLang         = existingDoc?.lang || 'en';
 
   const modal = document.getElementById('docCreatorModal');
   if (!modal) return;
@@ -3498,9 +3552,46 @@ function openDocCreator(type = 'invoice') {
   _dSetVal('docNumber', type.slice(0,3).toUpperCase() + '-' + String(Date.now()).slice(-4));
 
   // Set type, lang, design
-  window._dashDocSetType(type);
-  window._dashDocSetLang('en');
-  window._dashDocSetDesign('classic');
+  window._dashDocSetType(_dType);
+  window._dashDocSetLang(_dLang);
+  window._dashDocSetDesign(_dDesign);
+
+  // Pre-fill existing doc fields for editing
+  if (existingDoc) {
+    const e = existingDoc;
+    _dSetVal('docBizName',       e.bizName        || '');
+    _dSetVal('docBizAddress',    e.bizAddress     || '');
+    _dSetVal('docBizPhone',      e.bizPhone       || '');
+    _dSetVal('docBizEmail',      e.bizEmail       || '');
+    _dSetVal('docCustName',      e.customerName   || e.custName    || '');
+    _dSetVal('docCustEmail',     e.customerEmail  || e.custEmail   || '');
+    _dSetVal('docCustPhone',     e.customerPhone  || e.custPhone   || '');
+    _dSetVal('docCustAddress',   e.customerAddress|| e.custAddress || '');
+    _dSetVal('docNumber',        e.docNumber      || '');
+    _dSetVal('docDate',          e.docDate        || '');
+    _dSetVal('docDueDate',       e.docDueDate     || e.dueDate || '');
+    _dSetVal('docNotes',         e.notes          || '');
+    _dSetVal('docContractText',  e.contractText   || '');
+    _dSetVal('docProjectTitle',  e.projectTitle   || '');
+    _dSetVal('docJobOrderedBy',  e.jobOrderedBy   || '');
+    _dSetVal('docJobLocation',   e.jobLocation    || '');
+    _dSetVal('docDuration',      e.duration       || '');
+    _dSetVal('docJobScope',      e.jobScope       || '');
+    _dSetVal('docPayInstructions', e.payInstructions || '');
+    _dSetVal('docInvoiceRef',    e.invoiceRef     || '');
+    _dSetVal('docTaxRate',       e.taxRate != null ? String(e.taxRate) : '0');
+    _dSetVal('docAdvancePayment', e.advance != null ? String(e.advance) : (e.advancePayment != null ? String(e.advancePayment) : '0'));
+    if (e.logoUrl) {
+      _dLogoUrl = e.logoUrl;
+      if (img) { img.src = e.logoUrl; img.style.display = 'block'; }
+      if (ph)  ph.style.display = 'none';
+    }
+    const pChk2 = document.getElementById('docShowPricing');
+    if (pChk2) {
+      pChk2.checked = e.showPricing !== false;
+      document.getElementById('docPricingContent')?.classList.toggle('hidden', !pChk2.checked);
+    }
+  }
 
   // Render items & preview
   window._dashDocRenderItems();
