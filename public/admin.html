@@ -1052,137 +1052,150 @@
 
 <!-- ══════════════ MODAL: Create / Edit Demo ══════════════ -->
 <div class="modal-overlay hidden" id="demoModal">
-  <div class="modal-card">
-    <div class="modal-header">
-      <h3 id="demoModalTitle">Create Demo</h3>
-      <button class="modal-close" data-close="demoModal">✕</button>
+  <div class="modal-card dm-modal-card">
+
+    <!-- Hero Header -->
+    <div class="dm-hero">
+      <div class="dm-hero-icon">🤖</div>
+      <div class="dm-hero-text">
+        <h3 id="demoModalTitle">Create Demo</h3>
+        <p class="dm-hero-sub">Configure an AI receptionist for your client</p>
+      </div>
+      <button class="modal-close dm-close" data-close="demoModal">✕</button>
     </div>
+
     <div class="modal-body">
       <input type="hidden" id="demoModalId" />
 
-      <!-- Scan & Extract -->
-      <div class="form-group">
-        <label>Business Website <span style="font-size:0.75rem;font-weight:400;color:var(--muted)">— Scan to auto-fill the form</span></label>
+      <!-- Scan Card -->
+      <div class="dm-scan-card">
+        <div class="dm-scan-label">🔍 Auto-Fill from Website</div>
         <div style="display:flex;gap:8px;align-items:center;">
-          <input type="url" id="dmWebsite" placeholder="https://theirbusiness.com" style="flex:1;" />
+          <input type="url" id="dmWebsite" class="dm-scan-input" placeholder="https://theirbusiness.com" />
           <button class="btn-scan" id="scanBizBtn" type="button">🔍 Scan &amp; Extract</button>
         </div>
         <div class="scan-status" id="scanStatus"></div>
       </div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label>Business Name <span style="color:var(--red)">*</span></label>
-          <input type="text" id="dmBizName" placeholder="e.g. Joe's Coffee" required />
+      <!-- Business Identity -->
+      <div class="dm-section">
+        <div class="dm-section-title">🏢 Business Identity</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Business Name <span style="color:var(--red)">*</span></label>
+            <input type="text" id="dmBizName" placeholder="e.g. Joe's Coffee" required />
+          </div>
+          <div class="form-group">
+            <label>Category <span style="color:var(--red)">*</span></label>
+            <select id="dmCategory">
+              <option value="">Select category…</option>
+            </select>
+          </div>
         </div>
-        <div class="form-group">
-          <label>Category <span style="color:var(--red)">*</span></label>
-          <select id="dmCategory">
-            <option value="">Select category…</option>
-          </select>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Slug</label>
+            <input type="text" id="dmSlug" placeholder="auto-generated" />
+            <div class="form-hint">URL: eplocalproai.com/demo/<span id="dmSlugPreview">…</span></div>
+          </div>
+          <div class="form-group">
+            <label>Language</label>
+            <div class="dm-lang-toggle">
+              <label class="dm-lang-opt"><input type="radio" name="dmLang" value="en" checked /><span>EN</span></label>
+              <label class="dm-lang-opt"><input type="radio" name="dmLang" value="es" /><span>ES</span></label>
+            </div>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label>Referrer EP HUB Username</label>
+          <input type="text" id="dmReferrer" placeholder="e.g. eddieeph (optional)" />
         </div>
       </div>
 
-      <div class="form-row">
+      <!-- AI Configuration -->
+      <div class="dm-section">
+        <div class="dm-section-title">🤖 AI Configuration</div>
         <div class="form-group">
-          <label>Slug</label>
-          <input type="text" id="dmSlug" placeholder="auto-generated" />
-          <div class="form-hint">URL: eplocalproai.com/demo/<span id="dmSlugPreview">…</span></div>
+          <label>Custom Greeting Override</label>
+          <textarea id="dmGreeting" placeholder="Leave blank to use the default greeting for this category"></textarea>
         </div>
         <div class="form-group">
-          <label>Language</label>
-          <div class="radio-group">
-            <label><input type="radio" name="dmLang" value="en" checked /> EN</label>
-            <label><input type="radio" name="dmLang" value="es" /> ES</label>
+          <label>AI Prompt <span style="font-size:0.75rem;font-weight:400;color:var(--muted)">Auto-filled by scan or write custom</span></label>
+          <textarea id="dmAiPrompt" rows="4" placeholder="You are an AI receptionist for this business. Help callers with questions, collect their name and phone number, and assist with bookings or orders."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Consultation Calendar URL <span style="font-size:0.75rem;font-weight:400;color:var(--muted)">— Opens after lead is collected</span></label>
+          <input type="url" id="dmCalendarUrl" placeholder="https://calendly.com/yourbusiness (optional)" />
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label>Assign to User <span style="font-size:0.75rem;font-weight:400;color:var(--muted)">— EP Local Pro AI username (optional)</span></label>
+          <input type="text" id="dmAssignedUser" placeholder="e.g. eddieeph (optional)" />
+        </div>
+      </div>
+
+      <!-- Business Details -->
+      <div class="dm-section">
+        <div class="dm-section-title">📋 Business Details</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Phone</label>
+            <input type="tel" id="dmPhone" placeholder="+1 (555) 000-0000" />
+          </div>
+          <div class="form-group">
+            <label>Services / Specialty</label>
+            <input type="text" id="dmServices" placeholder="e.g. Plumbing, drain cleaning, water heaters" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Business Bio</label>
+          <textarea id="dmBio" rows="2" placeholder="Short description of what the business does and who it serves"></textarea>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <div class="menu-editor">
+            <div class="menu-editor-header">
+              <span>Menu / Services</span>
+              <button class="btn-add-item" id="addMenuItemBtn" type="button">＋ Add Item</button>
+            </div>
+            <div class="menu-items-list" id="menuItemsList"></div>
+            <div class="text-xs text-muted" style="margin-top:4px;">Name · Price · Emoji · Description</div>
           </div>
         </div>
       </div>
 
-      <div class="form-group">
-        <label>Referrer EP HUB Username</label>
-        <input type="text" id="dmReferrer" placeholder="e.g. eddieeph (optional)" />
-      </div>
-
-      <div class="form-group">
-        <label>Custom Greeting Override</label>
-        <textarea id="dmGreeting" placeholder="Leave blank to use the default greeting for this category"></textarea>
-      </div>
-
-      <div class="form-group">
-        <label>AI Prompt <span style="font-size:0.75rem;font-weight:400;color:var(--muted)">Auto-filled by scan or write custom</span></label>
-        <textarea id="dmAiPrompt" rows="4" placeholder="You are an AI receptionist for this business. Help callers with questions, collect their name and phone number, and assist with bookings or orders."></textarea>
-      </div>
-
-      <div class="form-group">
-        <label>Consultation Calendar URL <span style="font-size:0.75rem;font-weight:400;color:var(--muted)">— Opens after lead is collected (Calendly, Google Calendar, etc.)</span></label>
-        <input type="url" id="dmCalendarUrl" placeholder="https://calendly.com/yourbusiness (optional)" />
-      </div>
-
-      <div class="form-group">
-        <label>Assign to User <span style="font-size:0.75rem;font-weight:400;color:var(--muted)">— EP Local Pro AI username to notify when demo is ready (optional)</span></label>
-        <input type="text" id="dmAssignedUser" placeholder="e.g. eddieeph (optional)" />
-      </div>
-
-      <div class="form-row">
+      <!-- Appearance -->
+      <div class="dm-section">
+        <div class="dm-section-title">🎨 Appearance</div>
         <div class="form-group">
-          <label>Phone</label>
-          <input type="tel" id="dmPhone" placeholder="+1 (555) 000-0000" />
-        </div>
-        <div class="form-group">
-          <label>Services / Specialty</label>
-          <input type="text" id="dmServices" placeholder="e.g. Plumbing, drain cleaning, water heaters" />
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Business Bio</label>
-        <textarea id="dmBio" rows="2" placeholder="Short description of what the business does and who it serves"></textarea>
-      </div>
-
-      <div class="form-group">
-        <div class="menu-editor">
-          <div class="menu-editor-header">
-            <span>Menu / Services</span>
-            <button class="btn-add-item" id="addMenuItemBtn" type="button">＋ Add Item</button>
+          <label>AI Widget Button Style</label>
+          <div class="widget-theme-row" id="dmWidgetThemeRow">
+            <div class="wt-swatch wt-cyan selected" data-theme="cyan" onclick="dmPickTheme('cyan')" title="Cyan (default)"><span>AI</span></div>
+            <div class="wt-swatch wt-red"           data-theme="red"  onclick="dmPickTheme('red')"  title="Red"><span>AI</span></div>
+            <div class="wt-swatch wt-gold"          data-theme="gold" onclick="dmPickTheme('gold')" title="Gold"><span>AI</span></div>
+            <label class="wt-custom-img">
+              📷 Custom Image
+              <input type="file" id="dmWidgetImgUpload" accept="image/*" style="display:none" onchange="dmUploadWidgetImg(this)" />
+            </label>
+            <div id="dmWidgetImgPreview" class="wt-img-preview" style="display:none">
+              <img id="dmWidgetImgThumb" src="" alt="custom" />
+              <button type="button" onclick="dmClearWidgetImg()">✕</button>
+            </div>
           </div>
-          <div class="menu-items-list" id="menuItemsList"></div>
-          <div class="text-xs text-muted" style="margin-top:4px;">Name · Price · Emoji · Description</div>
+          <div id="dmWidgetThemeStatus" class="form-hint" style="margin-top:4px;">Style: Cyan (default)</div>
         </div>
-      </div>
-
-      <!-- AI Widget Button Style -->
-      <div class="form-group">
-        <label>🎨 AI Widget Button Style</label>
-        <div class="widget-theme-row" id="dmWidgetThemeRow">
-          <div class="wt-swatch wt-cyan selected" data-theme="cyan" onclick="dmPickTheme('cyan')" title="Cyan (default)"><span>AI</span></div>
-          <div class="wt-swatch wt-red"           data-theme="red"  onclick="dmPickTheme('red')"  title="Red"><span>AI</span></div>
-          <div class="wt-swatch wt-gold"          data-theme="gold" onclick="dmPickTheme('gold')" title="Gold"><span>AI</span></div>
-          <label class="wt-custom-img">
-            📷 Custom Image
-            <input type="file" id="dmWidgetImgUpload" accept="image/*" style="display:none" onchange="dmUploadWidgetImg(this)" />
-          </label>
-          <div id="dmWidgetImgPreview" class="wt-img-preview" style="display:none">
-            <img id="dmWidgetImgThumb" src="" alt="custom" />
-            <button type="button" onclick="dmClearWidgetImg()">✕</button>
+        <div class="form-group" style="margin-bottom:0">
+          <label>AI Page Background Image <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
+          <div class="ai-bg-upload-row">
+            <label class="ai-bg-upload-btn">
+              📤 Upload Background
+              <input type="file" id="dmBgUpload" accept="image/*" style="display:none" onchange="dmUploadBg(this)" />
+            </label>
+            <div id="dmBgPreview" class="ai-bg-preview" style="display:none">
+              <img id="dmBgThumb" src="" alt="bg" />
+              <button type="button" onclick="dmClearBg()">✕ Remove</button>
+            </div>
           </div>
+          <div id="dmBgStatus" class="form-hint" style="margin-top:4px;"></div>
         </div>
-        <div id="dmWidgetThemeStatus" class="form-hint" style="margin-top:4px;">Style: Cyan (default)</div>
-      </div>
-
-      <!-- Background Image -->
-      <div class="form-group">
-        <label>🖼️ AI Page Background Image <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
-        <div class="ai-bg-upload-row">
-          <label class="ai-bg-upload-btn">
-            📤 Upload Background
-            <input type="file" id="dmBgUpload" accept="image/*" style="display:none" onchange="dmUploadBg(this)" />
-          </label>
-          <div id="dmBgPreview" class="ai-bg-preview" style="display:none">
-            <img id="dmBgThumb" src="" alt="bg" />
-            <button type="button" onclick="dmClearBg()">✕ Remove</button>
-          </div>
-        </div>
-        <div id="dmBgStatus" class="form-hint" style="margin-top:4px;"></div>
       </div>
 
     </div><!-- /modal-body -->
