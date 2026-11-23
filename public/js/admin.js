@@ -510,6 +510,8 @@ function openModal(id) {
 
 function closeModal(id) {
   document.getElementById(id)?.classList.add('hidden');
+  // Always restore scroll — the doc-creator sets overflow:hidden on open
+  document.body.style.overflow = '';
 }
 
 // ============================================================
