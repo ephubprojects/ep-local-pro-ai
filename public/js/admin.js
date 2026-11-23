@@ -3570,6 +3570,12 @@ window._docUpdatePreview = function() {
   const frame = document.getElementById('docPreviewFrame');
   if (!frame) return;
   const html = _docGenerateHTML();
+  frame.onload = () => {
+    try {
+      const h = frame.contentDocument?.body?.scrollHeight;
+      if (h && h > 100) frame.style.height = h + 'px';
+    } catch(_) {}
+  };
   frame.srcdoc = html;
   const hint = document.getElementById('docPaymentHint');
   if (hint) {

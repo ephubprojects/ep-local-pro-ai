@@ -2181,17 +2181,24 @@ input[type="color"]#catColorPicker {
 .doc-creator-body {
   display: grid;
   grid-template-columns: 400px 1fr;
+  grid-template-rows: minmax(0, 1fr);
   flex: 1;
   overflow: hidden;
   min-height: 0;
 }
 @media (max-width: 860px) {
-  .doc-creator-body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .doc-creator-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
 }
 
 /* Form column */
 .doc-form-col {
   overflow-y: auto;
+  min-height: 0;
   padding: 16px;
   border-right: 1px solid var(--border, #e2e8f0);
   display: flex;
@@ -2458,7 +2465,8 @@ textarea.doc-input { resize: vertical; }
 .doc-preview-col {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
+  min-height: 0;
   background: #e2e8f0;
 }
 
@@ -2473,9 +2481,10 @@ textarea.doc-input { resize: vertical; }
 }
 
 .doc-preview-frame {
-  flex: 1;
+  flex: none;
   border: none;
   width: 100%;
+  min-height: 400px;
   background: #fff;
 }
 

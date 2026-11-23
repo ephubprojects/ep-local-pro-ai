@@ -2821,6 +2821,12 @@ window._dashDocUpdateTotals = function() {
 window._dashDocUpdatePreview = function() {
   const frame = document.getElementById('dashDocPreviewFrame');
   if (!frame) return;
+  frame.onload = () => {
+    try {
+      const h = frame.contentDocument?.body?.scrollHeight;
+      if (h && h > 100) frame.style.height = h + 'px';
+    } catch(_) {}
+  };
   frame.srcdoc = window._dashDocGenerateHTML();
 };
 
