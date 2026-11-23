@@ -9,6 +9,9 @@
 [functions."ai-session"]
   timeout = 26
 
+[functions."ai-support"]
+  timeout = 26
+
 [functions."invoice-generate"]
   timeout = 26
 

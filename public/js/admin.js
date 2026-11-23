@@ -13,7 +13,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 import {
   collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
-  query, where, orderBy, limit, serverTimestamp
+  query, where, orderBy, limit, serverTimestamp, arrayUnion, arrayRemove
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // ── Category data (inline — no fetch needed) ────────────────
@@ -1192,7 +1192,7 @@ async function loadUsers() {
   const tbody   = document.getElementById('usersTableBody');
   const countEl = document.getElementById('usersCount');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">⏳</div><p>Loading…</p></div></td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">⏳</div><p>Loading…</p></div></td></tr>`;
   try {
     const snap = await getDocs(query(collection(db, 'owners'), orderBy('createdAt', 'desc')));
     _allUsers = snap.docs
@@ -1202,7 +1202,7 @@ async function loadUsers() {
     renderUsersTable(_allUsers);
   } catch (err) {
     console.error('loadUsers error:', err);
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><p>Error loading users. Publish Firestore rules first.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><p>Error loading users. Publish Firestore rules first.</p></div></td></tr>`;
   }
 }
 
@@ -1210,10 +1210,12 @@ function renderUsersTable(users) {
   const tbody = document.getElementById('usersTableBody');
   if (!tbody) return;
   if (!users.length) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">👥</div><p>No users yet.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">👥</div><p>No users yet.</p></div></td></tr>`;
     return;
   }
-  tbody.innerHTML = users.map(u => `
+  tbody.innerHTML = users.map(u => {
+    const aiOn = u.aiSupport === true;
+    return `
     <tr>
       <td>${escHTML(((u.firstName || '') + ' ' + (u.lastName || '')).trim() || '—')}</td>
       <td class="cell-mono">${escHTML(u.username || '—')}</td>
@@ -1222,9 +1224,33 @@ function renderUsersTable(users) {
       <td>${escHTML(u.sponsorUsername || '—')}</td>
       <td>${badgeHTML(u.plan || 'trial')}</td>
       <td>${escHTML(fmtDate(u.createdAt))}</td>
+      <td style="text-align:center;">
+        <button class="btn-action ${aiOn ? 'success' : ''}" style="min-width:60px"
+          onclick="window._adminToggleAiSupport('${escAttr(u.id)}', ${!aiOn})">
+          ${aiOn ? 'ON' : 'OFF'}
+        </button>
+      </td>
       <td><button class="btn-action danger" onclick="window._adminCancelUser('${escAttr(u.id)}','${escAttr(((u.firstName||'')+' '+(u.lastName||'')).trim()||u.email||'this user')}')">Cancel</button></td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
+
+window._adminToggleAiSupport = async function(uid, enable) {
+  try {
+    await updateDoc(doc(db, 'owners', uid), { aiSupport: enable });
+    const aiRef = doc(db, 'config', 'aiAccess');
+    if (enable) {
+      await setDoc(aiRef, { enabledUids: arrayUnion(uid) }, { merge: true });
+    } else {
+      await setDoc(aiRef, { enabledUids: arrayRemove(uid) }, { merge: true });
+    }
+    showToast(`AI Help ${enable ? 'enabled' : 'disabled'}`, 'success');
+    await loadUsers();
+  } catch (e) {
+    console.error('toggleAiSupport error:', e);
+    showToast('Could not update AI access', 'error');
+  }
+};
 
 function filterUsers() {
   const q = (document.getElementById('userSearch')?.value || '').toLowerCase();
