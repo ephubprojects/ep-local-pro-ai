@@ -251,6 +251,9 @@ async function onAdminReady(user) {
         _populatePaymentMethodsForm(od.paymentMethods);
       }
 
+      // AI Help FAB
+      if (od.aiSupport === true) _aiInitSupport();
+
       const username = od.username || '';
       if (username) {
         const refUrl  = `https://ep-local-pro-ai.netlify.app/auth.html?ref=${username}`;
@@ -4921,3 +4924,131 @@ window._docDeleteDoc = async function(id) {
 
 // ── Boot ─────────────────────────────────────────────────────
 initAdmin();
+
+// ============================================================
+// AI HELP CHAT (admin panel)
+// ============================================================
+let _aiHistory    = [];
+let _aiPendingImg = null;
+let _aiChatOpen   = false;
+
+function _aiInitSupport() {
+  const fab = document.getElementById('aiHelpFab');
+  if (!fab) return;
+  fab.style.display = 'flex';
+  fab.classList.remove('hidden');
+
+  document.addEventListener('paste', e => {
+    if (!_aiChatOpen) return;
+    const item = Array.from(e.clipboardData?.items || []).find(i => i.type.startsWith('image/'));
+    if (item) _aiLoadImageFile(item.getAsFile());
+  });
+}
+
+window._aiToggleChat = function() {
+  const modal = document.getElementById('aiChatModal');
+  if (!modal) return;
+  _aiChatOpen = !_aiChatOpen;
+  modal.style.display = _aiChatOpen ? 'flex' : 'none';
+  if (_aiChatOpen) {
+    if (!_aiHistory.length) _aiAddMsg('assistant', 'Hi! I\'m your EP Local Pro AI assistant. Describe your issue or paste/attach a screenshot and I\'ll help you troubleshoot.');
+    document.getElementById('aiInput')?.focus();
+  }
+};
+
+window._aiHandleFile = function(input) {
+  const file = input.files?.[0];
+  if (file) _aiLoadImageFile(file);
+  input.value = '';
+};
+
+function _aiLoadImageFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    const [header, base64] = dataUrl.split(',');
+    const mediaType = header.match(/data:([^;]+)/)?.[1] || 'image/png';
+    _aiPendingImg = { base64, mediaType };
+    const preview = document.getElementById('aiImgPreview');
+    const wrap    = document.getElementById('aiImgPreviewWrap');
+    if (preview) preview.src = dataUrl;
+    if (wrap)    wrap.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+window._aiClearImg = function() {
+  _aiPendingImg = null;
+  const wrap = document.getElementById('aiImgPreviewWrap');
+  if (wrap) wrap.style.display = 'none';
+};
+
+window._aiSend = async function() {
+  const input = document.getElementById('aiInput');
+  const text  = (input?.value || '').trim();
+  if (!text && !_aiPendingImg) return;
+
+  const userContent = [];
+  if (_aiPendingImg) {
+    userContent.push({ type: 'image', source: { type: 'base64', media_type: _aiPendingImg.mediaType, data: _aiPendingImg.base64 } });
+  }
+  if (text) userContent.push({ type: 'text', text });
+
+  _aiAddMsg('user', text, _aiPendingImg ? '📎 image attached' : null);
+  if (input) input.value = '';
+  window._aiClearImg();
+
+  _aiHistory.push({ role: 'user', content: userContent });
+  if (_aiHistory.length > 20) _aiHistory = _aiHistory.slice(-20);
+
+  const thinkId = _aiAddMsg('assistant', '…', null, true);
+
+  try {
+    const uid = currentUser?.uid;
+    const res = await fetch('/.netlify/functions/ai-support', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid, messages: _aiHistory })
+    });
+    const data = await res.json();
+    _aiRemoveThinking(thinkId);
+    if (!res.ok) {
+      _aiAddMsg('assistant', data.error || 'Something went wrong. Please try again.');
+      return;
+    }
+    const reply = data.text || '';
+    _aiHistory.push({ role: 'assistant', content: reply });
+    _aiAddMsg('assistant', reply);
+  } catch (e) {
+    _aiRemoveThinking(thinkId);
+    _aiAddMsg('assistant', 'Could not reach the AI service. Check your connection and try again.');
+  }
+};
+
+function _aiAddMsg(role, text, note, isThinking = false) {
+  const container = document.getElementById('aiMsgs');
+  if (!container) return null;
+  const id  = 'ai-msg-' + Date.now() + Math.random().toString(36).slice(2);
+  const div = document.createElement('div');
+  div.id = id;
+  const isUser = role === 'user';
+  div.style.cssText = `display:flex;flex-direction:column;align-items:${isUser ? 'flex-end' : 'flex-start'};gap:2px;`;
+  const bubble = document.createElement('div');
+  bubble.style.cssText = `max-width:88%;padding:8px 11px;border-radius:${isUser ? '12px 12px 2px 12px' : '12px 12px 12px 2px'};font-size:0.82rem;line-height:1.5;white-space:pre-wrap;word-break:break-word;background:${isUser ? '#6366f1' : '#2a2a3e'};color:${isUser ? '#fff' : '#e2e8f0'};`;
+  bubble.textContent = isThinking ? '⏳ Thinking…' : (text || '');
+  div.appendChild(bubble);
+  if (note) {
+    const small = document.createElement('small');
+    small.style.cssText = 'color:#64748b;font-size:0.7rem;';
+    small.textContent = note;
+    div.appendChild(small);
+  }
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return id;
+}
+
+function _aiRemoveThinking(id) {
+  if (id) document.getElementById(id)?.remove();
+}
