@@ -3252,7 +3252,7 @@ function _docApplyTypeLayout() {
   }
 
   // Bill To label
-  if (isReceipt)       setTxt('docBillToLabel', es ? 'Recibido De' : 'Received From');
+  if (isReceipt)       setTxt('docBillToLabel', es ? 'Para' : 'To');
   else if (isContract) setTxt('docBillToLabel', es ? 'Cliente' : 'Client');
   else if (isEstimate) setTxt('docBillToLabel', es ? 'Preparado Para' : 'Prepared For');
   else                 setTxt('docBillToLabel', es ? 'Facturar a' : 'Bill To');
@@ -3408,7 +3408,7 @@ function _docGetData() {
     ? (_docLang === 'es' ? 'COSTO ESTIMADO DEL PROYECTO' : 'ESTIMATED PROJECT COST')
     : L.grandTotal;
   const typeLabel  = L[_docType] || _docType;
-  const custLabel  = _docType === 'receipt'  ? (_docLang === 'es' ? 'Recibido De'    : 'Received From')
+  const custLabel  = _docType === 'receipt'  ? (_docLang === 'es' ? 'Para'           : 'To')
                    : _docType === 'contract' ? (_docLang === 'es' ? 'Cliente'        : 'Client')
                    : _docType === 'estimate' ? (_docLang === 'es' ? 'Preparado Para' : 'Prepared For')
                    :                           (_docLang === 'es' ? 'Facturar a'     : 'Bill To');
@@ -3578,7 +3578,7 @@ function _docTplClassic() {
   const paymentBlockHtml = _buildPaymentBlockHtml();
 
   const typeLabel = L[_docType] || _docType;
-  const custLabel = _docType === 'receipt'  ? (_docLang === 'es' ? 'Recibido De'    : 'Received From')
+  const custLabel = _docType === 'receipt'  ? (_docLang === 'es' ? 'Para'           : 'To')
                   : _docType === 'contract' ? (_docLang === 'es' ? 'Cliente'        : 'Client')
                   : _docType === 'estimate' ? (_docLang === 'es' ? 'Preparado Para' : 'Prepared For')
                   :                           (_docLang === 'es' ? 'Facturar a'     : 'Bill To');
@@ -3669,7 +3669,7 @@ function _docTplClassic() {
 
   <div class="doc-parties">
     <div class="doc-party">
-      <div class="party-label">${_esc(bizName) || 'From'}</div>
+      <div class="party-label">${_docLang==='es'?'De':'From'}</div>
       <div class="party-name">${_esc(bizName)}</div>
       ${bizAddress ? `<div class="party-detail">${_esc(bizAddress)}</div>` : ''}
       ${bizPhone   ? `<div class="party-detail">${_esc(bizPhone)}</div>` : ''}
@@ -3818,7 +3818,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}thead tr{background
   </div>
   <div class="red-bar"></div>
   <div class="info-row">
-    <div class="info-box"><div class="info-lbl">${_docLang==='es'?'Empresa':'Company'}</div><div class="info-name">${_esc(bizName)||'—'}</div><div class="info-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
+    <div class="info-box"><div class="info-lbl">${_docLang==='es'?'De':'From'}</div><div class="info-name">${_esc(bizName)||'—'}</div><div class="info-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
     <div class="info-box red"><div class="info-lbl">${custLabel}</div><div class="info-name">${_esc(custName)||'—'}</div><div class="info-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
   </div>
   <div class="body">
@@ -3871,7 +3871,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}thead tr{background
   </div>
   <div class="gold-bar"></div>
   <div class="party-row">
-    <div class="party"><div class="plbl">${_esc(bizName)||'From'}</div><div class="pname">${_esc(bizName)}</div><div class="pdet">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
+    <div class="party"><div class="plbl">${_docLang==='es'?'De':'From'}</div><div class="pname">${_esc(bizName)}</div><div class="pdet">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
     <div class="party client"><div class="plbl" style="color:${navy}">${custLabel}</div><div class="pname">${_esc(custName)||'—'}</div><div class="pdet">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
   </div>
   <div class="body">
@@ -3923,7 +3923,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px;border-radius:12px;
     <div style="text-align:right;"><div class="doc-type">${typeLabel}</div>${docNumber?`<div class="doc-num">#${_esc(docNumber)}</div>`:''}${docDate?`<div class="doc-num">${fmtDate(docDate)}</div>`:''}${invoiceRef&&_docType==='receipt'?`<div class="doc-num">${_docLang==='es'?'Ref':'Ref'}: ${_esc(invoiceRef)}</div>`:''}</div>
   </div>
   <div class="party-cards">
-    <div class="card"><div class="card-lbl">${_esc(bizName)||'From'}</div><div class="card-name">${_esc(bizName)}</div><div class="card-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
+    <div class="card"><div class="card-lbl">${_docLang==='es'?'De':'From'}</div><div class="card-name">${_esc(bizName)}</div><div class="card-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
     <div class="card"><div class="card-lbl">${custLabel}</div><div class="card-name">${_esc(custName)||'—'}</div><div class="card-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_esc(x)).join('<br>')}</div></div>
   </div>
   <div class="body">

@@ -2923,7 +2923,7 @@ function _dGetData() {
     ? (_dLang === 'es' ? 'COSTO ESTIMADO DEL PROYECTO' : 'ESTIMATED PROJECT COST')
     : L.grandTotal;
   const typeLabel  = L[_dType] || _dType;
-  const custLabel  = _dType === 'receipt'   ? (_dLang === 'es' ? 'Recibido De'    : 'Received From')
+  const custLabel  = _dType === 'receipt'   ? (_dLang === 'es' ? 'Para'           : 'To')
                    : _dType === 'contract'  ? (_dLang === 'es' ? 'Cliente'        : 'Client')
                    : _dType === 'estimate'  ? (_dLang === 'es' ? 'Preparado Para' : 'Prepared For')
                    :                          (_dLang === 'es' ? 'Facturar a'     : 'Bill To');
@@ -3047,7 +3047,7 @@ function _dTplClassic() {
     ? `<div style="margin-top:12px;padding:12px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #4f46e5;border-radius:6px;"><div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:5px;">${_dLang==='es'?'Instrucciones de Pago':'Payment Instructions'}</div><div style="font-size:0.82rem;color:#475569;white-space:pre-wrap;">${_dEsc(payInstructions)}</div></div>` : '';
   const paymentBlockHtml = _dPaymentBlock();
   const typeLabel = L[_dType] || _dType;
-  const custLabel = _dType === 'receipt'  ? (_dLang === 'es' ? 'Recibido De'    : 'Received From')
+  const custLabel = _dType === 'receipt'  ? (_dLang === 'es' ? 'Para'           : 'To')
                   : _dType === 'contract' ? (_dLang === 'es' ? 'Cliente'        : 'Client')
                   : _dType === 'estimate' ? (_dLang === 'es' ? 'Preparado Para' : 'Prepared For')
                   :                         (_dLang === 'es' ? 'Facturar a'     : 'Bill To');
@@ -3071,7 +3071,7 @@ function _dTplClassic() {
     <div class="doc-top-right"><div class="doc-type-title">${typeLabel}</div>${docNumber?`<div class="doc-meta">#&nbsp;<strong>${_dEsc(docNumber)}</strong></div>`:''}${docDate?`<div class="doc-meta">${L.date}:&nbsp;<strong>${fmtDate(docDate)}</strong></div>`:''}${docDueDate&&_dType!=='receipt'&&_dType!=='contract'?`<div class="doc-meta">${L.due}:&nbsp;<strong>${fmtDate(docDueDate)}</strong></div>`:''}${invoiceRef&&_dType==='receipt'?`<div class="doc-meta">${_dLang==='es'?'Factura Ref':'Ref Invoice'}:&nbsp;<strong>${_dEsc(invoiceRef)}</strong></div>`:''}</div>
   </div>
   <div class="doc-parties">
-    <div class="doc-party"><div class="party-label">${_dEsc(bizName)||'From'}</div><div class="party-name">${_dEsc(bizName)}</div>${bizAddress?`<div class="party-detail">${_dEsc(bizAddress)}</div>`:''}${bizPhone?`<div class="party-detail">${_dEsc(bizPhone)}</div>`:''}${bizEmail?`<div class="party-detail">${_dEsc(bizEmail)}</div>`:''}</div>
+    <div class="doc-party"><div class="party-label">${_dLang==='es'?'De':'From'}</div><div class="party-name">${_dEsc(bizName)}</div>${bizAddress?`<div class="party-detail">${_dEsc(bizAddress)}</div>`:''}${bizPhone?`<div class="party-detail">${_dEsc(bizPhone)}</div>`:''}${bizEmail?`<div class="party-detail">${_dEsc(bizEmail)}</div>`:''}</div>
     <div class="doc-party"><div class="party-label">${custLabel}</div><div class="party-name">${_dEsc(custName)||'--'}</div>${custAddr?`<div class="party-detail">${_dEsc(custAddr)}</div>`:''}${custPhone?`<div class="party-detail">${_dEsc(custPhone)}</div>`:''}${custEmail?`<div class="party-detail">${_dEsc(custEmail)}</div>`:''}</div>
   </div>
   ${(jobOrderedBy||jobLocation)?`<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">${jobOrderedBy?`<div style="flex:1;min-width:160px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;"><div style="font-size:0.68rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">${_dLang==='es'?'Ordenado Por':'Ordered By'}</div><div style="font-size:0.9rem;font-weight:600;color:#1e293b;">${_dEsc(jobOrderedBy)}</div></div>`:''}${jobLocation?`<div style="flex:1;min-width:160px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;"><div style="font-size:0.68rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">${_dLang==='es'?'Ubicacion del Trabajo':'Job Location'}</div><div style="font-size:0.9rem;font-weight:600;color:#1e293b;">${_dEsc(jobLocation)}</div></div>`:''}</div>`:''}
@@ -3112,7 +3112,7 @@ function _dTplBold() {
   </div>
   <div class="red-bar"></div>
   <div class="info-row">
-    <div class="info-box"><div class="info-lbl">${_dLang==='es'?'Empresa':'Company'}</div><div class="info-name">${_dEsc(bizName)||'--'}</div><div class="info-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
+    <div class="info-box"><div class="info-lbl">${_dLang==='es'?'De':'From'}</div><div class="info-name">${_dEsc(bizName)||'--'}</div><div class="info-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
     <div class="info-box red"><div class="info-lbl">${custLabel}</div><div class="info-name">${_dEsc(custName)||'--'}</div><div class="info-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
   </div>
   <div class="body">
@@ -3151,7 +3151,7 @@ function _dTplExecutive() {
   </div>
   <div class="gold-bar"></div>
   <div class="party-row">
-    <div class="party"><div class="plbl">${_dEsc(bizName)||'From'}</div><div class="pname">${_dEsc(bizName)}</div><div class="pdet">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
+    <div class="party"><div class="plbl">${_dLang==='es'?'De':'From'}</div><div class="pname">${_dEsc(bizName)}</div><div class="pdet">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
     <div class="party client"><div class="plbl" style="color:${navy}">${custLabel}</div><div class="pname">${_dEsc(custName)||'--'}</div><div class="pdet">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
   </div>
   <div class="body">
@@ -3188,7 +3188,7 @@ function _dTplModern() {
     <div style="text-align:right;"><div class="doc-type">${typeLabel}</div>${docNumber?`<div class="doc-num">#${_dEsc(docNumber)}</div>`:''}${docDate?`<div class="doc-num">${fmtDate(docDate)}</div>`:''}${invoiceRef&&_dType==='receipt'?`<div class="doc-num">Ref: ${_dEsc(invoiceRef)}</div>`:''}</div>
   </div>
   <div class="party-cards">
-    <div class="card"><div class="card-lbl">${_dEsc(bizName)||'From'}</div><div class="card-name">${_dEsc(bizName)}</div><div class="card-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
+    <div class="card"><div class="card-lbl">${_dLang==='es'?'De':'From'}</div><div class="card-name">${_dEsc(bizName)}</div><div class="card-det">${[bizAddress,bizPhone,bizEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
     <div class="card"><div class="card-lbl">${custLabel}</div><div class="card-name">${_dEsc(custName)||'--'}</div><div class="card-det">${[custAddr,custPhone,custEmail].filter(Boolean).map(x=>_dEsc(x)).join('<br>')}</div></div>
   </div>
   <div class="body">
