@@ -239,6 +239,7 @@ function showSection(name) {
     'orders':      'Orders',
     'menu':        'Menu',
     'documents':   'Documents',
+    'financing':   'Financing',
     'profile':     'Business Profile',
     'ai-settings': 'AI Settings',
     'team':        'Team',
@@ -252,6 +253,7 @@ function showSection(name) {
   if (name === 'orders')      { loadOrders('all'); }
   if (name === 'menu')        { loadMenu(); }
   if (name === 'documents')   { loadDocuments(); }
+  if (name === 'financing')   { _loadFinancingSection(); }
   if (name === 'profile')     { loadProfile(); }
   if (name === 'ai-settings') { loadAiSettings(); }
   if (name === 'team')        { loadTeam(); }
@@ -3930,3 +3932,111 @@ function _aiScrollMsgs() {
   const c = document.getElementById('aiMsgs');
   if (c) c.scrollTop = c.scrollHeight;
 }
+
+// ============================================================
+// FINANCING SECTION
+// ============================================================
+let _finDocs = [];
+
+window._loadFinancingSection = async function() {
+  const list    = document.getElementById('finDashList');
+  const urlWarn = document.getElementById('finDashUrlWarn');
+  const reqEl   = document.getElementById('finDashRequests');
+  const enEl    = document.getElementById('finDashEnabled');
+  if (!list) return;
+
+  list.innerHTML = '<p style="color:#94a3b8;font-size:0.85rem;padding:12px 0">Loading…</p>';
+
+  // Check financing URL config
+  let finUrl = '';
+  try {
+    const cfg = await getDoc(doc(db, 'config', 'financing'));
+    finUrl = cfg.data()?.url || '';
+  } catch(_) {}
+  if (urlWarn) urlWarn.style.display = finUrl ? 'none' : 'block';
+
+  // Load this business's documents
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'documents'),
+      where('businessId', '==', bizId)
+    ));
+    _finDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => {
+        // Sort: requested first, then enabled, then rest by date
+        const ar = a.financingRequested ? 2 : a.financingEnabled ? 1 : 0;
+        const br = b.financingRequested ? 2 : b.financingEnabled ? 1 : 0;
+        if (ar !== br) return br - ar;
+        return (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0);
+      });
+
+    const requests = _finDocs.filter(d => d.financingRequested).length;
+    const enabled  = _finDocs.filter(d => d.financingEnabled).length;
+    if (reqEl) reqEl.textContent = requests;
+    if (enEl)  enEl.textContent  = enabled;
+
+    _renderFinancingDocs(_finDocs, finUrl);
+  } catch(e) {
+    console.error('_loadFinancingSection error:', e);
+    list.innerHTML = '<div class="empty-state"><p>Error loading documents.</p></div>';
+  }
+};
+
+function _renderFinancingDocs(docs, finUrl) {
+  const list = document.getElementById('finDashList');
+  if (!list) return;
+  if (!docs.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📄</div><p>No documents yet.</p></div>';
+    return;
+  }
+
+  const rows = docs.map(d => {
+    const on  = d.financingEnabled === true;
+    const req = d.financingRequested === true;
+    const type = (d.type||'').replace(/^\w/,c=>c.toUpperCase());
+    const date = d.docDate || (d.createdAt?.toDate?.()?.toLocaleDateString() || '—');
+    const amt  = d.total != null ? `$${Number(d.total).toFixed(2)}` : '—';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid #f1f5f9;flex-wrap:wrap;">
+      <div style="width:4px;min-height:40px;border-radius:4px;background:${req?'#f59e0b':on?'#22c55e':'#e2e8f0'};flex-shrink:0;"></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:0.88rem;color:#1e293b;">${escHTML(d.custName||'—')}</div>
+        <div style="font-size:0.75rem;color:#94a3b8;">${type} · ${escHTML(d.docNumber||'')} · ${date}</div>
+      </div>
+      <div style="font-size:0.9rem;font-weight:700;color:#1e293b;min-width:70px;text-align:right;">${amt}</div>
+      ${req ? '<span style="background:#fef3c7;color:#92400e;border-radius:20px;padding:3px 9px;font-size:0.72rem;font-weight:700;white-space:nowrap;">🔔 Requested</span>' : ''}
+      <button onclick="window._dashToggleDocFinancing('${escHTML(d.id)}',${!on})"
+        style="padding:6px 14px;border-radius:8px;border:1.5px solid ${on?'#22c55e':'#e2e8f0'};background:${on?'#dcfce7':'#f8fafc'};color:${on?'#15803d':'#64748b'};font-size:0.8rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+        ${on ? '✅ ON' : '🏦 Enable'}
+      </button>
+    </div>`;
+  }).join('');
+
+  list.innerHTML = `<div style="border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">${rows}</div>`;
+}
+
+window._filterFinancingDocs = function(q) {
+  const filtered = q
+    ? _finDocs.filter(d => (d.custName||'').toLowerCase().includes(q.toLowerCase()) || (d.docNumber||'').includes(q))
+    : _finDocs;
+  _renderFinancingDocs(filtered, '');
+};
+
+window._dashToggleDocFinancing = async function(docId, enable) {
+  try {
+    let finUrl = '';
+    if (enable) {
+      const cfg = await getDoc(doc(db, 'config', 'financing'));
+      finUrl = cfg.data()?.url || '';
+      if (!finUrl) { showToast('Financing URL is not configured yet. Contact your administrator.', 'error'); return; }
+    }
+    await updateDoc(doc(db, 'documents', docId), {
+      financingEnabled: enable,
+      financingUrl: enable ? finUrl : ''
+    });
+    showToast(`Financing ${enable ? 'enabled' : 'disabled'}`, 'success');
+    window._loadFinancingSection();
+  } catch(e) {
+    console.error('_dashToggleDocFinancing error:', e);
+    showToast('Could not update financing', 'error');
+  }
+};

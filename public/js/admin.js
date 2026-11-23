@@ -308,6 +308,7 @@ async function onAdminReady(user) {
       if (name === 'localBusiness')  loadLocalBiz();
       if (name === 'categories')     renderCategoriesSection();
       if (name === 'documents')      loadAdminDocuments();
+      if (name === 'financing')      loadFinancingTab();
       if (name === 'calendar')       { loadCalendarConfig(); window._adminLoadBookings(); }
     });
   });
@@ -454,6 +455,8 @@ function showSection(name) {
     users:         'Registered Users',
     localBusiness: 'Local Business Accounts',
     categories:    'Categories',
+    documents:     'Documents',
+    financing:     'Financing',
     calendar:      'Calendar',
     'market-rate': 'Market Rate Calculator',
     profile:       'My Profile',
@@ -1821,6 +1824,114 @@ window._toggleDocFinancing = async function(docId, enable) {
     showToast('Could not update financing', 'error');
   }
 };
+
+// ── Financing Tab ─────────────────────────────────────────────
+async function loadFinancingTab() {
+  const reqBody     = document.getElementById('finRequestsBody');
+  const reqCount    = document.getElementById('finRequestCount');
+  const enCount     = document.getElementById('finEnabledCount');
+  if (!reqBody) return;
+
+  reqBody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><p>⏳ Loading…</p></div></td></tr>`;
+
+  try {
+    // Load requests (financingRequested=true) and enabled (financingEnabled=true) in parallel
+    const [reqSnap, enSnap] = await Promise.all([
+      getDocs(query(collection(db, 'documents'), where('financingRequested', '==', true), limit(100))),
+      getDocs(query(collection(db, 'documents'), where('financingEnabled',   '==', true), limit(100)))
+    ]);
+
+    const requests = reqSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const enabled  = enSnap.docs.map(d => d.id);
+
+    if (reqCount) reqCount.textContent = requests.length;
+    if (enCount)  enCount.textContent  = enabled.length;
+
+    if (!requests.length) {
+      reqBody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">🎉</div><p>No pending requests.</p></div></td></tr>`;
+      return;
+    }
+
+    reqBody.innerHTML = requests.map(d => {
+      const finOn = d.financingEnabled === true;
+      const reqDate = d.financingRequestedAt?.toDate?.()?.toLocaleDateString() || fmtDate(d.createdAt);
+      return `<tr>
+        <td>${escHTML((d.type||'').replace(/^\w/,c=>c.toUpperCase()))}</td>
+        <td>${escHTML(d.custName||'—')}</td>
+        <td>${escHTML(d.custEmail||'—')}</td>
+        <td>${escHTML(d.custPhone||'—')}</td>
+        <td>${escHTML(d.docNumber||'—')}</td>
+        <td style="white-space:nowrap;color:#f59e0b;font-weight:600;">🔔 ${reqDate}</td>
+        <td style="text-align:center;">
+          <button class="btn-action ${finOn?'success':''}" style="min-width:60px"
+            onclick="window._toggleDocFinancing('${escAttr(d.id)}',${!finOn});loadFinancingTab();">
+            ${finOn?'ON':'OFF'}
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    console.error('loadFinancingTab error:', e);
+    if (reqBody) reqBody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><p>Error loading. Try again.</p></div></td></tr>`;
+  }
+}
+
+window._searchFinTab = async function() {
+  const q       = (document.getElementById('finTabSearch')?.value || '').trim();
+  const results = document.getElementById('finTabResults');
+  if (!results || !q) return;
+  results.innerHTML = '<p style="color:#64748b;font-size:0.85rem;padding:8px 0">Searching…</p>';
+  try {
+    const snap1 = await getDocs(query(
+      collection(db, 'documents'),
+      where('custName', '>=', q),
+      where('custName', '<=', q + ''),
+      limit(20)
+    ));
+    const snap2 = await getDocs(query(
+      collection(db, 'documents'),
+      where('docNumber', '==', q),
+      limit(5)
+    ));
+    const seen = new Set();
+    const docs = [...snap1.docs, ...snap2.docs]
+      .filter(d => { if (seen.has(d.id)) return false; seen.add(d.id); return true; })
+      .map(d => ({ id: d.id, ...d.data() }));
+
+    if (!docs.length) {
+      results.innerHTML = '<p style="color:#64748b;font-size:0.85rem;padding:8px 0">No documents found. Names are case-sensitive.</p>';
+      return;
+    }
+    const rows = docs.map(d => {
+      const on  = d.financingEnabled === true;
+      const req = d.financingRequested === true;
+      return `<tr>
+        <td>${escHTML((d.type||'').replace(/^\w/,c=>c.toUpperCase()))}</td>
+        <td>${escHTML(d.custName||'—')} ${req?'<span style="color:#f59e0b;font-size:0.75rem;font-weight:700;">🔔 Requested</span>':''}</td>
+        <td>${escHTML(d.docNumber||'—')}</td>
+        <td>${escHTML(d.docDate||fmtDate(d.createdAt))}</td>
+        <td style="text-align:center;">
+          <button class="btn-action ${on?'success':''}" style="min-width:60px"
+            onclick="window._toggleDocFinancing('${escAttr(d.id)}',${!on})">
+            ${on?'ON':'OFF'}
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+    results.innerHTML = `
+      <div class="admin-table-wrap" style="max-height:300px;overflow-y:auto;margin-top:4px;">
+        <table class="admin-table">
+          <thead><tr><th>Type</th><th>Customer</th><th>Doc #</th><th>Date</th><th style="text-align:center;">Financing</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  } catch(e) {
+    console.error('_searchFinTab error:', e);
+    results.innerHTML = '<p style="color:#ef4444;font-size:0.85rem;">Error searching.</p>';
+  }
+};
+
+window.loadFinancingTab = loadFinancingTab;
 
 // Expose to global scope (required because admin.js loads as type="module")
 window.savePaymentMethods   = savePaymentMethods;

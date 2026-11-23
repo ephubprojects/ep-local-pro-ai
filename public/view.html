@@ -558,7 +558,7 @@
       document.getElementById('fin-modal-cancel')?.addEventListener('click', hideFinModal);
       finModal?.addEventListener('click', e => { if (e.target === finModal) hideFinModal(); });
 
-      document.getElementById('fin-open-form-btn')?.addEventListener('click', () => {
+      document.getElementById('fin-open-form-btn')?.addEventListener('click', async () => {
         const name  = (document.getElementById('finCustName')?.value  || '').trim();
         const email = (document.getElementById('finCustEmail')?.value || '').trim();
         const phone = (document.getElementById('finCustPhone')?.value || '').trim();
@@ -567,6 +567,15 @@
           return;
         }
         if (!_finUrl) return;
+
+        // Record the request in Firestore so the business owner can see it
+        try {
+          await updateDoc(doc(db, 'documents', id), {
+            financingRequested:   true,
+            financingRequestedAt: serverTimestamp()
+          });
+        } catch(_) {}
+
         try {
           const dest = new URL(_finUrl);
           dest.searchParams.set('name',  name);

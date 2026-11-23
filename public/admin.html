@@ -41,6 +41,9 @@
     <a data-nav="documents">
       <span class="nav-icon">📄</span> Documents
     </a>
+    <a data-nav="financing">
+      <span class="nav-icon">🏦</span> Financing
+    </a>
     <a data-nav="calendar">
       <span class="nav-icon">📅</span> Calendar
     </a>
@@ -558,6 +561,60 @@
       </div>
 
     </div><!-- /documents -->
+
+
+    <!-- ════════════ SECTION: Financing ════════════ -->
+    <div data-section="financing" class="hidden">
+
+      <div class="section-card-header" style="margin-bottom:20px;">
+        <h2>🏦 Financing</h2>
+        <button class="btn-action" onclick="loadFinancingTab()">🔄 Refresh</button>
+      </div>
+
+      <!-- Summary mini-stats -->
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:22px;">
+        <div class="stat-card" style="flex:1;min-width:140px;">
+          <div class="stat-label">PENDING REQUESTS</div>
+          <div class="stat-value" id="finRequestCount">—</div>
+        </div>
+        <div class="stat-card" style="flex:1;min-width:140px;">
+          <div class="stat-label">FINANCING ENABLED</div>
+          <div class="stat-value" id="finEnabledCount">—</div>
+        </div>
+      </div>
+
+      <!-- Requests list -->
+      <div class="section-card" style="margin-bottom:20px;">
+        <div class="section-card-header">
+          <h2>🔔 Pending Financing Requests</h2>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr>
+              <th>Type</th><th>Customer</th><th>Email</th><th>Phone</th><th>Doc #</th><th>Requested</th><th style="text-align:center;">Financing</th>
+            </tr></thead>
+            <tbody id="finRequestsBody">
+              <tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">🏦</div><p>Navigate here to load requests.</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Enable on a document -->
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2>🔧 Enable Financing on a Document</h2>
+        </div>
+        <p class="readonly-note" style="margin-bottom:12px;">Search by customer name or document number and toggle the financing button for that document.</p>
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <input type="text" id="finTabSearch" placeholder="Customer name or document #…" style="flex:1;"
+            onkeydown="if(event.key==='Enter')window._searchFinTab()" />
+          <button class="btn-sm btn-pm-success" onclick="window._searchFinTab()">🔍 Search</button>
+        </div>
+        <div id="finTabResults"></div>
+      </div>
+
+    </div><!-- /financing -->
 
 
     <!-- ════════════ SECTION: Calendar ════════════ -->
