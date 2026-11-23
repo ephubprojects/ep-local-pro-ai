@@ -1740,6 +1740,86 @@ async function adminToggleFinancingAll(enabled) {
   }
 }
 
+// ── Per-document financing toggle ─────────────────────────────
+window._searchFinDocs = async function() {
+  const q       = (document.getElementById('finDocSearch')?.value || '').trim();
+  const results = document.getElementById('finDocResults');
+  if (!results || !q) return;
+  results.innerHTML = '<p style="color:#64748b;font-size:0.85rem;padding:8px 0">Searching…</p>';
+  try {
+    const snap1 = await getDocs(query(
+      collection(db, 'documents'),
+      where('custName', '>=', q),
+      where('custName', '<=', q + ''),
+      limit(20)
+    ));
+    const snap2 = await getDocs(query(
+      collection(db, 'documents'),
+      where('docNumber', '==', q),
+      limit(5)
+    ));
+    const seen = new Set();
+    const docs = [...snap1.docs, ...snap2.docs]
+      .filter(d => { if (seen.has(d.id)) return false; seen.add(d.id); return true; })
+      .map(d => ({ id: d.id, ...d.data() }));
+    renderFinDocResults(docs);
+  } catch(e) {
+    console.error('_searchFinDocs error:', e);
+    results.innerHTML = '<p style="color:#ef4444;font-size:0.85rem;">Error searching. Check Firestore indexes and try again.</p>';
+  }
+};
+
+function renderFinDocResults(docs) {
+  const results = document.getElementById('finDocResults');
+  if (!results) return;
+  if (!docs.length) {
+    results.innerHTML = '<p style="color:#64748b;font-size:0.85rem;padding:8px 0">No documents found. Names are case-sensitive — try capitalizing the first letter.</p>';
+    return;
+  }
+  const rows = docs.map(d => {
+    const on = d.financingEnabled === true;
+    return `<tr>
+      <td>${escHTML((d.type||'').replace(/^\w/,c=>c.toUpperCase()))}</td>
+      <td>${escHTML(d.custName||'—')}</td>
+      <td>${escHTML(d.docNumber||'—')}</td>
+      <td>${escHTML(d.docDate||fmtDate(d.createdAt))}</td>
+      <td style="text-align:center;">
+        <button class="btn-action ${on?'success':''}" style="min-width:60px"
+          onclick="window._toggleDocFinancing('${escAttr(d.id)}',${!on})">
+          ${on?'ON':'OFF'}
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+  results.innerHTML = `
+    <div class="admin-table-wrap" style="max-height:300px;overflow-y:auto;margin-top:4px;">
+      <table class="admin-table">
+        <thead><tr><th>Type</th><th>Customer</th><th>Doc #</th><th>Date</th><th style="text-align:center;">Financing</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+window._toggleDocFinancing = async function(docId, enable) {
+  try {
+    const cfgSnap = await getDoc(doc(db, 'config', 'financing'));
+    const finUrl  = cfgSnap.data()?.url || '';
+    if (enable && !finUrl) {
+      showToast('Set the Prequalification Form URL above and Save Settings first.', 'error');
+      return;
+    }
+    await updateDoc(doc(db, 'documents', docId), {
+      financingEnabled: enable,
+      financingUrl: enable ? finUrl : ''
+    });
+    showToast(`Financing ${enable ? 'enabled' : 'disabled'}`, 'success');
+    window._searchFinDocs();
+  } catch(e) {
+    console.error('_toggleDocFinancing error:', e);
+    showToast('Could not update financing', 'error');
+  }
+};
+
 // Expose to global scope (required because admin.js loads as type="module")
 window.savePaymentMethods   = savePaymentMethods;
 window.adminToggleFinancing    = adminToggleFinancing;

@@ -1049,6 +1049,18 @@
               </tbody>
             </table>
           </div>
+
+          <!-- Per-document financing toggle -->
+          <div style="margin-top:28px;padding-top:22px;border-top:1px solid rgba(0,0,0,.08);">
+            <p style="font-size:0.85rem;font-weight:700;color:#1e293b;margin-bottom:4px;">Enable Financing on a Specific Document</p>
+            <p class="readonly-note" style="margin-bottom:12px;">Search by customer name or document number. When enabled, the customer sees a financing button at the bottom of their document with their info pre-filled.</p>
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+              <input type="text" id="finDocSearch" placeholder="Customer name or document #…" style="flex:1;"
+                onkeydown="if(event.key==='Enter')window._searchFinDocs()" />
+              <button class="btn-sm btn-pm-success" onclick="window._searchFinDocs()">🔍 Search</button>
+            </div>
+            <div id="finDocResults"></div>
+          </div>
         </div>
 
         <button class="btn-save" id="saveSettingsBtn">Save Settings</button>

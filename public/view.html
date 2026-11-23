@@ -243,10 +243,27 @@
         </div>
         <button id="fin-modal-close" style="background:rgba(255,255,255,.18);border:none;border-radius:8px;width:30px;height:30px;color:#fff;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
       </div>
-      <div style="padding:28px 24px;">
-        <p style="font-size:0.9rem;color:#475569;line-height:1.6;margin-bottom:22px;">Click below to open the prequalification form. The process is quick and checking your eligibility won't affect your credit score.</p>
+      <div style="padding:22px 24px;">
+        <p style="font-size:0.85rem;color:#475569;line-height:1.6;margin-bottom:18px;">Fill in your details below. Our trusted financing partner will contact you to go over your options — no credit impact to check eligibility.</p>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">
+          <div>
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#374151;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Full Name</label>
+            <input id="finCustName" type="text" placeholder="Your full name"
+              style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;color:#1e293b;outline:none;box-sizing:border-box;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#374151;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Email</label>
+            <input id="finCustEmail" type="email" placeholder="your@email.com"
+              style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;color:#1e293b;outline:none;box-sizing:border-box;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#374151;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Phone</label>
+            <input id="finCustPhone" type="tel" placeholder="(555) 000-0000"
+              style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;color:#1e293b;outline:none;box-sizing:border-box;" />
+          </div>
+        </div>
         <button id="fin-open-form-btn" style="width:100%;padding:14px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;border:none;border-radius:11px;font-size:0.95rem;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(234,88,12,.35);">
-          🚀 Start My Application
+          🚀 Submit &amp; Get Financing
         </button>
         <button id="fin-modal-cancel" style="width:100%;margin-top:10px;padding:11px;background:transparent;border:1.5px solid #e2e8f0;color:#64748b;border-radius:9px;font-size:0.85rem;font-weight:600;cursor:pointer;">
           Not right now
@@ -462,6 +479,7 @@
           const finBar = document.getElementById('fin-bar');
           if (finBar) finBar.style.display = (data.financingEnabled && data.financingUrl) ? 'block' : 'none';
           window._setFinUrl?.(data.financingUrl || '');
+          window._setFinCustomer?.({ name: data.custName || '', email: data.custEmail || '', phone: data.custPhone || '' });
 
           loading.style.display   = 'none';
           frameWrap.style.display = 'block';
@@ -541,16 +559,40 @@
       finModal?.addEventListener('click', e => { if (e.target === finModal) hideFinModal(); });
 
       document.getElementById('fin-open-form-btn')?.addEventListener('click', () => {
-        const bar = document.getElementById('fin-bar');
-        const url = bar?.dataset.finUrl || _finUrl;
-        if (url) window.open(url, '_blank', 'noopener');
+        const name  = (document.getElementById('finCustName')?.value  || '').trim();
+        const email = (document.getElementById('finCustEmail')?.value || '').trim();
+        const phone = (document.getElementById('finCustPhone')?.value || '').trim();
+        if (!name || !email || !phone) {
+          alert('Please fill in your name, email, and phone number before submitting.');
+          return;
+        }
+        if (!_finUrl) return;
+        try {
+          const dest = new URL(_finUrl);
+          dest.searchParams.set('name',  name);
+          dest.searchParams.set('email', email);
+          dest.searchParams.set('phone', phone);
+          window.open(dest.toString(), '_blank', 'noopener');
+        } catch(_) {
+          window.open(_finUrl, '_blank', 'noopener');
+        }
+        hideFinModal();
       });
 
-      // Expose setter so onSnapshot can pass the url through
+      // Expose setters so onSnapshot can pass the url and customer info through
       window._setFinUrl = url => {
         _finUrl = url || '';
         const bar = document.getElementById('fin-bar');
         if (bar) bar.dataset.finUrl = _finUrl;
+      };
+
+      window._setFinCustomer = ({ name, email, phone }) => {
+        const n = document.getElementById('finCustName');
+        const e = document.getElementById('finCustEmail');
+        const p = document.getElementById('finCustPhone');
+        if (n) n.value = name  || '';
+        if (e) e.value = email || '';
+        if (p) p.value = phone || '';
       };
     })();
   </script>
