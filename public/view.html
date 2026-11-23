@@ -267,7 +267,7 @@
 
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-    import { getFirestore, doc, onSnapshot, updateDoc, serverTimestamp }
+    import { getFirestore, doc, getDoc, onSnapshot, updateDoc, serverTimestamp }
       from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
     const firebaseConfig = {
@@ -324,14 +324,28 @@
           : '');
     }
 
-    function injectSignatures(data) {
+    function injectSignatures(data, bizLogoUrl) {
       try {
         const fdoc = frame.contentDocument;
         if (!fdoc) return;
 
-        // Always sync logo from Firestore so old documents auto-update
-        if (data.logoUrl) {
-          fdoc.querySelectorAll('img[alt="Logo"]').forEach(img => { img.src = data.logoUrl; });
+        // Inject logo — always use the latest biz logo (Storage URL)
+        if (bizLogoUrl) {
+          const imgs = fdoc.querySelectorAll('img[alt="Logo"]');
+          if (imgs.length) {
+            // Update existing img src (covers old docs that had a logo at creation)
+            imgs.forEach(img => { img.src = bizLogoUrl; });
+          } else {
+            // No img in HTML — doc was created without a logo; insert into container
+            const logoImg = fdoc.createElement('img');
+            logoImg.alt   = 'Logo';
+            logoImg.src   = bizLogoUrl;
+            logoImg.style.cssText = 'max-height:70px;max-width:150px;object-fit:contain;display:block;margin-bottom:6px;';
+            for (const sel of ['.doc-top-left', '.hdr-logo', '.logo-box', '.logo-wrap']) {
+              const c = fdoc.querySelector(sel);
+              if (c) { c.prepend(logoImg); break; }
+            }
+          }
         }
 
         if (data.ownerSig?.name) {
@@ -412,7 +426,7 @@
     } else {
       onSnapshot(
         doc(db, 'documents', id),
-        snap => {
+        async snap => {
           if (!snap.exists()) { showError('This document was not found or has been deleted.'); return; }
           const data = snap.data();
           if (!data.htmlContent) { showError('No preview is available for this document.'); return; }
@@ -420,9 +434,24 @@
           const typeName = data.type ? data.type.charAt(0).toUpperCase()+data.type.slice(1) : 'Document';
           document.title = `${typeName}${data.docNumber ? ' '+data.docNumber : ''}`;
 
+          // Fetch current biz logo before rendering — always use the freshest URL
+          let bizLogoUrl = '';
+          if (data.businessId) {
+            try {
+              const bizSnap = await getDoc(doc(db, 'businesses', data.businessId));
+              bizLogoUrl = bizSnap.data()?.logoUrl || data.logoUrl || '';
+            } catch(_) {
+              bizLogoUrl = data.logoUrl || '';
+            }
+          } else {
+            bizLogoUrl = data.logoUrl || '';
+          }
+          // Skip base64 blobs — only use real URLs so logos load for unauthenticated viewers
+          if (bizLogoUrl.startsWith('data:')) bizLogoUrl = '';
+
           frame.srcdoc = data.htmlContent;
           frame.onload = () => {
-            injectSignatures(data);
+            injectSignatures(data, bizLogoUrl);
             resizeFrame();
             setTimeout(resizeFrame, 600);
           };
