@@ -240,6 +240,7 @@ function showSection(name) {
     'menu':        'Menu',
     'documents':   'Documents',
     'financing':   'Financing',
+    'gmb':         'Google My Business',
     'profile':     'Business Profile',
     'ai-settings': 'AI Settings',
     'team':        'Team',
@@ -254,6 +255,7 @@ function showSection(name) {
   if (name === 'menu')        { loadMenu(); }
   if (name === 'documents')   { loadDocuments(); }
   if (name === 'financing')   { _loadFinancingSection(); }
+  if (name === 'gmb')        { window._loadGmbSection(); }
   if (name === 'profile')     { loadProfile(); }
   if (name === 'ai-settings') { loadAiSettings(); }
   if (name === 'team')        { loadTeam(); }
@@ -4045,5 +4047,124 @@ window._dashToggleDocFinancing = async function(docId, enable) {
   } catch(e) {
     console.error('_dashToggleDocFinancing error:', e);
     showToast('Could not update financing', 'error');
+  }
+};
+
+// ── Google My Business ────────────────────────────────────────
+
+let _gmbRequestId = null;
+
+window._loadGmbSection = async function() {
+  const banner   = document.getElementById('gmbStatusBanner');
+  const form     = document.getElementById('gmbRequestForm');
+  const noteBox  = document.getElementById('gmbAdminNote');
+  const noteText = document.getElementById('gmbAdminNoteText');
+  if (!banner || !form) return;
+
+  // Pre-fill form from business profile
+  const biz = bizDoc || {};
+  const owner = ownerDoc || {};
+  const setV = (id, val) => { const el = document.getElementById(id); if (el && !el.value) el.value = val || ''; };
+  setV('gmbBizName',   biz.companyName || biz.name || '');
+  setV('gmbOwnerName', owner.name || owner.displayName || '');
+  setV('gmbPhone',     biz.phone || '');
+  setV('gmbEmail',     biz.email || currentUser?.email || '');
+  setV('gmbAddress',   biz.address || '');
+  setV('gmbCategory',  biz.category || bizCategory || '');
+  setV('gmbWebsite',   biz.website || '');
+
+  // Check for existing request
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'gmb_requests'),
+      where('uid', '==', currentUser.uid),
+      limit(1)
+    ));
+    if (!snap.empty) {
+      const req = snap.docs[0].data();
+      _gmbRequestId = snap.docs[0].id;
+      _gmbShowStatus(banner, form, req);
+      if (req.adminNotes) {
+        noteText.textContent = req.adminNotes;
+        noteBox.style.display = '';
+      } else {
+        noteBox.style.display = 'none';
+      }
+    } else {
+      _gmbRequestId = null;
+      banner.style.display = 'none';
+      form.style.display = '';
+      noteBox.style.display = 'none';
+    }
+  } catch(e) {
+    console.error('_loadGmbSection error:', e);
+  }
+};
+
+function _gmbShowStatus(banner, form, req) {
+  const statusMap = {
+    pending:     { label: '⏳ Pending Review',    bg: '#fef9c3', border: '#fde047', text: '#78350f' },
+    'in-progress':{ label: '🔄 In Progress',      bg: '#dbeafe', border: '#93c5fd', text: '#1e40af' },
+    completed:   { label: '✅ Completed',         bg: '#dcfce7', border: '#86efac', text: '#14532d' },
+  };
+  const s = statusMap[req.status] || statusMap.pending;
+  banner.style.cssText = `display:block;border-radius:12px;padding:16px 20px;margin-bottom:20px;background:${s.bg};border:1.5px solid ${s.border};color:${s.text};`;
+  const reqDate = req.requestedAt?.toDate?.()?.toLocaleDateString() || '';
+  banner.innerHTML = `<div style="font-size:1rem;font-weight:800;margin-bottom:4px;">${s.label}</div>
+    <div style="font-size:0.82rem;opacity:.85;">Your Google My Business setup request was submitted${reqDate?' on '+reqDate:''}. We will contact you soon.</div>
+    <button onclick="window._cancelGmbRequest()" style="margin-top:12px;padding:6px 14px;border-radius:8px;border:1.5px solid currentColor;background:transparent;color:inherit;font-size:0.78rem;font-weight:600;cursor:pointer;">Cancel Request</button>`;
+  form.style.display = 'none';
+}
+
+window._submitGmbRequest = async function() {
+  const btn = document.getElementById('gmbSubmitBtn');
+  const bizName   = document.getElementById('gmbBizName')?.value.trim();
+  const ownerName = document.getElementById('gmbOwnerName')?.value.trim();
+  const phone     = document.getElementById('gmbPhone')?.value.trim();
+  const email     = document.getElementById('gmbEmail')?.value.trim();
+  const address   = document.getElementById('gmbAddress')?.value.trim();
+  if (!bizName || !ownerName || !phone || !email || !address) {
+    showToast('Please fill in all required fields.', 'error'); return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
+  try {
+    const ref = await addDoc(collection(db, 'gmb_requests'), {
+      uid:         currentUser.uid,
+      businessId:  bizId,
+      bizName,
+      ownerName,
+      phone,
+      email,
+      address,
+      category:  document.getElementById('gmbCategory')?.value.trim() || '',
+      website:   document.getElementById('gmbWebsite')?.value.trim()  || '',
+      notes:     document.getElementById('gmbNotes')?.value.trim()    || '',
+      status:    'pending',
+      requestedAt: serverTimestamp()
+    });
+    _gmbRequestId = ref.id;
+    showToast('Request submitted! We will reach out soon.', 'success');
+    window._loadGmbSection();
+  } catch(e) {
+    console.error('_submitGmbRequest error:', e);
+    showToast('Could not submit request. Please try again.', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🚀 Request Google My Business Setup'; }
+  }
+};
+
+window._cancelGmbRequest = async function() {
+  if (!_gmbRequestId) return;
+  if (!confirm('Cancel your Google My Business setup request?')) return;
+  try {
+    await updateDoc(doc(db, 'gmb_requests', _gmbRequestId), { status: 'cancelled', updatedAt: serverTimestamp() });
+    _gmbRequestId = null;
+    const banner = document.getElementById('gmbStatusBanner');
+    const form   = document.getElementById('gmbRequestForm');
+    if (banner) banner.style.display = 'none';
+    if (form)   form.style.display   = '';
+    showToast('Request cancelled.', 'success');
+  } catch(e) {
+    showToast('Could not cancel request.', 'error');
   }
 };

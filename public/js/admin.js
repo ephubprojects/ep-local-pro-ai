@@ -309,6 +309,7 @@ async function onAdminReady(user) {
       if (name === 'categories')     renderCategoriesSection();
       if (name === 'documents')      loadAdminDocuments();
       if (name === 'financing')      loadFinancingTab();
+      if (name === 'gmb')            loadGmbRequests();
       if (name === 'calendar')       { loadCalendarConfig(); window._adminLoadBookings(); }
     });
   });
@@ -5254,3 +5255,92 @@ function _aiAddMsg(role, text, note, isThinking = false) {
 function _aiRemoveThinking(id) {
   if (id) document.getElementById(id)?.remove();
 }
+
+// ── Google My Business Requests ───────────────────────────────
+
+async function loadGmbRequests() {
+  const tbody = document.getElementById('gmbRequestsBody');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><p>⏳ Loading…</p></div></td></tr>`;
+
+  try {
+    const snap = await getDocs(query(collection(db, 'gmb_requests'), orderBy('requestedAt', 'desc'), limit(200)));
+    const reqs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Update stats
+    const counts = { pending: 0, 'in-progress': 0, completed: 0 };
+    reqs.forEach(r => { if (counts[r.status] !== undefined) counts[r.status]++; });
+    const el = id => document.getElementById(id);
+    if (el('gmbStatPending'))    el('gmbStatPending').textContent    = counts.pending;
+    if (el('gmbStatInProgress')) el('gmbStatInProgress').textContent = counts['in-progress'];
+    if (el('gmbStatCompleted'))  el('gmbStatCompleted').textContent  = counts.completed;
+
+    if (!reqs.length) {
+      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><p>🎉 No requests yet.</p></div></td></tr>`;
+      return;
+    }
+
+    const statusBadge = s => {
+      const map = {
+        pending:      'background:#fef9c3;color:#78350f;',
+        'in-progress':'background:#dbeafe;color:#1e40af;',
+        completed:    'background:#dcfce7;color:#14532d;',
+        cancelled:    'background:#f1f5f9;color:#64748b;',
+      };
+      const labels = { pending:'⏳ Pending', 'in-progress':'🔄 In Progress', completed:'✅ Completed', cancelled:'🚫 Cancelled' };
+      return `<span style="padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;${map[s]||map.pending}">${labels[s]||s}</span>`;
+    };
+
+    tbody.innerHTML = reqs.map(r => {
+      const date = r.requestedAt?.toDate?.()?.toLocaleDateString() || '—';
+      return `<tr>
+        <td><strong>${escHTML(r.bizName||'—')}</strong>${r.address?`<div style="font-size:0.72rem;color:#94a3b8;">${escHTML(r.address)}</div>`:''}</td>
+        <td>${escHTML(r.ownerName||'—')}</td>
+        <td>${escHTML(r.phone||'—')}</td>
+        <td>${escHTML(r.category||'—')}</td>
+        <td style="white-space:nowrap;">${date}</td>
+        <td>${statusBadge(r.status)}</td>
+        <td style="white-space:nowrap;">
+          <select onchange="window._updateGmbStatus('${escAttr(r.id)}',this.value)"
+            style="padding:4px 8px;border-radius:6px;border:1px solid #e2e8f0;font-size:0.78rem;cursor:pointer;margin-bottom:4px;">
+            <option value="pending"      ${r.status==='pending'?'selected':''}>⏳ Pending</option>
+            <option value="in-progress"  ${r.status==='in-progress'?'selected':''}>🔄 In Progress</option>
+            <option value="completed"    ${r.status==='completed'?'selected':''}>✅ Completed</option>
+            <option value="cancelled"    ${r.status==='cancelled'?'selected':''}>🚫 Cancelled</option>
+          </select>
+          <div style="display:flex;gap:4px;align-items:center;">
+            <input type="text" id="gmbNote-${escAttr(r.id)}" value="${escAttr(r.adminNotes||'')}"
+              placeholder="Add note for owner…"
+              style="flex:1;padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:0.75rem;" />
+            <button class="btn-action" onclick="window._saveGmbNote('${escAttr(r.id)}')" style="padding:4px 8px;font-size:0.75rem;">💾</button>
+          </div>
+          ${r.email?`<a href="mailto:${escAttr(r.email)}" style="font-size:0.72rem;color:#4f46e5;">${escHTML(r.email)}</a>`:''}
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    console.error('loadGmbRequests error:', e);
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><p>⚠️ Error loading requests.</p></div></td></tr>`;
+  }
+}
+window.loadGmbRequests = loadGmbRequests;
+
+window._updateGmbStatus = async function(reqId, status) {
+  try {
+    await updateDoc(doc(db, 'gmb_requests', reqId), { status, updatedAt: serverTimestamp() });
+    showToast('Status updated', 'success');
+    loadGmbRequests();
+  } catch(e) {
+    showToast('Could not update status', 'error');
+  }
+};
+
+window._saveGmbNote = async function(reqId) {
+  const note = document.getElementById('gmbNote-' + reqId)?.value.trim() || '';
+  try {
+    await updateDoc(doc(db, 'gmb_requests', reqId), { adminNotes: note, updatedAt: serverTimestamp() });
+    showToast('Note saved', 'success');
+  } catch(e) {
+    showToast('Could not save note', 'error');
+  }
+};

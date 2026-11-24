@@ -50,6 +50,9 @@
     <a data-nav="financing" id="navFinancing">
       <span class="nav-icon">🏦</span> Financing
     </a>
+    <a data-nav="gmb">
+      <span class="nav-icon">📍</span> Google My Business
+    </a>
     <a data-nav="profile">
       <span class="nav-icon">🏢</span> Business Profile
     </a>
@@ -305,6 +308,95 @@
       </div>
 
     </div><!-- /financing -->
+
+
+    <!-- ════════════ SECTION: Google My Business ════════════ -->
+    <div data-section="gmb" class="hidden">
+
+      <div class="section-card-header" style="margin-bottom:20px;">
+        <h2>📍 Google My Business</h2>
+        <button class="btn-action" onclick="window._loadGmbSection()">🔄 Refresh</button>
+      </div>
+
+      <!-- Status banner (hidden until loaded) -->
+      <div id="gmbStatusBanner" style="display:none;border-radius:12px;padding:16px 20px;margin-bottom:20px;"></div>
+
+      <!-- Info card -->
+      <div style="background:linear-gradient(135deg,#4285F4 0%,#34A853 50%,#FBBC05 75%,#EA4335 100%);border-radius:14px;padding:24px;color:#fff;margin-bottom:22px;">
+        <div style="font-size:1.15rem;font-weight:800;margin-bottom:6px;">🌟 Get Found on Google</div>
+        <p style="font-size:0.85rem;opacity:.9;margin-bottom:16px;line-height:1.6;">Let us set up and optimize your Google My Business profile so local customers can find you on Google Search and Maps.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          <span style="background:rgba(255,255,255,.2);border-radius:20px;padding:4px 12px;font-size:0.75rem;font-weight:600;">✅ GMB Profile Setup</span>
+          <span style="background:rgba(255,255,255,.2);border-radius:20px;padding:4px 12px;font-size:0.75rem;font-weight:600;">✅ Photos &amp; Logo Upload</span>
+          <span style="background:rgba(255,255,255,.2);border-radius:20px;padding:4px 12px;font-size:0.75rem;font-weight:600;">✅ Business Hours</span>
+          <span style="background:rgba(255,255,255,.2);border-radius:20px;padding:4px 12px;font-size:0.75rem;font-weight:600;">✅ Review Strategy</span>
+          <span style="background:rgba(255,255,255,.2);border-radius:20px;padding:4px 12px;font-size:0.75rem;font-weight:600;">✅ Map Optimization</span>
+        </div>
+      </div>
+
+      <!-- Request form -->
+      <div class="section-card" id="gmbRequestForm">
+        <div class="section-card-header">
+          <h3 style="font-size:1rem;font-weight:700;">📋 Request Setup</h3>
+        </div>
+        <p style="font-size:0.82rem;color:#64748b;margin:-8px 0 18px;">Fill in your business details below. Our team will reach out within 24–48 hours to get started.</p>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <div>
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#374151;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Business Name *</label>
+            <input id="gmbBizName" type="text" placeholder="Your business name"
+              style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.88rem;color:#1e293b;outline:none;box-sizing:border-box;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#374151;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Owner Name *</label>
+            <input id="gmbOwnerName" type="text" placeholder="Your full name"
+              style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.88rem;color:#1e293b;outline:none;box-sizing:border-box;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#374151;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Phone *</label>
+            <input id="gmbPhone" type="tel" placeholder="(555) 000-0000"
+              style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.88rem;color:#1e293b;outline:none;box-sizing:border-box;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#374151;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Email *</label>
+            <input id="gmbEmail" type="email" placeholder="business@email.com"
+              style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.88rem;color:#1e293b;outline:none;box-sizing:border-box;" />
+          </div>
+          <div style="grid-column:1/-1;">
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#374151;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Business Address *</label>
+            <input id="gmbAddress" type="text" placeholder="123 Main St, City, State, ZIP"
+              style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.88rem;color:#1e293b;outline:none;box-sizing:border-box;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#374151;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Business Category</label>
+            <input id="gmbCategory" type="text" placeholder="e.g. Plumber, Electrician, HVAC…"
+              style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.88rem;color:#1e293b;outline:none;box-sizing:border-box;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#374151;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Website (optional)</label>
+            <input id="gmbWebsite" type="url" placeholder="https://yoursite.com"
+              style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.88rem;color:#1e293b;outline:none;box-sizing:border-box;" />
+          </div>
+          <div style="grid-column:1/-1;">
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#374151;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Additional Notes</label>
+            <textarea id="gmbNotes" rows="3" placeholder="Anything else you'd like us to know about your business…"
+              style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.88rem;color:#1e293b;outline:none;box-sizing:border-box;resize:vertical;"></textarea>
+          </div>
+        </div>
+
+        <button onclick="window._submitGmbRequest()" id="gmbSubmitBtn"
+          style="margin-top:18px;width:100%;padding:13px;background:linear-gradient(135deg,#4285F4,#1a56c4);color:#fff;border:none;border-radius:10px;font-size:0.95rem;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(66,133,244,.35);">
+          🚀 Request Google My Business Setup
+        </button>
+      </div>
+
+      <!-- Admin response (shown after request submitted) -->
+      <div id="gmbAdminNote" style="display:none;background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:12px;padding:16px 20px;margin-top:16px;">
+        <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#0369a1;margin-bottom:6px;">📝 Admin Update</div>
+        <div id="gmbAdminNoteText" style="font-size:0.85rem;color:#1e293b;line-height:1.6;"></div>
+      </div>
+
+    </div><!-- /gmb -->
 
 
     <!-- ════════════ SECTION: Business Profile ════════════ -->

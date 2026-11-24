@@ -125,5 +125,16 @@ service cloud.firestore {
           resource == null || resource.data.ownerUid == request.auth.uid
         ));
     }
+
+    // ── Google My Business setup requests ────────────────────────────────
+    match /gmb_requests/{reqId} {
+      allow read: if isAdmin() || (isAuth() && resource.data.uid == request.auth.uid);
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow update: if isAdmin()
+        || (isAuth() && resource.data.uid == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['status', 'updatedAt']));
+      allow delete: if isAdmin();
+    }
   }
 }

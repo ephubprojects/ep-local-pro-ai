@@ -44,6 +44,9 @@
     <a data-nav="financing">
       <span class="nav-icon">🏦</span> Financing
     </a>
+    <a data-nav="gmb">
+      <span class="nav-icon">📍</span> GMB Setup
+    </a>
     <a data-nav="calendar">
       <span class="nav-icon">📅</span> Calendar
     </a>
@@ -615,6 +618,53 @@
       </div>
 
     </div><!-- /financing -->
+
+
+    <!-- ════════════ SECTION: GMB Setup ════════════ -->
+    <div data-section="gmb" class="hidden">
+
+      <div class="section-card-header" style="margin-bottom:20px;">
+        <h2>📍 Google My Business Setup</h2>
+        <button class="btn-action" onclick="loadGmbRequests()">🔄 Refresh</button>
+      </div>
+
+      <!-- Summary stats -->
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:22px;">
+        <div class="stat-card" style="flex:1;min-width:120px;">
+          <div class="stat-label">PENDING</div>
+          <div class="stat-value" id="gmbStatPending">—</div>
+        </div>
+        <div class="stat-card" style="flex:1;min-width:120px;">
+          <div class="stat-label">IN PROGRESS</div>
+          <div class="stat-value" id="gmbStatInProgress">—</div>
+        </div>
+        <div class="stat-card" style="flex:1;min-width:120px;">
+          <div class="stat-label">COMPLETED</div>
+          <div class="stat-value" id="gmbStatCompleted">—</div>
+        </div>
+      </div>
+
+      <!-- Requests table -->
+      <div class="section-card">
+        <table class="data-table" style="width:100%;">
+          <thead>
+            <tr>
+              <th>BUSINESS</th>
+              <th>OWNER</th>
+              <th>PHONE</th>
+              <th>CATEGORY</th>
+              <th>REQUESTED</th>
+              <th>STATUS</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody id="gmbRequestsBody">
+            <tr><td colspan="7"><div class="empty-state"><p>⏳ Loading…</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /gmb -->
 
 
     <!-- ════════════ SECTION: Calendar ════════════ -->
