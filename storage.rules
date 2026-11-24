@@ -25,6 +25,13 @@ service firebase.storage {
       allow write: if request.auth != null;
     }
 
+    // Job photos — public read for portfolio sharing, write requires auth
+    match /job_photos/{uid}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == uid;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
     // Everything else requires authentication
     match /{allPaths=**} {
       allow read, write: if request.auth != null;

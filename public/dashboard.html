@@ -47,6 +47,9 @@
     <a data-nav="documents">
       <span class="nav-icon">📄</span> Documents
     </a>
+    <a data-nav="photos">
+      <span class="nav-icon">📸</span> Job Photos
+    </a>
     <a data-nav="financing" id="navFinancing">
       <span class="nav-icon">🏦</span> Financing
     </a>
@@ -265,6 +268,110 @@
       </div>
 
     </div><!-- /documents -->
+
+
+    <!-- ════════════ SECTION: Job Photos ════════════ -->
+    <div data-section="photos" class="hidden">
+
+      <div class="section-card-header" style="margin-bottom:20px;">
+        <h2>📸 Job Photos</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn-action" onclick="window._sharePhotoPortfolio()">🔗 Portfolio</button>
+          <button class="btn-action success" onclick="window._togglePhotoUpload()">📤 Upload</button>
+          <button class="btn-action" onclick="window._loadPhotosSection()">🔄 Refresh</button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
+        <div class="stat-card" style="flex:1;min-width:100px;"><div class="stat-label">TOTAL</div><div class="stat-value" id="photoStatTotal">—</div></div>
+        <div class="stat-card" style="flex:1;min-width:100px;"><div class="stat-label">BEFORE</div><div class="stat-value" id="photoStatBefore">—</div></div>
+        <div class="stat-card" style="flex:1;min-width:100px;"><div class="stat-label">AFTER</div><div class="stat-value" id="photoStatAfter">—</div></div>
+        <div class="stat-card" style="flex:1;min-width:100px;"><div class="stat-label">IN PROGRESS</div><div class="stat-value" id="photoStatProgress">—</div></div>
+      </div>
+
+      <!-- Upload form -->
+      <div id="photoUploadForm" class="section-card" style="display:none;margin-bottom:20px;">
+        <h3 style="font-size:0.95rem;font-weight:700;margin-bottom:14px;">📤 Upload Job Photos</h3>
+
+        <!-- Drop zone -->
+        <div id="photoDropZone"
+          style="border:2px dashed #c7d2fe;border-radius:12px;padding:28px;text-align:center;cursor:pointer;background:#f8fafc;margin-bottom:14px;transition:all .2s;"
+          onclick="document.getElementById('photoFileInput').click()"
+          ondragover="event.preventDefault();this.style.borderColor='#4f46e5';this.style.background='#eef2ff';"
+          ondragleave="this.style.borderColor='#c7d2fe';this.style.background='#f8fafc';"
+          ondrop="window._photoOnDrop(event)">
+          <div style="font-size:2rem;margin-bottom:6px;">🖼️</div>
+          <div style="font-size:0.88rem;font-weight:600;color:#4f46e5;">Click or drag photos here</div>
+          <div style="font-size:0.75rem;color:#94a3b8;margin-top:4px;">JPG, PNG, HEIC — multiple allowed</div>
+        </div>
+        <input id="photoFileInput" type="file" accept="image/*" multiple style="display:none;" onchange="window._photoFilesSelected(this.files)" />
+
+        <!-- Selected file previews -->
+        <div id="photoFilePreviews" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;"></div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div>
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#374151;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Label *</label>
+            <select id="photoLabel" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.88rem;color:#1e293b;">
+              <option value="before">🟠 Before</option>
+              <option value="after">🟢 After</option>
+              <option value="progress">🔵 In Progress</option>
+              <option value="completed">🟣 Completed</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#374151;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Job / Doc # (optional)</label>
+            <input id="photoJobRef" type="text" placeholder="e.g. EST-8164 or Bathroom Remodel"
+              style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.88rem;color:#1e293b;outline:none;box-sizing:border-box;" />
+          </div>
+          <div style="grid-column:1/-1;">
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#374151;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Caption (optional)</label>
+            <input id="photoCaption" type="text" placeholder="Describe the work done…"
+              style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.88rem;color:#1e293b;outline:none;box-sizing:border-box;" />
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;">
+          <button id="photoUploadBtn" onclick="window._uploadJobPhotos()"
+            style="flex:1;padding:11px;background:#4f46e5;color:#fff;border:none;border-radius:9px;font-size:0.9rem;font-weight:700;cursor:pointer;">
+            📤 Upload Photos
+          </button>
+          <button onclick="window._togglePhotoUpload()"
+            style="padding:11px 18px;background:#f1f5f9;color:#64748b;border:none;border-radius:9px;font-size:0.9rem;font-weight:600;cursor:pointer;">
+            Cancel
+          </button>
+        </div>
+        <div id="photoUploadProgress" style="display:none;margin-top:12px;"></div>
+      </div>
+
+      <!-- Filter bar -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
+        <button class="docs-tab active" data-photo-filter="all"    onclick="window._filterPhotos('all')"     ><span class="docs-tab-label">All</span></button>
+        <button class="docs-tab"        data-photo-filter="before"  onclick="window._filterPhotos('before')"  ><span class="docs-tab-label">🟠 Before</span></button>
+        <button class="docs-tab"        data-photo-filter="after"   onclick="window._filterPhotos('after')"   ><span class="docs-tab-label">🟢 After</span></button>
+        <button class="docs-tab"        data-photo-filter="progress" onclick="window._filterPhotos('progress')"><span class="docs-tab-label">🔵 Progress</span></button>
+        <button class="docs-tab"        data-photo-filter="completed" onclick="window._filterPhotos('completed')"><span class="docs-tab-label">🟣 Done</span></button>
+      </div>
+
+      <!-- Gallery -->
+      <div id="photoGallery">
+        <div class="empty-state"><div class="empty-state-icon">📷</div><p>No photos yet. Upload your first job photos above.</p></div>
+      </div>
+
+      <!-- Lightbox -->
+      <div id="photoLightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:none;align-items:center;justify-content:center;flex-direction:column;padding:20px;">
+        <button onclick="document.getElementById('photoLightbox').style.display='none'"
+          style="position:absolute;top:16px;right:20px;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:1.4rem;width:40px;height:40px;border-radius:50%;cursor:pointer;z-index:1;">✕</button>
+        <button id="lightboxPrev" onclick="window._lightboxNav(-1)"
+          style="position:absolute;left:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:#fff;font-size:1.6rem;width:44px;height:44px;border-radius:50%;cursor:pointer;">‹</button>
+        <button id="lightboxNext" onclick="window._lightboxNav(1)"
+          style="position:absolute;right:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:#fff;font-size:1.6rem;width:44px;height:44px;border-radius:50%;cursor:pointer;">›</button>
+        <img id="lightboxImg" src="" alt="" style="max-width:90vw;max-height:75vh;border-radius:10px;object-fit:contain;" />
+        <div id="lightboxCaption" style="color:#fff;text-align:center;margin-top:14px;font-size:0.9rem;max-width:600px;"></div>
+      </div>
+
+    </div><!-- /photos -->
 
 
     <!-- ════════════ SECTION: Financing ════════════ -->

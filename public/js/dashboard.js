@@ -4,7 +4,7 @@
    ============================================================ */
 
 import { auth, db, storage } from '/js/firebase.js';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 import {
   onAuthStateChanged,
   signOut
@@ -239,6 +239,7 @@ function showSection(name) {
     'orders':      'Orders',
     'menu':        'Menu',
     'documents':   'Documents',
+    'photos':      'Job Photos',
     'financing':   'Financing',
     'gmb':         'Google My Business',
     'profile':     'Business Profile',
@@ -254,6 +255,7 @@ function showSection(name) {
   if (name === 'orders')      { loadOrders('all'); }
   if (name === 'menu')        { loadMenu(); }
   if (name === 'documents')   { loadDocuments(); }
+  if (name === 'photos')      { window._loadPhotosSection(); }
   if (name === 'financing')   { _loadFinancingSection(); }
   if (name === 'gmb')        { window._loadGmbSection(); }
   if (name === 'profile')     { loadProfile(); }
@@ -4160,6 +4162,7 @@ window._cancelGmbRequest = async function() {
     await updateDoc(doc(db, 'gmb_requests', _gmbRequestId), { status: 'cancelled', updatedAt: serverTimestamp() });
     _gmbRequestId = null;
     const banner = document.getElementById('gmbStatusBanner');
+
     const form   = document.getElementById('gmbRequestForm');
     if (banner) banner.style.display = 'none';
     if (form)   form.style.display   = '';
@@ -4167,4 +4170,248 @@ window._cancelGmbRequest = async function() {
   } catch(e) {
     showToast('Could not cancel request.', 'error');
   }
+};
+
+// ── Job Photo Documentation ───────────────────────────────────
+
+let _allPhotos      = [];
+let _filteredPhotos = [];
+let _lightboxIndex  = 0;
+let _pendingFiles   = [];
+
+const PHOTO_LABEL_STYLE = {
+  before:    { bg: '#fef3c7', color: '#92400e', dot: '🟠' },
+  after:     { bg: '#dcfce7', color: '#14532d', dot: '🟢' },
+  progress:  { bg: '#dbeafe', color: '#1e40af', dot: '🔵' },
+  completed: { bg: '#f3e8ff', color: '#6b21a8', dot: '🟣' },
+};
+
+window._loadPhotosSection = async function() {
+  const gallery = document.getElementById('photoGallery');
+  if (!gallery || !currentUser) return;
+  gallery.innerHTML = `<div class="empty-state"><p>⏳ Loading…</p></div>`;
+
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'job_photos'),
+      where('uid', '==', currentUser.uid),
+      orderBy('uploadedAt', 'desc'),
+      limit(200)
+    ));
+    _allPhotos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    _updatePhotoStats();
+    _filterPhotos('all');
+  } catch(e) {
+    console.error('_loadPhotosSection:', e);
+    gallery.innerHTML = `<div class="empty-state"><p>⚠️ Could not load photos.</p></div>`;
+  }
+};
+
+function _updatePhotoStats() {
+  const counts = { before: 0, after: 0, progress: 0, completed: 0 };
+  _allPhotos.forEach(p => { if (counts[p.label] !== undefined) counts[p.label]++; });
+  const s = id => document.getElementById(id);
+  if (s('photoStatTotal'))    s('photoStatTotal').textContent    = _allPhotos.length;
+  if (s('photoStatBefore'))   s('photoStatBefore').textContent   = counts.before;
+  if (s('photoStatAfter'))    s('photoStatAfter').textContent    = counts.after;
+  if (s('photoStatProgress')) s('photoStatProgress').textContent = counts.progress;
+}
+
+window._filterPhotos = function(filter) {
+  document.querySelectorAll('[data-photo-filter]').forEach(b => {
+    b.classList.toggle('active', b.dataset.photoFilter === filter);
+  });
+  _filteredPhotos = filter === 'all' ? [..._allPhotos] : _allPhotos.filter(p => p.label === filter);
+  _renderPhotoGallery();
+};
+
+function _renderPhotoGallery() {
+  const gallery = document.getElementById('photoGallery');
+  if (!gallery) return;
+  if (!_filteredPhotos.length) {
+    gallery.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📷</div><p>No photos in this category yet.</p></div>`;
+    return;
+  }
+
+  // Group by jobRef for before/after pairs
+  const groups = {};
+  const noRef  = [];
+  _filteredPhotos.forEach(p => {
+    if (p.jobRef) { (groups[p.jobRef] = groups[p.jobRef] || []).push(p); }
+    else noRef.push(p);
+  });
+
+  let html = '';
+
+  // Render grouped (by jobRef) first
+  Object.entries(groups).forEach(([jobRef, photos]) => {
+    html += `<div style="margin-bottom:24px;">
+      <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #f1f5f9;">
+        📋 ${escHTML(jobRef)}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;">
+        ${photos.map((p, gi) => _photoCard(p, _filteredPhotos.indexOf(p))).join('')}
+      </div>
+    </div>`;
+  });
+
+  // Render ungrouped
+  if (noRef.length) {
+    html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;">
+      ${noRef.map(p => _photoCard(p, _filteredPhotos.indexOf(p))).join('')}
+    </div>`;
+  }
+
+  gallery.innerHTML = html;
+}
+
+function _photoCard(p, idx) {
+  const s = PHOTO_LABEL_STYLE[p.label] || PHOTO_LABEL_STYLE.before;
+  const date = p.uploadedAt?.toDate?.()?.toLocaleDateString() || '';
+  return `<div style="border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;background:#fff;cursor:pointer;transition:box-shadow .2s;" onclick="window._openLightbox(${idx})">
+    <div style="position:relative;padding-top:75%;background:#f1f5f9;">
+      <img src="${escHTML(p.photoUrl)}" alt="${escHTML(p.caption||'')}"
+        style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" loading="lazy" />
+      <span style="position:absolute;top:8px;left:8px;padding:3px 9px;border-radius:20px;font-size:0.7rem;font-weight:700;background:${s.bg};color:${s.color};">${s.dot} ${p.label.charAt(0).toUpperCase()+p.label.slice(1)}</span>
+    </div>
+    <div style="padding:9px 12px;">
+      ${p.caption ? `<div style="font-size:0.8rem;font-weight:600;color:#1e293b;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHTML(p.caption)}</div>` : ''}
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+        <span style="font-size:0.7rem;color:#94a3b8;">${date}</span>
+        <button onclick="event.stopPropagation();window._deleteJobPhoto('${escHTML(p.id)}','${escHTML(p.storagePath||'')}')"
+          style="background:none;border:none;cursor:pointer;font-size:0.85rem;color:#ef4444;padding:2px 4px;" title="Delete">🗑️</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+window._openLightbox = function(idx) {
+  _lightboxIndex = idx;
+  const lb = document.getElementById('photoLightbox');
+  if (!lb) return;
+  lb.style.display = 'flex';
+  _lightboxShow();
+};
+
+function _lightboxShow() {
+  const p = _filteredPhotos[_lightboxIndex];
+  if (!p) return;
+  document.getElementById('lightboxImg').src = p.photoUrl;
+  const s = PHOTO_LABEL_STYLE[p.label] || PHOTO_LABEL_STYLE.before;
+  const cap = [s.dot + ' ' + (p.label.charAt(0).toUpperCase()+p.label.slice(1)), p.caption, p.jobRef ? '📋 ' + p.jobRef : ''].filter(Boolean).join('  ·  ');
+  document.getElementById('lightboxCaption').textContent = cap;
+  document.getElementById('lightboxPrev').style.display = _lightboxIndex > 0 ? '' : 'none';
+  document.getElementById('lightboxNext').style.display = _lightboxIndex < _filteredPhotos.length - 1 ? '' : 'none';
+}
+
+window._lightboxNav = function(dir) {
+  _lightboxIndex = Math.max(0, Math.min(_filteredPhotos.length - 1, _lightboxIndex + dir));
+  _lightboxShow();
+};
+
+// Close lightbox on backdrop click
+document.addEventListener('click', e => {
+  const lb = document.getElementById('photoLightbox');
+  if (lb && e.target === lb) lb.style.display = 'none';
+});
+
+window._togglePhotoUpload = function() {
+  const form = document.getElementById('photoUploadForm');
+  if (!form) return;
+  const showing = form.style.display !== 'none';
+  form.style.display = showing ? 'none' : '';
+  if (!showing) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+window._photoOnDrop = function(event) {
+  event.preventDefault();
+  const dz = document.getElementById('photoDropZone');
+  if (dz) { dz.style.borderColor = '#c7d2fe'; dz.style.background = '#f8fafc'; }
+  window._photoFilesSelected(event.dataTransfer.files);
+};
+
+window._photoFilesSelected = function(files) {
+  _pendingFiles = Array.from(files);
+  const previews = document.getElementById('photoFilePreviews');
+  if (!previews) return;
+  previews.innerHTML = _pendingFiles.map((f, i) => {
+    const url = URL.createObjectURL(f);
+    return `<div style="position:relative;width:72px;height:72px;border-radius:8px;overflow:hidden;border:2px solid #e2e8f0;">
+      <img src="${url}" style="width:100%;height:100%;object-fit:cover;" />
+      <span style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.55);color:#fff;font-size:0.6rem;padding:2px 4px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${f.name}</span>
+    </div>`;
+  }).join('');
+};
+
+window._uploadJobPhotos = async function() {
+  if (!_pendingFiles.length) { showToast('Select at least one photo first.', 'error'); return; }
+  const btn      = document.getElementById('photoUploadBtn');
+  const progress = document.getElementById('photoUploadProgress');
+  const label    = document.getElementById('photoLabel')?.value    || 'before';
+  const jobRef   = document.getElementById('photoJobRef')?.value.trim()   || '';
+  const caption  = document.getElementById('photoCaption')?.value.trim()  || '';
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Uploading…'; }
+  if (progress) { progress.style.display = ''; progress.innerHTML = ''; }
+
+  let done = 0;
+  for (const file of _pendingFiles) {
+    try {
+      const blob  = await resizeLogo(file, 1600, 1200);
+      const fname = `${Date.now()}_${Math.random().toString(36).slice(2)}.webp`;
+      const path  = `job_photos/${currentUser.uid}/${fname}`;
+      const snap  = await uploadBytes(storageRef(storage, path), blob, { contentType: 'image/webp' });
+      const url   = await getDownloadURL(snap.ref);
+      await addDoc(collection(db, 'job_photos'), {
+        uid: currentUser.uid, businessId: bizId,
+        photoUrl: url, storagePath: path,
+        label, jobRef, caption,
+        uploadedAt: serverTimestamp()
+      });
+      done++;
+      if (progress) progress.innerHTML = `<div style="font-size:0.82rem;color:#15803d;">✅ Uploaded ${done} of ${_pendingFiles.length}</div>`;
+    } catch(e) {
+      console.error('photo upload error:', e);
+      if (progress) progress.innerHTML += `<div style="font-size:0.82rem;color:#dc2626;">⚠️ Failed: ${e.message}</div>`;
+    }
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '📤 Upload Photos'; }
+  _pendingFiles = [];
+  document.getElementById('photoFileInput').value = '';
+  document.getElementById('photoFilePreviews').innerHTML = '';
+  document.getElementById('photoJobRef').value  = '';
+  document.getElementById('photoCaption').value = '';
+  if (done > 0) {
+    showToast(`${done} photo${done > 1 ? 's' : ''} uploaded!`, 'success');
+    window._togglePhotoUpload();
+    window._loadPhotosSection();
+  }
+};
+
+window._deleteJobPhoto = async function(photoId, storagePath) {
+  if (!confirm('Delete this photo permanently?')) return;
+  try {
+    await deleteDoc(doc(db, 'job_photos', photoId));
+    if (storagePath) {
+      try { await deleteObject(storageRef(storage, storagePath)); } catch(_) {}
+    }
+    _allPhotos = _allPhotos.filter(p => p.id !== photoId);
+    _filteredPhotos = _filteredPhotos.filter(p => p.id !== photoId);
+    _updatePhotoStats();
+    _renderPhotoGallery();
+    showToast('Photo deleted.', 'success');
+  } catch(e) {
+    showToast('Could not delete photo.', 'error');
+  }
+};
+
+window._sharePhotoPortfolio = function() {
+  if (!bizId) { showToast('No business profile found.', 'error'); return; }
+  const url = `${window.location.origin}/portfolio.html?uid=${currentUser.uid}`;
+  navigator.clipboard.writeText(url).then(() => {
+    showToast('Portfolio link copied! Share it with potential customers.', 'success');
+  }).catch(() => {
+    prompt('Copy your portfolio link:', url);
+  });
 };

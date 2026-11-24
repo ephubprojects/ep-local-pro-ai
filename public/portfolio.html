@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Job Portfolio — EP Local Pro AI</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; color: #1e293b; min-height: 100vh; }
+    header { background: #fff; border-bottom: 1px solid #e2e8f0; padding: 16px 24px; display: flex; align-items: center; gap: 14px; }
+    header img#bizLogo { height: 44px; border-radius: 8px; object-fit: contain; display: none; }
+    header h1 { font-size: 1.1rem; font-weight: 800; }
+    header p  { font-size: 0.8rem; color: #64748b; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
+    .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
+    .filter-btn { padding: 6px 16px; border-radius: 20px; border: 1.5px solid #e2e8f0; background: #fff; font-size: 0.82rem; font-weight: 600; cursor: pointer; color: #475569; transition: all .2s; }
+    .filter-btn.active { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+    .group-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #f1f5f9; }
+    .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+    .photo-card { border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; transition: box-shadow .2s; }
+    .photo-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.1); }
+    .photo-thumb { position: relative; padding-top: 75%; background: #f1f5f9; }
+    .photo-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .label-badge { position: absolute; top: 8px; left: 8px; padding: 3px 9px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; }
+    .photo-info { padding: 9px 12px; }
+    .photo-caption { font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+    .photo-date { font-size: 0.7rem; color: #94a3b8; }
+    .empty { text-align: center; padding: 60px 20px; color: #94a3b8; }
+    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.92); z-index: 9999; align-items: center; justify-content: center; flex-direction: column; padding: 20px; }
+    .lightbox.open { display: flex; }
+    #lbImg { max-width: 90vw; max-height: 75vh; border-radius: 10px; object-fit: contain; }
+    #lbCaption { color: #fff; text-align: center; margin-top: 14px; font-size: 0.9rem; max-width: 600px; }
+    .lb-btn { position: absolute; background: rgba(255,255,255,.15); border: none; color: #fff; font-size: 1.6rem; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; }
+    #lbClose { top: 16px; right: 20px; font-size: 1.3rem; }
+    #lbPrev  { left: 16px; top: 50%; transform: translateY(-50%); }
+    #lbNext  { right: 16px; top: 50%; transform: translateY(-50%); }
+  </style>
+</head>
+<body>
+
+<header>
+  <img id="bizLogo" src="" alt="Logo" />
+  <div>
+    <h1 id="bizName">Job Portfolio</h1>
+    <p id="bizSub">Before &amp; After Project Photos</p>
+  </div>
+</header>
+
+<div class="container">
+  <div class="filter-bar" id="filterBar">
+    <button class="filter-btn active" data-filter="all">All Photos</button>
+    <button class="filter-btn" data-filter="before">🟠 Before</button>
+    <button class="filter-btn" data-filter="after">🟢 After</button>
+    <button class="filter-btn" data-filter="progress">🔵 In Progress</button>
+    <button class="filter-btn" data-filter="completed">🟣 Completed</button>
+  </div>
+  <div id="gallery"><div class="empty">⏳ Loading portfolio…</div></div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox">
+  <button class="lb-btn" id="lbClose" onclick="document.getElementById('lightbox').classList.remove('open')">✕</button>
+  <button class="lb-btn" id="lbPrev" onclick="lbNav(-1)">‹</button>
+  <button class="lb-btn" id="lbNext" onclick="lbNav(1)">›</button>
+  <img id="lbImg" src="" alt="" />
+  <div id="lbCaption"></div>
+</div>
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getFirestore, collection, query, where, orderBy, limit, getDocs, getDoc, doc }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey:            "AIzaSyB4M24fLSHNKdWRHDDu9xj2sPGYCDZExiA",
+    authDomain:        "ep-local-pro-ai.firebaseapp.com",
+    projectId:         "ep-local-pro-ai",
+    storageBucket:     "ep-local-pro-ai.firebasestorage.app",
+    messagingSenderId: "182127678437",
+    appId:             "1:182127678437:web:073432114afc243b5d150c"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+
+  const LABEL_STYLE = {
+    before:    { bg: '#fef3c7', color: '#92400e', dot: '🟠' },
+    after:     { bg: '#dcfce7', color: '#14532d', dot: '🟢' },
+    progress:  { bg: '#dbeafe', color: '#1e40af', dot: '🔵' },
+    completed: { bg: '#f3e8ff', color: '#6b21a8', dot: '🟣' },
+  };
+
+  const uid = new URLSearchParams(location.search).get('uid');
+  let allPhotos = [], filtered = [], lbIdx = 0;
+
+  if (!uid) {
+    document.getElementById('gallery').innerHTML = '<div class="empty">⚠️ No portfolio specified.</div>';
+  } else {
+    loadPortfolio();
+  }
+
+  async function loadPortfolio() {
+    try {
+      // Load business info
+      const ownerSnap = await getDoc(doc(db, 'owners', uid));
+      if (ownerSnap.exists()) {
+        const o = ownerSnap.data();
+        document.getElementById('bizName').textContent = o.companyName || o.name || 'Job Portfolio';
+        document.title = (o.companyName || 'Job Portfolio') + ' — Photo Portfolio';
+        document.getElementById('bizSub').textContent = o.category || 'Before & After Project Photos';
+        if (o.logoUrl) {
+          const logo = document.getElementById('bizLogo');
+          logo.src = o.logoUrl; logo.style.display = '';
+        }
+      }
+
+      // Load photos
+      const snap = await getDocs(query(
+        collection(db, 'job_photos'),
+        where('uid', '==', uid),
+        orderBy('uploadedAt', 'desc'),
+        limit(300)
+      ));
+      allPhotos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      applyFilter('all');
+
+      // Wire filter buttons
+      document.getElementById('filterBar').addEventListener('click', e => {
+        const btn = e.target.closest('[data-filter]');
+        if (!btn) return;
+        document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        applyFilter(btn.dataset.filter);
+      });
+    } catch(e) {
+      document.getElementById('gallery').innerHTML = '<div class="empty">⚠️ Could not load portfolio.</div>';
+    }
+  }
+
+  function applyFilter(f) {
+    filtered = f === 'all' ? [...allPhotos] : allPhotos.filter(p => p.label === f);
+    renderGallery();
+  }
+
+  function renderGallery() {
+    const g = document.getElementById('gallery');
+    if (!filtered.length) { g.innerHTML = '<div class="empty">📷 No photos in this category.</div>'; return; }
+
+    const groups = {}, noRef = [];
+    filtered.forEach(p => { if (p.jobRef) { (groups[p.jobRef] = groups[p.jobRef] || []).push(p); } else noRef.push(p); });
+
+    let html = '';
+    Object.entries(groups).forEach(([ref, photos]) => {
+      html += `<div style="margin-bottom:28px;"><div class="group-label">📋 ${ref}</div>
+        <div class="photo-grid">${photos.map((p, i) => card(p, filtered.indexOf(p))).join('')}</div></div>`;
+    });
+    if (noRef.length) html += `<div class="photo-grid">${noRef.map((p) => card(p, filtered.indexOf(p))).join('')}</div>`;
+    g.innerHTML = html;
+  }
+
+  function card(p, idx) {
+    const s = LABEL_STYLE[p.label] || LABEL_STYLE.before;
+    const date = p.uploadedAt?.toDate?.()?.toLocaleDateString() || '';
+    return `<div class="photo-card" onclick="openLb(${idx})">
+      <div class="photo-thumb"><img src="${p.photoUrl}" alt="${p.caption||''}" loading="lazy" />
+        <span class="label-badge" style="background:${s.bg};color:${s.color};">${s.dot} ${p.label.charAt(0).toUpperCase()+p.label.slice(1)}</span></div>
+      <div class="photo-info">
+        ${p.caption ? `<div class="photo-caption">${p.caption}</div>` : ''}
+        <div class="photo-date">${date}</div>
+      </div>
+    </div>`;
+  }
+
+  window.openLb = function(idx) { lbIdx = idx; showLb(); document.getElementById('lightbox').classList.add('open'); };
+  window.lbNav  = function(d)   { lbIdx = Math.max(0, Math.min(filtered.length-1, lbIdx+d)); showLb(); };
+  function showLb() {
+    const p = filtered[lbIdx];
+    document.getElementById('lbImg').src = p.photoUrl;
+    const s = LABEL_STYLE[p.label] || LABEL_STYLE.before;
+    document.getElementById('lbCaption').textContent = [s.dot+' '+(p.label.charAt(0).toUpperCase()+p.label.slice(1)), p.caption, p.jobRef?'📋 '+p.jobRef:''].filter(Boolean).join('  ·  ');
+    document.getElementById('lbPrev').style.display = lbIdx > 0 ? '' : 'none';
+    document.getElementById('lbNext').style.display = lbIdx < filtered.length-1 ? '' : 'none';
+  }
+  document.getElementById('lightbox').addEventListener('click', e => {
+    if (e.target === document.getElementById('lightbox')) document.getElementById('lightbox').classList.remove('open');
+  });
+</script>
+</body>
+</html>
