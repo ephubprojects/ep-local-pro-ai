@@ -47,6 +47,10 @@
     <a data-nav="documents">
       <span class="nav-icon">📄</span> Documents
     </a>
+    <a data-nav="myleads" id="dashLeadsNav">
+      <span class="nav-icon">🎯</span> My Leads
+      <span id="dashLeadsBadge" style="display:none;background:#ef4444;color:#fff;border-radius:20px;font-size:0.65rem;font-weight:700;padding:1px 6px;margin-left:4px;">0</span>
+    </a>
     <a data-nav="photos">
       <span class="nav-icon">📸</span> Job Photos
     </a>
@@ -268,6 +272,32 @@
       </div>
 
     </div><!-- /documents -->
+
+
+    <!-- ════════════ SECTION: My Leads ════════════ -->
+    <div data-section="myleads" class="hidden">
+
+      <div class="section-card-header" style="margin-bottom:20px;">
+        <h2>🎯 My Leads</h2>
+        <button class="btn-action" onclick="window._loadMyLeads()">🔄 Refresh</button>
+      </div>
+
+      <div id="myLeadsInfo" style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:12px;padding:14px 18px;margin-bottom:20px;font-size:0.83rem;color:#0369a1;line-height:1.6;">
+        📋 Leads are assigned to you by our admin team based on your trade and location. When you receive a new lead, the homeowner's contact info will appear here. Reach out to them promptly!
+      </div>
+
+      <!-- Stats -->
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
+        <div class="stat-card" style="flex:1;min-width:100px;"><div class="stat-label">NEW</div><div class="stat-value" id="myLeadStatNew">—</div></div>
+        <div class="stat-card" style="flex:1;min-width:100px;"><div class="stat-label">CONTACTED</div><div class="stat-value" id="myLeadStatContacted">—</div></div>
+        <div class="stat-card" style="flex:1;min-width:100px;"><div class="stat-label">WON</div><div class="stat-value" id="myLeadStatWon">—</div></div>
+      </div>
+
+      <div id="myLeadsContainer">
+        <div class="empty-state"><div class="empty-state-icon">🎯</div><p>No leads assigned yet. Admin will notify you when a matching job comes in.</p></div>
+      </div>
+
+    </div><!-- /myleads -->
 
 
     <!-- ════════════ SECTION: Job Photos ════════════ -->

@@ -13,7 +13,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 import {
   collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
-  query, where, orderBy, limit, serverTimestamp, arrayUnion, arrayRemove
+  query, where, orderBy, limit, onSnapshot, serverTimestamp, arrayUnion, arrayRemove
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // ── Category data (inline — no fetch needed) ────────────────
@@ -295,6 +295,7 @@ async function onAdminReady(user) {
   showSection('dashboard');
   loadDashboardStats();
   loadRecentActivity();
+  _initAdminLeadsBadge();
 
   // Wire up nav
   document.querySelectorAll('[data-nav]').forEach(link => {
@@ -310,6 +311,7 @@ async function onAdminReady(user) {
       if (name === 'documents')      loadAdminDocuments();
       if (name === 'financing')      loadFinancingTab();
       if (name === 'gmb')            loadGmbRequests();
+      if (name === 'leads')          loadLeads();
       if (name === 'calendar')       { loadCalendarConfig(); window._adminLoadBookings(); }
     });
   });
@@ -5342,5 +5344,222 @@ window._saveGmbNote = async function(reqId) {
     showToast('Note saved', 'success');
   } catch(e) {
     showToast('Could not save note', 'error');
+  }
+};
+
+// ── Lead Generation / Job Board ───────────────────────────────
+
+let _allLeads        = [];
+let _filteredLeads   = [];
+let _allContractors  = [];
+let _currentAssignId = null;
+
+function _initAdminLeadsBadge() {
+  onSnapshot(
+    query(collection(db, 'lead_requests'), where('status', '==', 'new')),
+    snap => {
+      const count = snap.size;
+      const badge = document.getElementById('adminLeadsBadge');
+      if (badge) { badge.textContent = count; badge.style.display = count > 0 ? '' : 'none'; }
+    }
+  );
+}
+
+async function loadLeads() {
+  const container = document.getElementById('leadsContainer');
+  if (!container) return;
+  container.innerHTML = '<div class="empty-state"><p>⏳ Loading…</p></div>';
+
+  try {
+    const snap = await getDocs(query(collection(db, 'lead_requests'), orderBy('postedAt', 'desc'), limit(300)));
+    _allLeads = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    const counts = { new: 0, assigned: 0, completed: 0 };
+    _allLeads.forEach(l => { if (counts[l.status] !== undefined) counts[l.status]++; });
+    const el = id => document.getElementById(id);
+    if (el('leadStatNew'))       el('leadStatNew').textContent       = counts.new;
+    if (el('leadStatAssigned'))  el('leadStatAssigned').textContent  = counts.assigned;
+    if (el('leadStatCompleted')) el('leadStatCompleted').textContent = counts.completed;
+
+    _filterLeads('all');
+  } catch(e) {
+    console.error('loadLeads error:', e);
+    container.innerHTML = '<div class="empty-state"><p>⚠️ Error loading leads.</p></div>';
+  }
+}
+window.loadLeads = loadLeads;
+
+window._filterLeads = function(filter) {
+  document.querySelectorAll('[data-lead-filter]').forEach(b => b.classList.toggle('active', b.dataset.leadFilter === filter));
+  _filteredLeads = filter === 'all' ? [..._allLeads] : _allLeads.filter(l => l.status === filter);
+  _renderLeads();
+};
+
+function _renderLeads() {
+  const container = document.getElementById('leadsContainer');
+  if (!container) return;
+  if (!_filteredLeads.length) {
+    container.innerHTML = '<div class="empty-state"><p>🎉 No leads in this category.</p></div>';
+    return;
+  }
+
+  const statusStyle = {
+    new:       { bg: '#fef9c3', color: '#78350f', label: '🆕 New' },
+    assigned:  { bg: '#dbeafe', color: '#1e40af', label: '📋 Assigned' },
+    completed: { bg: '#dcfce7', color: '#14532d', label: '✅ Completed' },
+    cancelled: { bg: '#f1f5f9', color: '#64748b', label: '🚫 Cancelled' },
+  };
+
+  container.innerHTML = _filteredLeads.map(l => {
+    const s    = statusStyle[l.status] || statusStyle.new;
+    const date = l.postedAt?.toDate?.()?.toLocaleDateString() || '—';
+    return `<div style="background:#fff;border-radius:14px;border:1px solid ${l.status==='new'?'#fde68a':'#e2e8f0'};padding:20px;margin-bottom:14px;">
+      <!-- Header -->
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+        <div>
+          <div style="font-size:1rem;font-weight:800;color:#1e293b;">${escHTML(l.title||'—')}</div>
+          <div style="font-size:0.78rem;color:#64748b;margin-top:2px;">
+            ${escHTML(l.category||'')} · 📍 ${escHTML(l.zipCode||'')} · 📅 ${date}
+            ${l.budget ? ` · 💰 ${escHTML(l.budget)}` : ''}
+            ${l.timing ? ` · ⏱️ ${escHTML(l.timing)}` : ''}
+          </div>
+        </div>
+        <span style="padding:4px 12px;border-radius:20px;font-size:0.75rem;font-weight:700;background:${s.bg};color:${s.color};white-space:nowrap;flex-shrink:0;">${s.label}</span>
+      </div>
+
+      ${l.description ? `<p style="font-size:0.83rem;color:#475569;line-height:1.6;margin-bottom:14px;border-left:3px solid #e2e8f0;padding-left:12px;">${escHTML(l.description)}</p>` : ''}
+
+      <!-- Homeowner contact -->
+      <div style="background:#f8fafc;border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:16px;">
+        <div><span style="font-size:0.7rem;color:#94a3b8;font-weight:600;">HOMEOWNER</span><br/><strong>${escHTML(l.name||'—')}</strong></div>
+        <div><span style="font-size:0.7rem;color:#94a3b8;font-weight:600;">PHONE</span><br/><a href="tel:${escHTML(l.phone||'')}" style="color:#4f46e5;font-weight:600;">${escHTML(l.phone||'—')}</a></div>
+        ${l.email ? `<div><span style="font-size:0.7rem;color:#94a3b8;font-weight:600;">EMAIL</span><br/><a href="mailto:${escHTML(l.email)}" style="color:#4f46e5;font-weight:600;">${escHTML(l.email)}</a></div>` : ''}
+      </div>
+
+      ${l.assignedToName ? `<div style="font-size:0.8rem;color:#1e40af;background:#eff6ff;border-radius:8px;padding:8px 12px;margin-bottom:12px;">📋 Assigned to: <strong>${escHTML(l.assignedToName)}</strong></div>` : ''}
+
+      <!-- Admin note -->
+      <div style="display:flex;gap:6px;margin-bottom:12px;">
+        <input type="text" id="leadNote-${escAttr(l.id)}" value="${escAttr(l.adminNotes||'')}" placeholder="Add admin note…"
+          style="flex:1;padding:7px 10px;border:1px solid #e2e8f0;border-radius:7px;font-size:0.78rem;" />
+        <button class="btn-action" onclick="window._saveLeadNote('${escAttr(l.id)}')" style="padding:7px 10px;font-size:0.75rem;">💾</button>
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${l.status === 'new' || l.status === 'assigned' ? `
+        <button class="btn-action success" onclick="window._openAssignModal('${escAttr(l.id)}','${escAttr(l.title||'')}')">
+          👤 ${l.assignedTo ? 'Reassign' : 'Assign Contractor'}
+        </button>` : ''}
+        ${l.status !== 'completed' ? `<button class="btn-action" onclick="window._updateLeadStatus('${escAttr(l.id)}','completed')">✅ Mark Completed</button>` : ''}
+        ${l.status !== 'cancelled' ? `<button class="btn-action" style="background:#fee2e2;color:#dc2626;border-color:#fca5a5;" onclick="window._updateLeadStatus('${escAttr(l.id)}','cancelled')">🚫 Cancel</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window._updateLeadStatus = async function(leadId, status) {
+  try {
+    await updateDoc(doc(db, 'lead_requests', leadId), { status, updatedAt: serverTimestamp() });
+    const lead = _allLeads.find(l => l.id === leadId);
+    if (lead) lead.status = status;
+    _filterLeads(document.querySelector('[data-lead-filter].active')?.dataset.leadFilter || 'all');
+    showToast('Status updated', 'success');
+  } catch(e) {
+    showToast('Could not update status', 'error');
+  }
+};
+
+window._saveLeadNote = async function(leadId) {
+  const note = document.getElementById('leadNote-' + leadId)?.value.trim() || '';
+  try {
+    await updateDoc(doc(db, 'lead_requests', leadId), { adminNotes: note, updatedAt: serverTimestamp() });
+    const lead = _allLeads.find(l => l.id === leadId);
+    if (lead) lead.adminNotes = note;
+    showToast('Note saved', 'success');
+  } catch(e) {
+    showToast('Could not save note', 'error');
+  }
+};
+
+// ── Assign modal ──────────────────────────────────────────────
+
+window._openAssignModal = async function(leadId, title) {
+  _currentAssignId = leadId;
+  const modal = document.getElementById('assignModal');
+  if (!modal) return;
+  document.getElementById('assignLeadTitle').textContent = title || 'this lead';
+  modal.style.display = 'flex';
+  document.getElementById('assignSearch').value = '';
+
+  if (!_allContractors.length) {
+    document.getElementById('contractorList').innerHTML = '<div style="padding:12px;text-align:center;color:#94a3b8;font-size:0.82rem;">⏳ Loading contractors…</div>';
+    try {
+      const snap = await getDocs(query(collection(db, 'owners'), where('role', '!=', 'admin'), limit(200)));
+      _allContractors = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(o => o.role !== 'admin');
+    } catch(e) {
+      const snap = await getDocs(query(collection(db, 'owners'), limit(200)));
+      _allContractors = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(o => o.email !== 'ezperfilsystem@gmail.com');
+    }
+  }
+  window._filterContractors('');
+};
+
+window._closeAssignModal = function() {
+  const modal = document.getElementById('assignModal');
+  if (modal) modal.style.display = 'none';
+  _currentAssignId = null;
+};
+
+window._filterContractors = function(q) {
+  const list = document.getElementById('contractorList');
+  if (!list) return;
+  const matches = q
+    ? _allContractors.filter(c =>
+        (c.companyName||c.name||'').toLowerCase().includes(q.toLowerCase()) ||
+        (c.email||'').toLowerCase().includes(q.toLowerCase()) ||
+        (c.categoryId||c.category||'').toLowerCase().includes(q.toLowerCase()))
+    : _allContractors;
+
+  if (!matches.length) {
+    list.innerHTML = '<div style="padding:12px;text-align:center;color:#94a3b8;font-size:0.82rem;">No contractors found.</div>';
+    return;
+  }
+
+  list.innerHTML = matches.map(c => {
+    const name = c.companyName || c.name || c.email || 'Unknown';
+    const cat  = c.categoryId || c.category || '';
+    return `<div onclick="window._confirmAssign('${escAttr(c.id)}','${escAttr(name)}')"
+      style="padding:12px 14px;border-bottom:1px solid #f1f5f9;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .15s;"
+      onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+      <div style="width:36px;height:36px;border-radius:50%;background:#eef2ff;display:flex;align-items:center;justify-content:center;font-size:0.85rem;font-weight:700;color:#4f46e5;flex-shrink:0;">
+        ${name.charAt(0).toUpperCase()}
+      </div>
+      <div>
+        <div style="font-size:0.88rem;font-weight:700;color:#1e293b;">${escHTML(name)}</div>
+        <div style="font-size:0.72rem;color:#94a3b8;">${escHTML(c.email||'')} ${cat?'· '+cat:''}</div>
+      </div>
+    </div>`;
+  }).join('');
+};
+
+window._confirmAssign = async function(contractorUid, contractorName) {
+  if (!_currentAssignId) return;
+  try {
+    await updateDoc(doc(db, 'lead_requests', _currentAssignId), {
+      assignedTo:     contractorUid,
+      assignedToName: contractorName,
+      assignedAt:     serverTimestamp(),
+      status:         'assigned',
+      contractorSeen: false,
+      contractorStatus: 'new',
+      updatedAt:      serverTimestamp()
+    });
+    showToast(`Lead assigned to ${contractorName}`, 'success');
+    window._closeAssignModal();
+    loadLeads();
+  } catch(e) {
+    console.error('_confirmAssign error:', e);
+    showToast('Could not assign lead', 'error');
   }
 };

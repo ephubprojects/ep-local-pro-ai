@@ -126,6 +126,18 @@ service cloud.firestore {
         ));
     }
 
+    // ── Lead Generation / Job Board ──────────────────────────────────────
+    match /lead_requests/{leadId} {
+      allow create: if true;  // public — homeowners submit without login
+      allow read: if isAdmin()
+        || (isAuth() && resource.data.assignedTo == request.auth.uid);
+      allow update: if isAdmin()
+        || (isAuth() && resource.data.assignedTo == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['contractorStatus', 'contractorSeen']));
+      allow delete: if isAdmin();
+    }
+
     // ── Job photos (before/after portfolio) ──────────────────────────────
     match /job_photos/{photoId} {
       allow read: if true;  // public — portfolio sharing

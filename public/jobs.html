@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Post a Job — EP Local Pro AI</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; color: #1e293b; min-height: 100vh; }
+
+    header {
+      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+      color: #fff;
+      padding: 20px 24px;
+      text-align: center;
+    }
+    header h1 { font-size: 1.5rem; font-weight: 800; margin-bottom: 4px; }
+    header p  { font-size: 0.88rem; opacity: .8; }
+
+    .container { max-width: 680px; margin: 0 auto; padding: 32px 20px 60px; }
+
+    .hero {
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      border-radius: 16px;
+      padding: 28px 24px;
+      color: #fff;
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .hero h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: 8px; }
+    .hero p  { font-size: 0.88rem; opacity: .88; line-height: 1.6; }
+    .hero-badges { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 16px; }
+    .hero-badge { background: rgba(255,255,255,.18); border-radius: 20px; padding: 4px 14px; font-size: 0.75rem; font-weight: 600; }
+
+    .card { background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; padding: 24px; margin-bottom: 20px; }
+    .card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 16px; color: #1e293b; }
+
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .full { grid-column: 1 / -1; }
+    label { display: block; font-size: 0.72rem; font-weight: 700; color: #374151; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
+    input, select, textarea {
+      width: 100%; padding: 10px 13px; border: 1.5px solid #e2e8f0; border-radius: 9px;
+      font-size: 0.88rem; color: #1e293b; outline: none; background: #fff;
+      transition: border-color .15s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: #4f46e5; }
+    textarea { resize: vertical; }
+
+    .categories {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 8px;
+    }
+    .cat-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 12px 8px; border: 2px solid #e2e8f0; border-radius: 10px;
+      background: #fff; cursor: pointer; font-size: 0.75rem; font-weight: 600;
+      color: #475569; transition: all .15s;
+    }
+    .cat-btn .cat-icon { font-size: 1.5rem; }
+    .cat-btn.selected { border-color: #4f46e5; background: #eef2ff; color: #4f46e5; }
+
+    .budget-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+    .budget-btn {
+      padding: 7px 16px; border: 2px solid #e2e8f0; border-radius: 20px;
+      background: #fff; cursor: pointer; font-size: 0.8rem; font-weight: 600;
+      color: #475569; transition: all .15s;
+    }
+    .budget-btn.selected { border-color: #4f46e5; background: #eef2ff; color: #4f46e5; }
+
+    .submit-btn {
+      width: 100%; padding: 15px; background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      color: #fff; border: none; border-radius: 11px; font-size: 1rem;
+      font-weight: 800; cursor: pointer; box-shadow: 0 4px 16px rgba(79,70,229,.35);
+      transition: opacity .2s;
+    }
+    .submit-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+    .success-screen {
+      display: none; text-align: center; padding: 48px 24px;
+      background: #fff; border-radius: 16px; border: 1px solid #e2e8f0;
+    }
+    .success-screen .icon { font-size: 3.5rem; margin-bottom: 16px; }
+    .success-screen h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: 8px; }
+    .success-screen p  { font-size: 0.88rem; color: #64748b; line-height: 1.6; }
+
+    @media (max-width: 540px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .full { grid-column: 1; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🏠 Post a Job</h1>
+  <p>Tell us what you need — we'll connect you with a trusted local pro</p>
+</header>
+
+<div class="container" id="mainForm">
+
+  <!-- Hero -->
+  <div class="hero">
+    <h2>Get Connected with a Local Pro Today</h2>
+    <p>Describe your job and we'll match you with a verified contractor in your area. Free to post — no signup required.</p>
+    <div class="hero-badges">
+      <span class="hero-badge">✅ Verified Contractors</span>
+      <span class="hero-badge">⚡ Fast Response</span>
+      <span class="hero-badge">🔒 No Spam</span>
+      <span class="hero-badge">💯 Free to Post</span>
+    </div>
+  </div>
+
+  <!-- Step 1: Category -->
+  <div class="card">
+    <h3>1. What type of work do you need?</h3>
+    <div class="categories" id="categoryGrid">
+      <button class="cat-btn" data-cat="Plumbing"><span class="cat-icon">🔧</span>Plumbing</button>
+      <button class="cat-btn" data-cat="Electrical"><span class="cat-icon">⚡</span>Electrical</button>
+      <button class="cat-btn" data-cat="HVAC"><span class="cat-icon">❄️</span>HVAC / AC</button>
+      <button class="cat-btn" data-cat="Painting"><span class="cat-icon">🎨</span>Painting</button>
+      <button class="cat-btn" data-cat="Roofing"><span class="cat-icon">🏠</span>Roofing</button>
+      <button class="cat-btn" data-cat="Flooring"><span class="cat-icon">🪵</span>Flooring</button>
+      <button class="cat-btn" data-cat="Landscaping"><span class="cat-icon">🌿</span>Landscaping</button>
+      <button class="cat-btn" data-cat="Cleaning"><span class="cat-icon">🧹</span>Cleaning</button>
+      <button class="cat-btn" data-cat="Carpentry"><span class="cat-icon">🪚</span>Carpentry</button>
+      <button class="cat-btn" data-cat="General Contractor"><span class="cat-icon">🏗️</span>General</button>
+      <button class="cat-btn" data-cat="Appliance Repair"><span class="cat-icon">🔌</span>Appliances</button>
+      <button class="cat-btn" data-cat="Other"><span class="cat-icon">🛠️</span>Other</button>
+    </div>
+    <div style="margin-top:12px;">
+      <label>Or describe the trade / service</label>
+      <input id="jobCategory" type="text" placeholder="e.g. Solar installation, Pool service…" />
+    </div>
+  </div>
+
+  <!-- Step 2: Job Details -->
+  <div class="card">
+    <h3>2. Describe the job</h3>
+    <div class="form-grid">
+      <div class="full">
+        <label>Job Title *</label>
+        <input id="jobTitle" type="text" placeholder="e.g. Fix leaking kitchen faucet" />
+      </div>
+      <div class="full">
+        <label>Description *</label>
+        <textarea id="jobDescription" rows="4" placeholder="Describe what needs to be done, any issues you've noticed, materials you have or need…"></textarea>
+      </div>
+      <div>
+        <label>City / ZIP Code *</label>
+        <input id="jobZip" type="text" placeholder="e.g. Oxnard, 93033" />
+      </div>
+      <div>
+        <label>When do you need it done?</label>
+        <select id="jobTiming">
+          <option value="">Select timing</option>
+          <option value="ASAP">As soon as possible</option>
+          <option value="This week">This week</option>
+          <option value="This month">This month</option>
+          <option value="Flexible">I'm flexible</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Budget -->
+  <div class="card">
+    <h3>3. What's your estimated budget?</h3>
+    <div class="budget-opts" id="budgetGrid">
+      <button class="budget-btn" data-budget="Under $500">Under $500</button>
+      <button class="budget-btn" data-budget="$500–$1,000">$500–$1,000</button>
+      <button class="budget-btn" data-budget="$1,000–$3,000">$1,000–$3,000</button>
+      <button class="budget-btn" data-budget="$3,000–$10,000">$3,000–$10,000</button>
+      <button class="budget-btn" data-budget="$10,000+">$10,000+</button>
+      <button class="budget-btn" data-budget="Not sure">Not sure</button>
+    </div>
+  </div>
+
+  <!-- Step 4: Contact -->
+  <div class="card">
+    <h3>4. Your contact info</h3>
+    <p style="font-size:0.8rem;color:#64748b;margin-bottom:14px;">Only shared with the contractor we match you with — never sold or spammed.</p>
+    <div class="form-grid">
+      <div>
+        <label>Your Name *</label>
+        <input id="jobName" type="text" placeholder="Full name" />
+      </div>
+      <div>
+        <label>Phone *</label>
+        <input id="jobPhone" type="tel" placeholder="(555) 000-0000" />
+      </div>
+      <div class="full">
+        <label>Email</label>
+        <input id="jobEmail" type="email" placeholder="your@email.com" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Submit -->
+  <button class="submit-btn" id="submitBtn" onclick="submitJob()">
+    🚀 Post My Job — Get Matched Free
+  </button>
+  <p style="text-align:center;font-size:0.75rem;color:#94a3b8;margin-top:12px;">By submitting you agree to be contacted by one of our verified contractors.</p>
+
+</div>
+
+<!-- Success Screen -->
+<div class="container" id="successScreen" style="display:none;">
+  <div class="success-screen" style="display:block;">
+    <div class="icon">🎉</div>
+    <h2>Job Posted Successfully!</h2>
+    <p>We received your request and will match you with a verified local contractor shortly.<br /><br />
+    Expect a call or text within <strong>24 hours</strong>. Keep an eye on your phone!</p>
+    <div style="margin-top:24px;padding:16px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;text-align:left;">
+      <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px;">What happens next</div>
+      <div style="font-size:0.83rem;color:#475569;line-height:1.9;">
+        1. Our team reviews your request<br />
+        2. We match you with the best contractor<br />
+        3. The contractor contacts you directly<br />
+        4. You get the job done! ✅
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getFirestore, collection, addDoc, serverTimestamp }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey:            "AIzaSyB4M24fLSHNKdWRHDDu9xj2sPGYCDZExiA",
+    authDomain:        "ep-local-pro-ai.firebaseapp.com",
+    projectId:         "ep-local-pro-ai",
+    storageBucket:     "ep-local-pro-ai.firebasestorage.app",
+    messagingSenderId: "182127678437",
+    appId:             "1:182127678437:web:073432114afc243b5d150c"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+
+  let selectedCategory = '';
+  let selectedBudget   = '';
+
+  // Category buttons
+  document.getElementById('categoryGrid').addEventListener('click', e => {
+    const btn = e.target.closest('[data-cat]');
+    if (!btn) return;
+    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedCategory = btn.dataset.cat;
+    document.getElementById('jobCategory').value = selectedCategory;
+  });
+
+  document.getElementById('jobCategory').addEventListener('input', e => {
+    selectedCategory = e.target.value;
+    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+  });
+
+  // Budget buttons
+  document.getElementById('budgetGrid').addEventListener('click', e => {
+    const btn = e.target.closest('[data-budget]');
+    if (!btn) return;
+    document.querySelectorAll('.budget-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedBudget = btn.dataset.budget;
+  });
+
+  window.submitJob = async function() {
+    const title    = document.getElementById('jobTitle').value.trim();
+    const desc     = document.getElementById('jobDescription').value.trim();
+    const zip      = document.getElementById('jobZip').value.trim();
+    const name     = document.getElementById('jobName').value.trim();
+    const phone    = document.getElementById('jobPhone').value.trim();
+    const email    = document.getElementById('jobEmail').value.trim();
+    const category = document.getElementById('jobCategory').value.trim() || selectedCategory;
+    const timing   = document.getElementById('jobTiming').value;
+
+    if (!category) { alert('Please select or enter the type of work needed.'); return; }
+    if (!title)    { alert('Please enter a job title.'); return; }
+    if (!desc)     { alert('Please describe the job.'); return; }
+    if (!zip)      { alert('Please enter your city or ZIP code.'); return; }
+    if (!name)     { alert('Please enter your name.'); return; }
+    if (!phone)    { alert('Please enter your phone number.'); return; }
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Submitting…';
+
+    try {
+      await addDoc(collection(db, 'lead_requests'), {
+        title, description: desc, category, zipCode: zip,
+        timing, budget: selectedBudget,
+        name, phone, email,
+        status: 'new',
+        contractorStatus: '',
+        contractorSeen: false,
+        assignedTo: '', assignedToName: '', assignedAt: null,
+        adminNotes: '',
+        postedAt: serverTimestamp()
+      });
+
+      document.getElementById('mainForm').style.display    = 'none';
+      document.getElementById('successScreen').style.display = '';
+    } catch(e) {
+      console.error('submitJob error:', e);
+      alert('Something went wrong. Please try again.');
+      btn.disabled = false;
+      btn.textContent = '🚀 Post My Job — Get Matched Free';
+    }
+  };
+</script>
+</body>
+</html>

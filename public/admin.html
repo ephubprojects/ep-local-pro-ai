@@ -47,6 +47,10 @@
     <a data-nav="gmb">
       <span class="nav-icon">📍</span> GMB Setup
     </a>
+    <a data-nav="leads" id="adminLeadsNav">
+      <span class="nav-icon">🎯</span> Leads
+      <span id="adminLeadsBadge" style="display:none;background:#ef4444;color:#fff;border-radius:20px;font-size:0.65rem;font-weight:700;padding:1px 6px;margin-left:4px;">0</span>
+    </a>
     <a data-nav="calendar">
       <span class="nav-icon">📅</span> Calendar
     </a>
@@ -665,6 +669,56 @@
       </div>
 
     </div><!-- /gmb -->
+
+
+    <!-- ════════════ SECTION: Leads ════════════ -->
+    <div data-section="leads" class="hidden">
+
+      <div class="section-card-header" style="margin-bottom:20px;">
+        <h2>🎯 Job Leads</h2>
+        <div style="display:flex;gap:8px;">
+          <a href="/jobs.html" target="_blank" class="btn-action">🔗 View Public Page</a>
+          <button class="btn-action" onclick="loadLeads()">🔄 Refresh</button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:22px;">
+        <div class="stat-card" style="flex:1;min-width:110px;"><div class="stat-label">NEW</div><div class="stat-value" id="leadStatNew">—</div></div>
+        <div class="stat-card" style="flex:1;min-width:110px;"><div class="stat-label">ASSIGNED</div><div class="stat-value" id="leadStatAssigned">—</div></div>
+        <div class="stat-card" style="flex:1;min-width:110px;"><div class="stat-label">COMPLETED</div><div class="stat-value" id="leadStatCompleted">—</div></div>
+      </div>
+
+      <!-- Filter tabs -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+        <button class="docs-tab active" data-lead-filter="all"       onclick="window._filterLeads('all')">All</button>
+        <button class="docs-tab"        data-lead-filter="new"       onclick="window._filterLeads('new')">🆕 New</button>
+        <button class="docs-tab"        data-lead-filter="assigned"  onclick="window._filterLeads('assigned')">📋 Assigned</button>
+        <button class="docs-tab"        data-lead-filter="completed" onclick="window._filterLeads('completed')">✅ Completed</button>
+        <button class="docs-tab"        data-lead-filter="cancelled" onclick="window._filterLeads('cancelled')">🚫 Cancelled</button>
+      </div>
+
+      <!-- Leads list -->
+      <div id="leadsContainer"></div>
+
+      <!-- Assign modal -->
+      <div id="assignModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:none;align-items:center;justify-content:center;padding:20px;">
+        <div style="background:#fff;border-radius:16px;padding:28px;max-width:500px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:80vh;overflow-y:auto;">
+          <h3 style="font-size:1rem;font-weight:700;margin-bottom:6px;">📋 Assign Lead to Contractor</h3>
+          <p id="assignLeadTitle" style="font-size:0.82rem;color:#64748b;margin-bottom:16px;"></p>
+          <div style="margin-bottom:14px;">
+            <label style="display:block;font-size:0.72rem;font-weight:700;color:#374151;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Search contractor</label>
+            <input id="assignSearch" type="text" placeholder="Name or business…" oninput="window._filterContractors(this.value)"
+              style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.88rem;" />
+          </div>
+          <div id="contractorList" style="max-height:280px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;"></div>
+          <div style="display:flex;gap:8px;margin-top:16px;">
+            <button onclick="window._closeAssignModal()" style="flex:1;padding:10px;background:#f1f5f9;color:#64748b;border:none;border-radius:9px;font-size:0.88rem;font-weight:600;cursor:pointer;">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /leads -->
 
 
     <!-- ════════════ SECTION: Calendar ════════════ -->

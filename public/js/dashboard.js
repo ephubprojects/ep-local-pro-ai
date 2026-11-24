@@ -193,6 +193,9 @@ async function initDashboard() {
     // AI Help FAB
     if (ownerDoc.aiSupport === true) _aiInitSupport();
 
+    // Real-time leads badge
+    _initLeadsBadge();
+
     hideLoading();
 
     // Load default section
@@ -239,6 +242,7 @@ function showSection(name) {
     'orders':      'Orders',
     'menu':        'Menu',
     'documents':   'Documents',
+    'myleads':     'My Leads',
     'photos':      'Job Photos',
     'financing':   'Financing',
     'gmb':         'Google My Business',
@@ -255,6 +259,7 @@ function showSection(name) {
   if (name === 'orders')      { loadOrders('all'); }
   if (name === 'menu')        { loadMenu(); }
   if (name === 'documents')   { loadDocuments(); }
+  if (name === 'myleads')     { window._loadMyLeads(); }
   if (name === 'photos')      { window._loadPhotosSection(); }
   if (name === 'financing')   { _loadFinancingSection(); }
   if (name === 'gmb')        { window._loadGmbSection(); }
@@ -4414,4 +4419,131 @@ window._sharePhotoPortfolio = function() {
   }).catch(() => {
     prompt('Copy your portfolio link:', url);
   });
+};
+
+// ── My Leads ─────────────────────────────────────────────────
+
+let _myLeadsAll = [];
+let _leadsUnsub = null;
+
+function _initLeadsBadge() {
+  if (!currentUser) return;
+  if (_leadsUnsub) _leadsUnsub();
+  _leadsUnsub = onSnapshot(
+    query(collection(db, 'lead_requests'),
+      where('assignedTo', '==', currentUser.uid),
+      where('contractorSeen', '==', false)),
+    snap => {
+      const count = snap.size;
+      const badge = document.getElementById('dashLeadsBadge');
+      if (badge) { badge.textContent = count; badge.style.display = count > 0 ? '' : 'none'; }
+    }
+  );
+}
+
+window._loadMyLeads = async function() {
+  const container = document.getElementById('myLeadsContainer');
+  if (!container || !currentUser) return;
+  container.innerHTML = '<div class="empty-state"><p>⏳ Loading…</p></div>';
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'lead_requests'),
+      where('assignedTo', '==', currentUser.uid),
+      orderBy('assignedAt', 'desc'),
+      limit(100)
+    ));
+    _myLeadsAll = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Update stats
+    const counts = { new: 0, contacted: 0, won: 0 };
+    _myLeadsAll.forEach(l => { if (counts[l.contractorStatus] !== undefined) counts[l.contractorStatus]++; });
+    const el = id => document.getElementById(id);
+    if (el('myLeadStatNew'))       el('myLeadStatNew').textContent       = counts.new;
+    if (el('myLeadStatContacted')) el('myLeadStatContacted').textContent = counts.contacted;
+    if (el('myLeadStatWon'))       el('myLeadStatWon').textContent       = counts.won;
+
+    // Mark all as seen
+    _myLeadsAll.filter(l => !l.contractorSeen).forEach(l => {
+      updateDoc(doc(db, 'lead_requests', l.id), { contractorSeen: true }).catch(() => {});
+    });
+
+    _renderMyLeads(_myLeadsAll);
+  } catch(e) {
+    console.error('_loadMyLeads:', e);
+    container.innerHTML = '<div class="empty-state"><p>⚠️ Could not load leads.</p></div>';
+  }
+};
+
+function _renderMyLeads(leads) {
+  const container = document.getElementById('myLeadsContainer');
+  if (!container) return;
+  if (!leads.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎯</div><p>No leads assigned yet. Admin will notify you when a matching job comes in.</p></div>';
+    return;
+  }
+
+  const statusStyle = {
+    new:       { bg: '#fef9c3', color: '#78350f', label: '🆕 New' },
+    contacted: { bg: '#dbeafe', color: '#1e40af', label: '📞 Contacted' },
+    won:       { bg: '#dcfce7', color: '#14532d', label: '🏆 Won' },
+    lost:      { bg: '#fee2e2', color: '#7f1d1d', label: '❌ Lost' },
+  };
+
+  container.innerHTML = leads.map(l => {
+    const s = statusStyle[l.contractorStatus || 'new'] || statusStyle.new;
+    const date = l.assignedAt?.toDate?.()?.toLocaleDateString() || l.postedAt?.toDate?.()?.toLocaleDateString() || '';
+    return `<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:20px;margin-bottom:14px;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+        <div>
+          <div style="font-size:1rem;font-weight:800;color:#1e293b;margin-bottom:2px;">${escHTML(l.title||'—')}</div>
+          <div style="font-size:0.78rem;color:#64748b;">${escHTML(l.category||'')} · 📍 ${escHTML(l.zipCode||'')} · ${date}</div>
+        </div>
+        <span style="padding:4px 12px;border-radius:20px;font-size:0.75rem;font-weight:700;background:${s.bg};color:${s.color};white-space:nowrap;">${s.label}</span>
+      </div>
+
+      ${l.description ? `<p style="font-size:0.83rem;color:#475569;line-height:1.6;margin-bottom:14px;border-left:3px solid #e2e8f0;padding-left:12px;">${escHTML(l.description)}</p>` : ''}
+
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+        ${l.budget   ? `<span style="background:#f1f5f9;border-radius:8px;padding:4px 10px;font-size:0.75rem;font-weight:600;">💰 ${escHTML(l.budget)}</span>` : ''}
+        ${l.timing   ? `<span style="background:#f1f5f9;border-radius:8px;padding:4px 10px;font-size:0.75rem;font-weight:600;">⏱️ ${escHTML(l.timing)}</span>` : ''}
+      </div>
+
+      <!-- Homeowner contact info -->
+      <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#15803d;margin-bottom:8px;">👤 Homeowner Contact</div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;">
+          <div><span style="font-size:0.75rem;color:#64748b;">Name</span><br/><strong style="font-size:0.88rem;">${escHTML(l.name||'—')}</strong></div>
+          <div><span style="font-size:0.75rem;color:#64748b;">Phone</span><br/>
+            <a href="tel:${escHTML(l.phone||'')}" style="font-size:0.88rem;font-weight:700;color:#15803d;text-decoration:none;">📞 ${escHTML(l.phone||'—')}</a>
+          </div>
+          ${l.email ? `<div><span style="font-size:0.75rem;color:#64748b;">Email</span><br/>
+            <a href="mailto:${escHTML(l.email)}" style="font-size:0.88rem;font-weight:700;color:#15803d;text-decoration:none;">✉️ ${escHTML(l.email)}</a>
+          </div>` : ''}
+        </div>
+      </div>
+
+      <!-- Status update -->
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:0.75rem;font-weight:600;color:#64748b;">Update status:</span>
+        ${['new','contacted','won','lost'].map(st => {
+          const ss = statusStyle[st];
+          return `<button onclick="window._updateMyLeadStatus('${escHTML(l.id)}','${st}')"
+            style="padding:5px 12px;border-radius:20px;border:1.5px solid ${l.contractorStatus===st?ss.color:'#e2e8f0'};
+                   background:${l.contractorStatus===st?ss.bg:'#fff'};color:${l.contractorStatus===st?ss.color:'#64748b'};
+                   font-size:0.75rem;font-weight:700;cursor:pointer;">${ss.label}</button>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window._updateMyLeadStatus = async function(leadId, status) {
+  try {
+    await updateDoc(doc(db, 'lead_requests', leadId), { contractorStatus: status });
+    const lead = _myLeadsAll.find(l => l.id === leadId);
+    if (lead) { lead.contractorStatus = status; _renderMyLeads(_myLeadsAll); }
+    showToast('Status updated', 'success');
+  } catch(e) {
+    showToast('Could not update status', 'error');
+  }
 };
