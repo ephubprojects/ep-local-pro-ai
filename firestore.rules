@@ -41,17 +41,25 @@ service cloud.firestore {
     }
 
     // ── Documents (invoices, estimates, contracts) ────────────────────────
+    // Business ownership check: the businesses collection is public-read so this is cheap
+    function docOwnedByUser(bizId) {
+      return bizId is string && bizId.size() > 0
+        && get(/databases/$(database)/documents/businesses/$(bizId)).data.ownerId == request.auth.uid;
+    }
+
     match /documents/{docId} {
       allow get: if true;  // public read by ID — shareable live link viewer
       allow list: if isAdmin() || isAuth();
       allow create: if isAdmin() || isAuth();
       allow update: if isAdmin()
         || (isAuth() && resource.data.ownerUid == request.auth.uid)
+        || (isAuth() && docOwnedByUser(resource.data.businessId))
         // Unauthenticated customer e-signature — only customerSig + updatedAt allowed
         || request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['customerSig', 'updatedAt']);
       allow delete: if isAdmin()
-        || (isAuth() && resource.data.ownerUid == request.auth.uid);
+        || (isAuth() && resource.data.ownerUid == request.auth.uid)
+        || (isAuth() && docOwnedByUser(resource.data.businessId));
     }
 
     // ── Business owners (user profiles) ──────────────────────────────────
