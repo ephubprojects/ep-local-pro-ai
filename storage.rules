@@ -32,6 +32,12 @@ service firebase.storage {
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
+    // Lead photos — unauthenticated homeowners upload problem photos
+    match /lead_photos/{leadId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if true;
+    }
+
     // Everything else requires authentication
     match /{allPaths=**} {
       allow read, write: if request.auth != null;

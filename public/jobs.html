@@ -60,13 +60,36 @@
     .cat-btn .cat-icon { font-size: 1.5rem; }
     .cat-btn.selected { border-color: #4f46e5; background: #eef2ff; color: #4f46e5; }
 
-    .budget-opts { display: flex; flex-wrap: wrap; gap: 8px; }
-    .budget-btn {
-      padding: 7px 16px; border: 2px solid #e2e8f0; border-radius: 20px;
-      background: #fff; cursor: pointer; font-size: 0.8rem; font-weight: 600;
+    .size-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+    .size-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      padding: 10px 20px; border: 2px solid #e2e8f0; border-radius: 20px;
+      background: #fff; cursor: pointer; font-size: 0.8rem; font-weight: 700;
       color: #475569; transition: all .15s;
     }
-    .budget-btn.selected { border-color: #4f46e5; background: #eef2ff; color: #4f46e5; }
+    .size-btn .size-sub { font-size: 0.68rem; font-weight: 500; color: #94a3b8; }
+    .size-btn.selected { border-color: #4f46e5; background: #eef2ff; color: #4f46e5; }
+    .size-btn.selected .size-sub { color: #818cf8; }
+
+    .photo-drop {
+      border: 2px dashed #cbd5e1; border-radius: 12px; padding: 24px;
+      text-align: center; cursor: pointer; transition: all .15s; background: #f8fafc;
+      margin-top: 14px;
+    }
+    .photo-drop.drag-over { border-color: #4f46e5; background: #eef2ff; }
+    .photo-drop p { font-size: 0.82rem; color: #64748b; margin-top: 6px; }
+    .photo-drop strong { font-size: 0.88rem; color: #374151; }
+    .photo-preview-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .photo-thumb {
+      position: relative; width: 72px; height: 72px; border-radius: 8px;
+      overflow: hidden; border: 2px solid #e2e8f0;
+    }
+    .photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .photo-thumb .rm-photo {
+      position: absolute; top: 2px; right: 2px; width: 18px; height: 18px;
+      background: rgba(0,0,0,.55); border: none; border-radius: 50%; color: #fff;
+      font-size: 0.65rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
 
     .submit-btn {
       width: 100%; padding: 15px; background: linear-gradient(135deg, #4f46e5, #7c3aed);
@@ -101,13 +124,13 @@
 
   <!-- Hero -->
   <div class="hero">
-    <h2>Get Connected with a Local Pro Today</h2>
-    <p>Describe your job and we'll match you with a verified contractor in your area. Free to post — no signup required.</p>
+    <h2>Get a Free Estimate from a Local Pro</h2>
+    <p>Describe your job and we'll match you with a verified contractor in your area. 100% free — no signup required.</p>
     <div class="hero-badges">
       <span class="hero-badge">✅ Verified Contractors</span>
       <span class="hero-badge">⚡ Fast Response</span>
       <span class="hero-badge">🔒 No Spam</span>
-      <span class="hero-badge">💯 Free to Post</span>
+      <span class="hero-badge">💯 Free Estimate</span>
     </div>
   </div>
 
@@ -163,16 +186,34 @@
     </div>
   </div>
 
-  <!-- Step 3: Budget -->
+  <!-- Step 3: Job Size + Photo -->
   <div class="card">
-    <h3>3. What's your estimated budget?</h3>
-    <div class="budget-opts" id="budgetGrid">
-      <button class="budget-btn" data-budget="Under $500">Under $500</button>
-      <button class="budget-btn" data-budget="$500–$1,000">$500–$1,000</button>
-      <button class="budget-btn" data-budget="$1,000–$3,000">$1,000–$3,000</button>
-      <button class="budget-btn" data-budget="$3,000–$10,000">$3,000–$10,000</button>
-      <button class="budget-btn" data-budget="$10,000+">$10,000+</button>
-      <button class="budget-btn" data-budget="Not sure">Not sure</button>
+    <h3>3. How big is the job?</h3>
+    <p style="font-size:0.8rem;color:#64748b;margin-bottom:14px;">The contractor will give you an exact estimate — just give them a rough idea.</p>
+    <div class="size-opts" id="sizeGrid">
+      <button class="size-btn" data-size="Small">
+        Small<span class="size-sub">Single room / fixture</span>
+      </button>
+      <button class="size-btn" data-size="Medium">
+        Medium<span class="size-sub">Multiple rooms / areas</span>
+      </button>
+      <button class="size-btn" data-size="Large">
+        Large<span class="size-sub">Whole property / major work</span>
+      </button>
+      <button class="size-btn" data-size="Not sure">
+        Not sure<span class="size-sub">Let them evaluate</span>
+      </button>
+    </div>
+
+    <div style="margin-top:20px;">
+      <label>Add a photo <span style="font-weight:400;text-transform:none;font-size:0.75rem;color:#94a3b8;">(optional — helps the contractor prepare)</span></label>
+      <div class="photo-drop" id="photoDrop" onclick="document.getElementById('photoInput').click()">
+        <div style="font-size:1.8rem;">📷</div>
+        <strong>Tap to add photos</strong>
+        <p>or drag &amp; drop — JPEG, PNG, up to 5 photos</p>
+      </div>
+      <input type="file" id="photoInput" accept="image/*" multiple style="display:none" />
+      <div class="photo-preview-row" id="photoPreviewRow"></div>
     </div>
   </div>
 
@@ -198,9 +239,9 @@
 
   <!-- Submit -->
   <button class="submit-btn" id="submitBtn" onclick="submitJob()">
-    🚀 Post My Job — Get Matched Free
+    🚀 Request My Free Estimate
   </button>
-  <p style="text-align:center;font-size:0.75rem;color:#94a3b8;margin-top:12px;">By submitting you agree to be contacted by one of our verified contractors.</p>
+  <p style="text-align:center;font-size:0.75rem;color:#94a3b8;margin-top:12px;">By submitting you agree to be contacted by one of our verified contractors. No fees, no obligations.</p>
 
 </div>
 
@@ -208,16 +249,16 @@
 <div class="container" id="successScreen" style="display:none;">
   <div class="success-screen" style="display:block;">
     <div class="icon">🎉</div>
-    <h2>Job Posted Successfully!</h2>
+    <h2>Estimate Request Sent!</h2>
     <p>We received your request and will match you with a verified local contractor shortly.<br /><br />
     Expect a call or text within <strong>24 hours</strong>. Keep an eye on your phone!</p>
     <div style="margin-top:24px;padding:16px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;text-align:left;">
       <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px;">What happens next</div>
       <div style="font-size:0.83rem;color:#475569;line-height:1.9;">
         1. Our team reviews your request<br />
-        2. We match you with the best contractor<br />
-        3. The contractor contacts you directly<br />
-        4. You get the job done! ✅
+        2. We match you with the best local contractor<br />
+        3. The contractor contacts you with a <strong>free estimate</strong><br />
+        4. You decide — no pressure, no obligation ✅
       </div>
     </div>
   </div>
@@ -225,8 +266,10 @@
 
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-  import { getFirestore, collection, addDoc, serverTimestamp }
+  import { getFirestore, collection, addDoc, updateDoc, doc, serverTimestamp }
     from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+  import { getStorage, ref, uploadBytes, getDownloadURL }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 
   const firebaseConfig = {
     apiKey:            "AIzaSyB4M24fLSHNKdWRHDDu9xj2sPGYCDZExiA",
@@ -236,11 +279,13 @@
     messagingSenderId: "182127678437",
     appId:             "1:182127678437:web:073432114afc243b5d150c"
   };
-  const app = initializeApp(firebaseConfig);
-  const db  = getFirestore(app);
+  const app     = initializeApp(firebaseConfig);
+  const db      = getFirestore(app);
+  const storage = getStorage(app);
 
   let selectedCategory = '';
-  let selectedBudget   = '';
+  let selectedJobSize  = '';
+  let pendingPhotos    = [];   // File objects
 
   // Category buttons
   document.getElementById('categoryGrid').addEventListener('click', e => {
@@ -257,14 +302,52 @@
     document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
   });
 
-  // Budget buttons
-  document.getElementById('budgetGrid').addEventListener('click', e => {
-    const btn = e.target.closest('[data-budget]');
+  // Job size buttons
+  document.getElementById('sizeGrid').addEventListener('click', e => {
+    const btn = e.target.closest('[data-size]');
     if (!btn) return;
-    document.querySelectorAll('.budget-btn').forEach(b => b.classList.remove('selected'));
+    document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
-    selectedBudget = btn.dataset.budget;
+    selectedJobSize = btn.dataset.size;
   });
+
+  // Photo drag & drop
+  const photoDrop = document.getElementById('photoDrop');
+  photoDrop.addEventListener('dragover', e => { e.preventDefault(); photoDrop.classList.add('drag-over'); });
+  photoDrop.addEventListener('dragleave', () => photoDrop.classList.remove('drag-over'));
+  photoDrop.addEventListener('drop', e => {
+    e.preventDefault();
+    photoDrop.classList.remove('drag-over');
+    addPhotoFiles([...e.dataTransfer.files]);
+  });
+  document.getElementById('photoInput').addEventListener('change', e => {
+    addPhotoFiles([...e.target.files]);
+    e.target.value = '';
+  });
+
+  function addPhotoFiles(files) {
+    files.slice(0, 5 - pendingPhotos.length).forEach(f => {
+      if (!f.type.startsWith('image/')) return;
+      pendingPhotos.push(f);
+      const thumb = document.createElement('div');
+      thumb.className = 'photo-thumb';
+      const idx = pendingPhotos.length - 1;
+      thumb.innerHTML = `<img src="${URL.createObjectURL(f)}" /><button class="rm-photo" onclick="removePhoto(${idx})">✕</button>`;
+      document.getElementById('photoPreviewRow').appendChild(thumb);
+    });
+  }
+
+  window.removePhoto = function(idx) {
+    pendingPhotos.splice(idx, 1);
+    const row = document.getElementById('photoPreviewRow');
+    row.innerHTML = '';
+    pendingPhotos.forEach((f, i) => {
+      const thumb = document.createElement('div');
+      thumb.className = 'photo-thumb';
+      thumb.innerHTML = `<img src="${URL.createObjectURL(f)}" /><button class="rm-photo" onclick="removePhoto(${i})">✕</button>`;
+      row.appendChild(thumb);
+    });
+  };
 
   window.submitJob = async function() {
     const title    = document.getElementById('jobTitle').value.trim();
@@ -283,15 +366,16 @@
     if (!name)     { alert('Please enter your name.'); return; }
     if (!phone)    { alert('Please enter your phone number.'); return; }
 
-    const btn = document.getElementById('submitBtn');
-    btn.disabled = true;
-    btn.textContent = '⏳ Submitting…';
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = '⏳ Submitting…';
 
     try {
-      await addDoc(collection(db, 'lead_requests'), {
+      const docRef = await addDoc(collection(db, 'lead_requests'), {
         title, description: desc, category, zipCode: zip,
-        timing, budget: selectedBudget,
+        timing, jobSize: selectedJobSize,
         name, phone, email,
+        photoUrls: [],
         status: 'new',
         contractorStatus: '',
         contractorSeen: false,
@@ -300,13 +384,25 @@
         postedAt: serverTimestamp()
       });
 
+      // Upload photos if any
+      if (pendingPhotos.length > 0) {
+        submitBtn.textContent = '📷 Uploading photos…';
+        const urls = await Promise.all(pendingPhotos.map(async (file, i) => {
+          const ext  = file.name.split('.').pop() || 'jpg';
+          const path = `lead_photos/${docRef.id}/${i}.${ext}`;
+          const snap = await uploadBytes(ref(storage, path), file);
+          return getDownloadURL(snap.ref);
+        }));
+        await updateDoc(doc(db, 'lead_requests', docRef.id), { photoUrls: urls });
+      }
+
       document.getElementById('mainForm').style.display    = 'none';
       document.getElementById('successScreen').style.display = '';
     } catch(e) {
       console.error('submitJob error:', e);
       alert('Something went wrong. Please try again.');
-      btn.disabled = false;
-      btn.textContent = '🚀 Post My Job — Get Matched Free';
+      submitBtn.disabled = false;
+      submitBtn.textContent = '🚀 Request My Free Estimate';
     }
   };
 </script>

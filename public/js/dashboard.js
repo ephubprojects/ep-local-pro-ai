@@ -4503,8 +4503,10 @@ function _renderMyLeads(leads) {
 
       ${l.description ? `<p style="font-size:0.83rem;color:#475569;line-height:1.6;margin-bottom:14px;border-left:3px solid #e2e8f0;padding-left:12px;">${escHTML(l.description)}</p>` : ''}
 
+      ${l.photoUrls?.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">${l.photoUrls.map(u=>`<a href="${escAttr(u)}" target="_blank"><img src="${escAttr(u)}" style="width:70px;height:70px;object-fit:cover;border-radius:7px;border:1.5px solid #e2e8f0;" /></a>`).join('')}</div>` : ''}
+
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
-        ${l.budget   ? `<span style="background:#f1f5f9;border-radius:8px;padding:4px 10px;font-size:0.75rem;font-weight:600;">💰 ${escHTML(l.budget)}</span>` : ''}
+        ${l.jobSize  ? `<span style="background:#f1f5f9;border-radius:8px;padding:4px 10px;font-size:0.75rem;font-weight:600;">📐 ${escHTML(l.jobSize)}</span>` : ''}
         ${l.timing   ? `<span style="background:#f1f5f9;border-radius:8px;padding:4px 10px;font-size:0.75rem;font-weight:600;">⏱️ ${escHTML(l.timing)}</span>` : ''}
       </div>
 

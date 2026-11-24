@@ -5420,7 +5420,7 @@ function _renderLeads() {
           <div style="font-size:1rem;font-weight:800;color:#1e293b;">${escHTML(l.title||'—')}</div>
           <div style="font-size:0.78rem;color:#64748b;margin-top:2px;">
             ${escHTML(l.category||'')} · 📍 ${escHTML(l.zipCode||'')} · 📅 ${date}
-            ${l.budget ? ` · 💰 ${escHTML(l.budget)}` : ''}
+            ${l.jobSize ? ` · 📐 ${escHTML(l.jobSize)}` : ''}
             ${l.timing ? ` · ⏱️ ${escHTML(l.timing)}` : ''}
           </div>
         </div>
@@ -5428,6 +5428,8 @@ function _renderLeads() {
       </div>
 
       ${l.description ? `<p style="font-size:0.83rem;color:#475569;line-height:1.6;margin-bottom:14px;border-left:3px solid #e2e8f0;padding-left:12px;">${escHTML(l.description)}</p>` : ''}
+
+      ${l.photoUrls?.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">${l.photoUrls.map(u=>`<a href="${escAttr(u)}" target="_blank"><img src="${escAttr(u)}" style="width:70px;height:70px;object-fit:cover;border-radius:7px;border:1.5px solid #e2e8f0;" /></a>`).join('')}</div>` : ''}
 
       <!-- Homeowner contact -->
       <div style="background:#f8fafc;border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:16px;">
