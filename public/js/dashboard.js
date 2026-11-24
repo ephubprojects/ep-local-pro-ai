@@ -4117,9 +4117,23 @@ function _gmbShowStatus(banner, form, req) {
   const s = statusMap[req.status] || statusMap.pending;
   banner.style.cssText = `display:block;border-radius:12px;padding:16px 20px;margin-bottom:20px;background:${s.bg};border:1.5px solid ${s.border};color:${s.text};`;
   const reqDate = req.requestedAt?.toDate?.()?.toLocaleDateString() || '';
+  const reviewBlock = req.reviewLink
+    ? `<div style="margin-top:14px;padding:12px 14px;background:rgba(255,255,255,.65);border-radius:9px;border:1px solid rgba(0,0,0,.08);">
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">⭐ Your Google Review Link</div>
+        <div style="font-size:0.82rem;margin-bottom:8px;">Share this link with customers to collect Google reviews.</div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <input readonly value="${escHTML(req.reviewLink)}" style="flex:1;min-width:200px;padding:6px 10px;border-radius:7px;border:1px solid rgba(0,0,0,.12);background:rgba(255,255,255,.8);font-size:0.78rem;" onclick="this.select()" />
+          <button onclick="navigator.clipboard.writeText('${escHTML(req.reviewLink)}').then(()=>showToast('Copied!','success'))"
+            style="padding:6px 12px;border-radius:7px;border:1.5px solid currentColor;background:transparent;color:inherit;font-size:0.78rem;font-weight:600;cursor:pointer;">📋 Copy</button>
+          <a href="${escHTML(req.reviewLink)}" target="_blank"
+            style="padding:6px 12px;border-radius:7px;border:1.5px solid currentColor;background:transparent;color:inherit;font-size:0.78rem;font-weight:600;text-decoration:none;">↗ Open</a>
+        </div>
+      </div>`
+    : '';
   banner.innerHTML = `<div style="font-size:1rem;font-weight:800;margin-bottom:4px;">${s.label}</div>
     <div style="font-size:0.82rem;opacity:.85;">Your Google My Business setup request was submitted${reqDate?' on '+reqDate:''}. We will contact you soon.</div>
-    <button onclick="window._cancelGmbRequest()" style="margin-top:12px;padding:6px 14px;border-radius:8px;border:1.5px solid currentColor;background:transparent;color:inherit;font-size:0.78rem;font-weight:600;cursor:pointer;">Cancel Request</button>`;
+    ${reviewBlock}
+    ${req.status !== 'completed' ? `<button onclick="window._cancelGmbRequest()" style="margin-top:12px;padding:6px 14px;border-radius:8px;border:1.5px solid currentColor;background:transparent;color:inherit;font-size:0.78rem;font-weight:600;cursor:pointer;">Cancel Request</button>` : ''}`;
   form.style.display = 'none';
 }
 

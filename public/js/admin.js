@@ -5310,12 +5310,19 @@ async function loadGmbRequests() {
             <option value="completed"    ${r.status==='completed'?'selected':''}>✅ Completed</option>
             <option value="cancelled"    ${r.status==='cancelled'?'selected':''}>🚫 Cancelled</option>
           </select>
-          <div style="display:flex;gap:4px;align-items:center;">
+          <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
             <input type="text" id="gmbNote-${escAttr(r.id)}" value="${escAttr(r.adminNotes||'')}"
               placeholder="Add note for owner…"
               style="flex:1;padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:0.75rem;" />
             <button class="btn-action" onclick="window._saveGmbNote('${escAttr(r.id)}')" style="padding:4px 8px;font-size:0.75rem;">💾</button>
           </div>
+          <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
+            <input type="url" id="gmbReviewLink-${escAttr(r.id)}" value="${escAttr(r.reviewLink||'')}"
+              placeholder="⭐ Google Review link…"
+              style="flex:1;padding:4px 8px;border:1px solid #bbf7d0;border-radius:6px;font-size:0.75rem;background:${r.reviewLink?'#f0fdf4':'#fff'};" />
+            <button class="btn-action success" onclick="window._saveGmbReviewLink('${escAttr(r.id)}','${escAttr(r.uid||'')}')" style="padding:4px 8px;font-size:0.75rem;">⭐</button>
+          </div>
+          ${r.reviewLink?`<a href="${escAttr(r.reviewLink)}" target="_blank" style="font-size:0.7rem;color:#15803d;">View review page ↗</a><br/>`:''}
           ${r.email?`<a href="mailto:${escAttr(r.email)}" style="font-size:0.72rem;color:#4f46e5;">${escHTML(r.email)}</a>`:''}
         </td>
       </tr>`;
@@ -5344,6 +5351,22 @@ window._saveGmbNote = async function(reqId) {
     showToast('Note saved', 'success');
   } catch(e) {
     showToast('Could not save note', 'error');
+  }
+};
+
+window._saveGmbReviewLink = async function(reqId, ownerUid) {
+  const link = document.getElementById('gmbReviewLink-' + reqId)?.value.trim() || '';
+  if (link && !link.startsWith('http')) { showToast('Please enter a valid URL', 'error'); return; }
+  try {
+    await updateDoc(doc(db, 'gmb_requests', reqId), { reviewLink: link, updatedAt: serverTimestamp() });
+    // Also save to owner profile so review automation can use it later
+    if (ownerUid) {
+      await updateDoc(doc(db, 'owners', ownerUid), { googleReviewLink: link, updatedAt: serverTimestamp() });
+    }
+    showToast(link ? '⭐ Review link saved to profile' : 'Link cleared', 'success');
+    loadGmbRequests();
+  } catch(e) {
+    showToast('Could not save review link', 'error');
   }
 };
 
