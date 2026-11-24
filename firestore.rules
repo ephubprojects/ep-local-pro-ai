@@ -54,9 +54,10 @@ service cloud.firestore {
       allow update: if isAdmin()
         || (isAuth() && resource.data.ownerUid == request.auth.uid)
         || (isAuth() && docOwnedByUser(resource.data.businessId))
-        // Unauthenticated customer e-signature — only customerSig + updatedAt allowed
+        // Unauthenticated customer actions — e-signature or financing request
         || request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['customerSig', 'updatedAt']);
+             .hasOnly(['customerSig', 'updatedAt', 'financingRequested', 'financingRequestedAt',
+                       'finRequestName', 'finRequestEmail', 'finRequestPhone']);
       allow delete: if isAdmin()
         || (isAuth() && resource.data.ownerUid == request.auth.uid)
         || (isAuth() && docOwnedByUser(resource.data.businessId));

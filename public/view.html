@@ -568,11 +568,14 @@
         }
         if (!_finUrl) return;
 
-        // Record the request in Firestore so the business owner can see it
+        // Record the request in Firestore so the business owner and admin can see it
         try {
           await updateDoc(doc(db, 'documents', id), {
-            financingRequested:   true,
-            financingRequestedAt: serverTimestamp()
+            financingRequested:    true,
+            financingRequestedAt:  serverTimestamp(),
+            finRequestName:        name,
+            finRequestEmail:       email,
+            finRequestPhone:       phone
           });
         } catch(_) {}
 

@@ -1853,13 +1853,16 @@ async function loadFinancingTab() {
     }
 
     reqBody.innerHTML = requests.map(d => {
-      const finOn = d.financingEnabled === true;
+      const finOn   = d.financingEnabled === true;
       const reqDate = d.financingRequestedAt?.toDate?.()?.toLocaleDateString() || fmtDate(d.createdAt);
+      const name    = d.finRequestName  || d.custName  || '—';
+      const email   = d.finRequestEmail || d.custEmail || '—';
+      const phone   = d.finRequestPhone || d.custPhone || '—';
       return `<tr>
         <td>${escHTML((d.type||'').replace(/^\w/,c=>c.toUpperCase()))}</td>
-        <td>${escHTML(d.custName||'—')}</td>
-        <td>${escHTML(d.custEmail||'—')}</td>
-        <td>${escHTML(d.custPhone||'—')}</td>
+        <td>${escHTML(name)}</td>
+        <td>${escHTML(email)}</td>
+        <td>${escHTML(phone)}</td>
         <td>${escHTML(d.docNumber||'—')}</td>
         <td style="white-space:nowrap;color:#f59e0b;font-weight:600;">🔔 ${reqDate}</td>
         <td style="text-align:center;">

@@ -4005,7 +4005,8 @@ function _renderFinancingDocs(docs, finUrl) {
     return `<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid #f1f5f9;flex-wrap:wrap;">
       <div style="width:4px;min-height:40px;border-radius:4px;background:${req?'#f59e0b':on?'#22c55e':'#e2e8f0'};flex-shrink:0;"></div>
       <div style="flex:1;min-width:0;">
-        <div style="font-weight:600;font-size:0.88rem;color:#1e293b;">${escHTML(d.custName||'—')}</div>
+        <div style="font-weight:600;font-size:0.88rem;color:#1e293b;">${escHTML(d.finRequestName||d.custName||'—')}</div>
+        ${req && (d.finRequestEmail||d.finRequestPhone) ? `<div style="font-size:0.73rem;color:#92400e;">${escHTML(d.finRequestEmail||'')}${d.finRequestPhone?' · '+escHTML(d.finRequestPhone):''}</div>` : ''}
         <div style="font-size:0.75rem;color:#94a3b8;">${type} · ${escHTML(d.docNumber||'')} · ${date}</div>
       </div>
       <div style="font-size:0.9rem;font-weight:700;color:#1e293b;min-width:70px;text-align:right;">${amt}</div>
