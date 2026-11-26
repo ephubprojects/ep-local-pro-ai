@@ -1331,6 +1331,14 @@ function renderLocalBizTable(list) {
           </select>
           <button style="margin-left:5px;font-size:0.72rem;padding:3px 9px;border:1.5px solid #e2e8f0;border-radius:6px;cursor:pointer;background:#f8fafc;font-weight:700;" onclick="window._adminAddWtMsgs('${escAttr(u.id)}','${escAttr(u.companyName || u.email || 'Business')}')">+Msgs</button>
         </div>
+        <div style="margin-top:8px;">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;margin-bottom:4px;">🎥 Live Attendees</div>
+          <select style="font-size:0.78rem;border:1.5px solid #e2e8f0;border-radius:6px;padding:3px 7px;background:#f8fafc;cursor:pointer;" onchange="window._adminSetLiveCap('${escAttr(u.id)}', parseInt(this.value))">
+            <option value="0"   ${!u.addOns?.liveCap              ? 'selected' : ''}>— None —</option>
+            <option value="50"  ${u.addOns?.liveCap === 50  ? 'selected' : ''}>Live Premium · 50</option>
+            <option value="100" ${u.addOns?.liveCap === 100 ? 'selected' : ''}>Live Stream · 100</option>
+          </select>
+        </div>
       </td>
       <td><button class="btn-action danger" onclick="window._adminCancelUser('${escAttr(u.id)}','${escAttr(((u.firstName||'')+' '+(u.lastName||'')).trim()||u.email||'this user')}')">Cancel</button></td>
     </tr>`;
@@ -1388,6 +1396,21 @@ window._adminAddWtMsgs = async function(uid, bizName) {
   } catch (e) {
     console.error('_adminAddWtMsgs error:', e);
     showToast('Could not add messages.', 'error');
+  }
+};
+
+window._adminSetLiveCap = async function(uid, cap) {
+  try {
+    await updateDoc(doc(db, 'owners', uid), { 'addOns.liveCap': cap, updatedAt: serverTimestamp() });
+    if (cap > 0) {
+      await setDoc(doc(db, 'users', uid, 'appdata', 'marketing'), { attendeeCap: cap }, { merge: true });
+    }
+    const idx = _allLocalBiz.findIndex(u => u.id === uid);
+    if (idx !== -1) _allLocalBiz[idx].addOns = { ...(_allLocalBiz[idx].addOns || {}), liveCap: cap };
+    showToast(cap ? `Live cap set to ${cap} attendees ✓` : 'Live cap removed', 'success');
+  } catch (e) {
+    console.error('_adminSetLiveCap error:', e);
+    showToast('Could not update live cap.', 'error');
   }
 };
 
