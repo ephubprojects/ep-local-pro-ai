@@ -1304,8 +1304,9 @@ function renderLocalBizTable(list) {
     return;
   }
   tbody.innerHTML = list.map(u => {
-    const cat = CAT_MAP[u.categoryId] || {};
-    const mrOn = u.addOns?.marketRate === true;
+    const cat    = CAT_MAP[u.categoryId] || {};
+    const mrOn   = u.addOns?.marketRate === true;
+    const wtPlan = u.addOns?.wtPlan || 'starter';
     return `
     <tr>
       <td>${escHTML(u.companyName || '—')}</td>
@@ -1322,6 +1323,14 @@ function renderLocalBizTable(list) {
           <span class="toggle-track"></span>
           <span class="toggle-label">📊 Market Rate</span>
         </label>
+        <div style="margin-top:8px;">
+          <div style="font-size:0.72rem;font-weight:700;color:#64748b;margin-bottom:4px;">📻 WT Plan</div>
+          <select style="font-size:0.78rem;border:1.5px solid #e2e8f0;border-radius:6px;padding:3px 7px;background:#f8fafc;cursor:pointer;" onchange="window._adminSetWtPlan('${escAttr(u.id)}', this.value)">
+            <option value="starter" ${wtPlan === 'starter' ? 'selected' : ''}>Starter · 200/mo</option>
+            <option value="pro"     ${wtPlan === 'pro'     ? 'selected' : ''}>Pro · 500/mo</option>
+          </select>
+          <button style="margin-left:5px;font-size:0.72rem;padding:3px 9px;border:1.5px solid #e2e8f0;border-radius:6px;cursor:pointer;background:#f8fafc;font-weight:700;" onclick="window._adminAddWtMsgs('${escAttr(u.id)}','${escAttr(u.companyName || u.email || 'Business')}')">+Msgs</button>
+        </div>
       </td>
       <td><button class="btn-action danger" onclick="window._adminCancelUser('${escAttr(u.id)}','${escAttr(((u.firstName||'')+' '+(u.lastName||'')).trim()||u.email||'this user')}')">Cancel</button></td>
     </tr>`;
@@ -1349,6 +1358,36 @@ window._adminToggleMarketRate = async function(uid, currentVal) {
   } catch (e) {
     console.error('Toggle market rate error:', e);
     showToast('Could not update add-on.', 'error');
+  }
+};
+
+window._adminSetWtPlan = async function(uid, plan) {
+  try {
+    await updateDoc(doc(db, 'owners', uid), { 'addOns.wtPlan': plan, updatedAt: serverTimestamp() });
+    const idx = _allLocalBiz.findIndex(u => u.id === uid);
+    if (idx !== -1) _allLocalBiz[idx].addOns = { ...(_allLocalBiz[idx].addOns || {}), wtPlan: plan };
+    showToast(`WT Plan set to ${plan === 'pro' ? 'Pro (500/mo)' : 'Starter (200/mo)'} ✓`, 'success');
+  } catch (e) {
+    console.error('_adminSetWtPlan error:', e);
+    showToast('Could not update WT plan.', 'error');
+  }
+};
+
+window._adminAddWtMsgs = async function(uid, bizName) {
+  const countStr = window.prompt(`Add extra WT messages for ${bizName}?\n\nEnter number of additional messages to add:`, '100');
+  if (!countStr) return;
+  const count = parseInt(countStr);
+  if (!count || count < 1 || count > 50000) { showToast('Enter a valid number (1–50000)', 'error'); return; }
+  try {
+    const bizQ = await getDocs(query(collection(db, 'businesses'), where('ownerId', '==', uid), limit(1)));
+    if (bizQ.empty) { showToast('No business found for this owner', 'error'); return; }
+    const bizRef = bizQ.docs[0].ref;
+    const currentExtra = bizQ.docs[0].data().wtMsgExtra || 0;
+    await updateDoc(bizRef, { wtMsgExtra: currentExtra + count, updatedAt: serverTimestamp() });
+    showToast(`Added ${count} extra WT messages for ${bizName} ✓`, 'success');
+  } catch (e) {
+    console.error('_adminAddWtMsgs error:', e);
+    showToast('Could not add messages.', 'error');
   }
 };
 

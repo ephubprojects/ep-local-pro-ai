@@ -8,7 +8,7 @@
 import { db, storage } from '/js/firebase.js';
 import {
   collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, onSnapshot,
-  query, where, serverTimestamp
+  query, where, serverTimestamp, increment
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 
@@ -19,7 +19,8 @@ const empCode    = params.get('e');   // employee mode
 const ownerToken = params.get('o');   // owner mobile mode
 
 // ── Identity (set after auth) ─────────────────────────────────
-let identity = null;
+let identity     = null;
+let _bizOwnerId  = null; // WT plan check
 
 // ── State ────────────────────────────────────────────────────
 const playedSet   = new Set();
@@ -72,8 +73,9 @@ async function init() {
     if (!bizSnap.exists()) {
       return showError('Invalid Link', 'Business not found. Ask your manager for a new link.');
     }
-    const bizData = bizSnap.data();
-    const bizName = bizData.name || bizData.bizName || 'Your Business';
+    const bizData  = bizSnap.data();
+    const bizName  = bizData.name || bizData.bizName || 'Your Business';
+    _bizOwnerId    = bizData.ownerId || null;
 
     if (ownerToken) {
       // ── OWNER MOBILE MODE ────────────────────────────────────
@@ -134,6 +136,43 @@ async function init() {
   } catch (err) {
     console.error('wt init error:', err);
     showError('Connection Error', 'Failed to connect. Check your internet connection and try again.');
+  }
+}
+
+// ── WT Message Limit ─────────────────────────────────────────
+const WT_PLAN_LIMITS = { starter: 200, pro: 500 };
+
+async function wtCheckLimit() {
+  if (!_bizOwnerId) return { canSend: true };
+  try {
+    const monthKey = new Date().toISOString().slice(0, 7);
+    const [bizSnap, ownerSnap] = await Promise.all([
+      getDoc(doc(db, 'businesses', bizId)),
+      getDoc(doc(db, 'owners', _bizOwnerId))
+    ]);
+    const biz   = bizSnap.data()  || {};
+    const owner = ownerSnap.data() || {};
+    const plan  = owner.addOns?.wtPlan    || 'starter';
+    const extra = owner.addOns?.wtMsgExtra || 0;
+    const total = (WT_PLAN_LIMITS[plan] || 200) + extra;
+    const count = (biz.wtMsgMonth === monthKey) ? (biz.wtMsgCount || 0) : 0;
+    if (count >= total) {
+      return { canSend: false, limitMsg: `📵 Monthly limit reached (${count}/${total} messages). Contact support to add more.` };
+    }
+    return { canSend: true, monthKey, isNewMonth: biz.wtMsgMonth !== monthKey };
+  } catch (e) {
+    console.error('wtCheckLimit error:', e);
+    return { canSend: true };
+  }
+}
+
+async function wtIncrementUsage(monthKey, isNewMonth) {
+  try {
+    await updateDoc(doc(db, 'businesses', bizId),
+      isNewMonth ? { wtMsgMonth: monthKey, wtMsgCount: 1 } : { wtMsgCount: increment(1) }
+    );
+  } catch (e) {
+    console.error('wtIncrementUsage error:', e);
   }
 }
 
@@ -416,7 +455,14 @@ async function onRecordingStop() {
     payload.audioUrl    = await getDownloadURL(snap.ref);
     payload.storagePath = snap.ref.fullPath;
 
+    const limitCheck = await wtCheckLimit();
+    if (!limitCheck.canSend) {
+      $pttHint.textContent = limitCheck.limitMsg;
+      return;
+    }
+
     await addDoc(collection(db, 'wt_messages'), payload);
+    wtIncrementUsage(limitCheck.monthKey, limitCheck.isNewMonth).catch(() => {});
     sendWtPush(identity.name, payload.to ?? null);
     updatePttHint();
 

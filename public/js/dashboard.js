@@ -11,7 +11,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
   collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
-  query, where, orderBy, limit, onSnapshot, serverTimestamp
+  query, where, orderBy, limit, onSnapshot, serverTimestamp, increment
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // ── State ────────────────────────────────────────────────────
@@ -1946,6 +1946,39 @@ function updateWtContactsToggle() {
   }
 }
 
+// ── WT Message Limit (owner side) ────────────────────────────
+const WT_PLAN_LIMITS_DASH = { starter: 200, pro: 500 };
+
+async function wtCheckDashLimit() {
+  if (!bizId) return { canSend: true };
+  try {
+    const monthKey = new Date().toISOString().slice(0, 7);
+    const bizSnap  = await getDoc(doc(db, 'businesses', bizId));
+    const biz      = bizSnap.data() || {};
+    const plan     = ownerDoc?.addOns?.wtPlan    || 'starter';
+    const extra    = ownerDoc?.addOns?.wtMsgExtra || 0;
+    const total    = (WT_PLAN_LIMITS_DASH[plan] || 200) + extra;
+    const count    = (biz.wtMsgMonth === monthKey) ? (biz.wtMsgCount || 0) : 0;
+    if (count >= total) {
+      return { canSend: false, msg: `📵 Monthly WT limit reached (${count}/${total}). Contact support to add more messages.` };
+    }
+    return { canSend: true, monthKey, isNewMonth: biz.wtMsgMonth !== monthKey };
+  } catch (e) {
+    console.error('wtCheckDashLimit:', e);
+    return { canSend: true };
+  }
+}
+
+async function wtIncrDashUsage(monthKey, isNewMonth) {
+  try {
+    await updateDoc(doc(db, 'businesses', bizId),
+      isNewMonth ? { wtMsgMonth: monthKey, wtMsgCount: 1 } : { wtMsgCount: increment(1) }
+    );
+  } catch (e) {
+    console.error('wtIncrDashUsage:', e);
+  }
+}
+
 // ── All-staff message feed ────────────────────────────────────
 function subscribeWtMessages() {
   if (!bizId) return;
@@ -2101,7 +2134,15 @@ async function onOwnerRecordingStop() {
     payload.audioUrl    = await getDownloadURL(snap.ref);
     payload.storagePath = snap.ref.fullPath;
 
+    const limitCheck = await wtCheckDashLimit();
+    if (!limitCheck.canSend) {
+      showToast(limitCheck.msg, 'error');
+      resetOwnerPtt();
+      return;
+    }
+
     await addDoc(collection(db, 'wt_messages'), payload);
+    wtIncrDashUsage(limitCheck.monthKey, limitCheck.isNewMonth).catch(() => {});
     wtSendPush(ownerName, payload.to ?? null);
   } catch (err) {
     console.error('sendWtAudio error:', err);
