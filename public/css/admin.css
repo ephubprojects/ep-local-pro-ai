@@ -2706,8 +2706,8 @@ textarea.doc-input { resize: vertical; }
 .pm-url-input:focus { outline:none; border-color:#4f46e5; background:#fff; }
 .btn-sm { padding:6px 14px; border-radius:6px; border:none; font-size:0.8rem; font-weight:700; cursor:pointer; transition:opacity .15s; }
 .btn-sm:hover { opacity:.85; }
-.btn-pm-success { background:#15803d; color:#fff; }
-.btn-pm-danger  { background:#dc2626; color:#fff; }
+.btn-pm-success, .btn-success { background:#15803d; color:#fff; }
+.btn-pm-danger,  .btn-danger  { background:#dc2626; color:#fff; }
 
 /* ── Document filter tabs ─────────────────────────────────── */
 .docs-tabs-bar {
@@ -3136,6 +3136,97 @@ textarea.doc-input { resize: vertical; }
   border-radius: 8px;
   font-size: 0.82rem;
   border: 1px solid #fecaca;
+}
+
+/* ── Material Search ─────────────────────────────────────── */
+.ms-hero {
+  position: relative;
+  background: linear-gradient(135deg, #f97316 0%, #ef4444 50%, #dc2626 100%);
+  border-radius: 16px;
+  padding: 24px 20px 20px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+.ms-hero-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 80% 50%, rgba(255,255,255,.12), transparent 70%);
+  pointer-events: none;
+}
+.ms-hero-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.ms-hero-icon { font-size: 2.4rem; line-height: 1; filter: drop-shadow(0 2px 8px rgba(0,0,0,.2)); }
+.ms-hero-title { font-size: 1.35rem; font-weight: 800; color: #fff; letter-spacing: -.01em; line-height: 1.2; }
+.ms-hero-sub { font-size: 0.82rem; color: rgba(255,255,255,.75); margin-top: 4px; }
+.ms-hero-badges { display: flex; gap: 8px; flex-wrap: wrap; position: relative; }
+.ms-hero-badge {
+  background: rgba(255,255,255,.18);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  backdrop-filter: blur(4px);
+}
+.ms-search-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 20px 18px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.07);
+  border: 1px solid #e2e8f0;
+}
+.ms-search-wrap { display: flex; flex-direction: column; gap: 12px; }
+.ms-input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  color: #1e293b;
+  background: #f8fafc;
+  box-sizing: border-box;
+  transition: border-color .15s, box-shadow .15s;
+}
+.ms-input:focus { outline: none; border-color: #818cf8; box-shadow: 0 0 0 3px rgba(129,140,248,.18); background: #fff; }
+.ms-input::placeholder { color: #94a3b8; }
+.ms-btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.ms-hd-btn, .ms-lw-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 24px;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .15s, box-shadow .15s;
+  flex: 1;
+  min-width: 140px;
+}
+.ms-hd-btn {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: #fff;
+  box-shadow: 0 3px 12px rgba(249,115,22,.35);
+}
+.ms-hd-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(249,115,22,.45); }
+.ms-lw-btn {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  box-shadow: 0 3px 12px rgba(34,197,94,.35);
+}
+.ms-lw-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(34,197,94,.45); }
+@media (max-width: 600px) {
+  .ms-hero { padding: 20px 16px 18px; border-radius: 14px; }
+  .ms-hero-title { font-size: 1.1rem; }
+  .ms-search-card { padding: 16px 14px; }
+  .ms-btn-row { flex-direction: column; }
+  .ms-hd-btn, .ms-lw-btn { min-width: 100%; flex: auto; }
 }
 
 /* ══ Create Demo Modal — Dynamic Styles ════════════════════ */

@@ -57,6 +57,9 @@
     <a data-nav="market-rate">
       <span class="nav-icon">📊</span> Market Rate
     </a>
+    <a data-nav="material-search">
+      <span class="nav-icon">🔩</span> Material Search
+    </a>
     <a data-nav="profile">
       <span class="nav-icon">👤</span> Profile
     </a>
@@ -1132,6 +1135,72 @@
       <div id="mrResultAdmin" style="margin-top:20px"></div>
       <div id="mrHistoryAdmin" style="margin-top:24px"></div>
     </div><!-- /market-rate -->
+
+    <!-- ════════════ SECTION: Material Search ════════════ -->
+    <div data-section="material-search" class="hidden">
+
+      <!-- Hero banner -->
+      <div class="ms-hero">
+        <div class="ms-hero-glow"></div>
+        <div class="ms-hero-content">
+          <div class="ms-hero-icon">🔩</div>
+          <div>
+            <div class="ms-hero-title">Material Pricing Search</div>
+            <div class="ms-hero-sub">Search Home Depot &amp; Lowe's for material pricing — quickly find costs for any project</div>
+          </div>
+        </div>
+        <div class="ms-hero-badges">
+          <span class="ms-hero-badge">🏠 Home Depot</span>
+          <span class="ms-hero-badge">🟢 Lowe's</span>
+          <span class="ms-hero-badge">⚡ Instant Search</span>
+        </div>
+      </div>
+
+      <!-- Search card -->
+      <div class="ms-search-card">
+        <div class="ms-search-wrap">
+          <input type="text" id="msSearchInput" class="ms-input" placeholder="e.g. 2x4 lumber, PVC pipe 1 inch, drywall 4x8…" onkeydown="if(event.key==='Enter'){window._msSearch('hd');}" />
+          <div class="ms-btn-row">
+            <button class="ms-hd-btn" onclick="window._msSearch('hd')">
+              🏠 Home Depot
+            </button>
+            <button class="ms-lw-btn" onclick="window._msSearch('lw')">
+              🟢 Lowe's
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Access Management -->
+      <div class="section-card" style="margin-top:24px;">
+        <div class="section-card-header" style="flex-wrap:wrap;gap:10px;">
+          <h2>User Access Management</h2>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input type="text" id="msUserSearch" class="filter-input" placeholder="Search by business or username…" oninput="window._msFilterUsers()" style="min-width:200px;" />
+            <button class="btn-sm btn-success" onclick="window._msEnableAll(true)">✓ Enable All</button>
+            <button class="btn-sm btn-danger" onclick="window._msEnableAll(false)">✕ Disable All</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Company</th>
+                <th>Username</th>
+                <th>Owner</th>
+                <th>Plan</th>
+                <th>Material Search</th>
+              </tr>
+            </thead>
+            <tbody id="msUsersTableBody">
+              <tr><td colspan="5"><div class="empty-state"><p>Loading…</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="msUserCount" style="font-size:0.78rem;color:#64748b;margin-top:10px;padding:0 4px;"></div>
+      </div>
+
+    </div><!-- /material-search -->
 
     <!-- ════════════ SECTION: Settings ════════════ -->
     <div data-section="settings" class="hidden">

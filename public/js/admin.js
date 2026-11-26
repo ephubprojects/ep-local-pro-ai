@@ -306,7 +306,8 @@ async function onAdminReady(user) {
       if (name === 'demos')          loadDemos();
       if (name === 'businesses')     loadBusinesses();
       if (name === 'users')          loadUsers();
-      if (name === 'localBusiness')  loadLocalBiz();
+      if (name === 'localBusiness')   loadLocalBiz();
+      if (name === 'material-search') _msLoadUsers();
       if (name === 'categories')     renderCategoriesSection();
       if (name === 'documents')      loadAdminDocuments();
       if (name === 'financing')      loadFinancingTab();
@@ -461,8 +462,9 @@ function showSection(name) {
     documents:     'Documents',
     financing:     'Financing',
     calendar:      'Calendar',
-    'market-rate': 'Market Rate Calculator',
-    profile:       'My Profile',
+    'market-rate':     'Market Rate Calculator',
+    'material-search': 'Material Pricing Search',
+    profile:           'My Profile',
     settings:      'Settings'
   };
   const titleEl = document.getElementById('pageTitle');
@@ -5586,5 +5588,102 @@ window._confirmAssign = async function(contractorUid, contractorName) {
   } catch(e) {
     console.error('_confirmAssign error:', e);
     showToast('Could not assign lead', 'error');
+  }
+};
+
+// ============================================================
+// MATERIAL SEARCH
+// ============================================================
+let _msBizList = [];
+
+window._msSearch = function(store) {
+  const q = (document.getElementById('msSearchInput')?.value || '').trim();
+  if (!q) { showToast('Enter a material to search', 'info'); return; }
+  const encoded = encodeURIComponent(q);
+  const url = store === 'hd'
+    ? `https://www.homedepot.com/s/${encoded}`
+    : `https://www.lowes.com/search?searchTerm=${encoded}`;
+  window.open(url, '_blank', 'noopener');
+};
+
+async function _msLoadUsers() {
+  const tbody   = document.getElementById('msUsersTableBody');
+  const countEl = document.getElementById('msUserCount');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">⏳</div><p>Loading…</p></div></td></tr>`;
+  try {
+    const snap = await getDocs(query(collection(db, 'owners'), orderBy('createdAt', 'desc')));
+    _msBizList = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(u => u.acctType === 'business');
+    if (countEl) countEl.textContent = `${_msBizList.length} business account${_msBizList.length !== 1 ? 's' : ''}`;
+    _msRenderTable(_msBizList);
+  } catch (err) {
+    console.error('_msLoadUsers error:', err);
+    if (tbody) tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><p>Error loading users.</p></div></td></tr>`;
+  }
+}
+
+function _msRenderTable(list) {
+  const tbody = document.getElementById('msUsersTableBody');
+  if (!tbody) return;
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">🔩</div><p>No local business accounts found.</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(u => {
+    const msOn = u.addOns?.materialSearch === true;
+    return `
+    <tr>
+      <td>${escHTML(u.companyName || '—')}</td>
+      <td>${escHTML(u.sponsorUsername || '—')}</td>
+      <td>${escHTML(((u.firstName || '') + ' ' + (u.lastName || '')).trim() || '—')}</td>
+      <td>${badgeHTML(u.plan || 'trial')}</td>
+      <td>
+        <label class="addon-toggle" title="Material Search access">
+          <input type="checkbox" ${msOn ? 'checked' : ''} onchange="window._msToggleUser('${escAttr(u.id)}', ${msOn})"/>
+          <span class="addon-toggle-track"></span>
+        </label>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+window._msFilterUsers = function() {
+  const q = (document.getElementById('msUserSearch')?.value || '').toLowerCase();
+  _msRenderTable(_msBizList.filter(u =>
+    `${u.companyName} ${u.sponsorUsername} ${u.firstName} ${u.lastName}`.toLowerCase().includes(q)
+  ));
+};
+
+window._msToggleUser = async function(uid, currentVal) {
+  const newVal = !currentVal;
+  try {
+    await updateDoc(doc(db, 'owners', uid), { 'addOns.materialSearch': newVal, updatedAt: serverTimestamp() });
+    const idx = _msBizList.findIndex(u => u.id === uid);
+    if (idx !== -1) {
+      _msBizList[idx].addOns = { ...(_msBizList[idx].addOns || {}), materialSearch: newVal };
+      _msRenderTable(_msBizList);
+    }
+    showToast(`Material Search ${newVal ? 'enabled ✓' : 'disabled'}`, newVal ? 'success' : 'info');
+  } catch (e) {
+    console.error('_msToggleUser error:', e);
+    showToast('Could not update access.', 'error');
+  }
+};
+
+window._msEnableAll = async function(enable) {
+  if (!_msBizList.length) return;
+  if (!confirm(`${enable ? 'Enable' : 'Disable'} Material Search for all ${_msBizList.length} business account${_msBizList.length !== 1 ? 's' : ''}?`)) return;
+  try {
+    for (const u of _msBizList) {
+      await updateDoc(doc(db, 'owners', u.id), { 'addOns.materialSearch': enable, updatedAt: serverTimestamp() });
+    }
+    _msBizList.forEach(u => { u.addOns = { ...(u.addOns || {}), materialSearch: enable }; });
+    _msRenderTable(_msBizList);
+    showToast(`Material Search ${enable ? 'enabled' : 'disabled'} for all users ✓`, 'success');
+  } catch (e) {
+    console.error('_msEnableAll error:', e);
+    showToast('Error updating users.', 'error');
   }
 };
