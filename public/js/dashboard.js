@@ -1947,7 +1947,7 @@ function updateWtContactsToggle() {
 }
 
 // ── WT Message Limit (owner side) ────────────────────────────
-const WT_PLAN_LIMITS_DASH = { starter: 200, pro: 500 };
+const WT_PLAN_LIMITS_DASH = { starter: 1000, pro: 2000 };
 
 async function wtCheckDashLimit() {
   if (!bizId) return { canSend: true };

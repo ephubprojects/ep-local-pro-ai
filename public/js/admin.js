@@ -1326,8 +1326,8 @@ function renderLocalBizTable(list) {
         <div style="margin-top:8px;">
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;margin-bottom:4px;">📻 WT Plan</div>
           <select style="font-size:0.78rem;border:1.5px solid #e2e8f0;border-radius:6px;padding:3px 7px;background:#f8fafc;cursor:pointer;" onchange="window._adminSetWtPlan('${escAttr(u.id)}', this.value)">
-            <option value="starter" ${wtPlan === 'starter' ? 'selected' : ''}>Starter · 200/mo</option>
-            <option value="pro"     ${wtPlan === 'pro'     ? 'selected' : ''}>Pro · 500/mo</option>
+            <option value="starter" ${wtPlan === 'starter' ? 'selected' : ''}>Starter · 1,000/mo</option>
+            <option value="pro"     ${wtPlan === 'pro'     ? 'selected' : ''}>Pro · 2,000/mo</option>
           </select>
           <button style="margin-left:5px;font-size:0.72rem;padding:3px 9px;border:1.5px solid #e2e8f0;border-radius:6px;cursor:pointer;background:#f8fafc;font-weight:700;" onclick="window._adminAddWtMsgs('${escAttr(u.id)}','${escAttr(u.companyName || u.email || 'Business')}')">+Msgs</button>
         </div>

@@ -140,7 +140,7 @@ async function init() {
 }
 
 // ── WT Message Limit ─────────────────────────────────────────
-const WT_PLAN_LIMITS = { starter: 200, pro: 500 };
+const WT_PLAN_LIMITS = { starter: 1000, pro: 2000 };
 
 async function wtCheckLimit() {
   if (!_bizOwnerId) return { canSend: true };
