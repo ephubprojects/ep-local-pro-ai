@@ -242,6 +242,29 @@ async function onAdminReady(user) {
       if (sph) sph.value = od.phone     || '';
       if (sun) sun.value = od.username  || '';
 
+      // Load biz info fields + cache for doc pre-fill
+      _adminBizProfile = { bizName: od.bizName || '', bizAddress: od.bizAddress || '', bizPhone: od.bizPhone || '', bizEmail: od.bizEmail || '', bizLogoUrl: od.photoURL || '' };
+      // Fallback: seed from calendar config if profile biz info not yet saved
+      if (!_adminBizProfile.bizName) {
+        try {
+          const calSnap = await getDoc(doc(db, 'config', 'calendar'));
+          if (calSnap.exists()) {
+            const firstBiz = calSnap.data().businesses?.[0] || {};
+            _adminBizProfile.bizName    = firstBiz.name             || '';
+            _adminBizProfile.bizPhone   = firstBiz.profile?.phone   || '';
+            _adminBizProfile.bizLogoUrl = _adminBizProfile.bizLogoUrl || firstBiz.profile?.photoUrl || '';
+          }
+        } catch (_) {}
+      }
+      const sbn = document.getElementById('settingBizName');
+      const sba = document.getElementById('settingBizAddress');
+      const sbph = document.getElementById('settingBizPhone');
+      const sbem = document.getElementById('settingBizEmail');
+      if (sbn)  sbn.value  = od.bizName    || _adminBizProfile.bizName    || '';
+      if (sba)  sba.value  = od.bizAddress || '';
+      if (sbph) sbph.value = od.bizPhone   || _adminBizProfile.bizPhone   || '';
+      if (sbem) sbem.value = od.bizEmail   || '';
+
       // Load avatar
       _profileSetAvatar(od.photoURL || '', (od.firstName || '') + ' ' + (od.lastName || ''));
 
@@ -1676,18 +1699,25 @@ function copyToClipboard(text, btn) {
 }
 
 async function saveProfile() {
-  const firstName = document.getElementById('settingFirstName')?.value.trim() || '';
-  const lastName  = document.getElementById('settingLastName')?.value.trim()  || '';
-  const phone     = document.getElementById('settingPhone')?.value.trim()     || '';
+  const firstName  = document.getElementById('settingFirstName')?.value.trim()  || '';
+  const lastName   = document.getElementById('settingLastName')?.value.trim()   || '';
+  const phone      = document.getElementById('settingPhone')?.value.trim()      || '';
+  const bizName    = document.getElementById('settingBizName')?.value.trim()    || '';
+  const bizAddress = document.getElementById('settingBizAddress')?.value.trim() || '';
+  const bizPhone   = document.getElementById('settingBizPhone')?.value.trim()   || '';
+  const bizEmail   = document.getElementById('settingBizEmail')?.value.trim()   || '';
 
   try {
     if (currentUser) {
       await updateDoc(doc(db, 'owners', currentUser.uid), {
         firstName, lastName, phone,
         name: `${firstName} ${lastName}`.trim(),
+        bizName, bizAddress, bizPhone, bizEmail,
         updatedAt: serverTimestamp()
       });
     }
+    // Update cache so next new doc immediately uses the new values
+    _adminBizProfile = { bizName, bizAddress, bizPhone, bizEmail, bizLogoUrl: _adminBizProfile.bizLogoUrl || '' };
     // Update avatar name label live
     _profileSetAvatarName(`${firstName} ${lastName}`.trim());
     showToast('Profile saved', 'success');
@@ -1729,6 +1759,7 @@ document.getElementById('profileAvatarInput')?.addEventListener('change', async 
     const snap = await uploadBytes(storageRef(storage, path), file);
     const url  = await getDownloadURL(snap.ref);
     await updateDoc(doc(db, 'owners', currentUser.uid), { photoURL: url, updatedAt: serverTimestamp() });
+    _adminBizProfile.bizLogoUrl = url;
     _profileSetAvatar(url, document.getElementById('profileAvatarName')?.textContent || '');
     showToast('Photo updated', 'success');
   } catch (err) {
@@ -3320,6 +3351,7 @@ window._adminCancelBooking = async function(id) {
 // ══════════════════════════════════════════════════════════════
 
 // ── State ────────────────────────────────────────────────────
+let _adminBizProfile  = {};   // cached biz info for doc pre-fill
 let _docLang          = 'en';
 let _docType          = 'invoice';
 let _docItems         = [];
@@ -3460,17 +3492,20 @@ window._openDocCreator = function(existingDoc) {
     _setDocVal('docDate', new Date().toISOString().slice(0,10));
     // Auto-increment doc number
     _setDocVal('docNumber', _docType.slice(0,3).toUpperCase() + '-' + String(Date.now()).slice(-4));
-    // Pre-fill biz info from calendar config if available
-    const bizName = document.getElementById('calBizName')?.value;
-    const bizAddr = document.getElementById('calAddress')?.value;
-    const bizPhone= document.getElementById('calPhone')?.value;
-    const bizEmail= document.getElementById('calEmail')?.value;
-    if (bizName)  _setDocVal('docBizName', bizName);
+    // Pre-fill biz info from saved profile (fallback: calendar config DOM)
+    const bizName  = _adminBizProfile.bizName    || document.getElementById('calBizName')?.value  || '';
+    const bizAddr  = _adminBizProfile.bizAddress || document.getElementById('calAddress')?.value  || '';
+    const bizPhone = _adminBizProfile.bizPhone   || document.getElementById('calPhone')?.value    || '';
+    const bizEmail = _adminBizProfile.bizEmail   || document.getElementById('calEmail')?.value    || '';
+    if (bizName)  _setDocVal('docBizName',    bizName);
     if (bizAddr)  _setDocVal('docBizAddress', bizAddr);
-    if (bizPhone) _setDocVal('docBizPhone', bizPhone);
-    if (bizEmail) _setDocVal('docBizEmail', bizEmail);
-    // Pre-fill logo from profile photo
-    const profilePhoto = document.getElementById('calProfilePhoto')?.value;
+    if (bizPhone) _setDocVal('docBizPhone',   bizPhone);
+    if (bizEmail) _setDocVal('docBizEmail',   bizEmail);
+    // Default notes with business owner name
+    const noteOwner = bizName || 'our team';
+    _setDocVal('docNotes', `\u{1F4CC} This estimate is based on the visible and known conditions at the time of preparation. If unforeseen conditions are discovered after access is opened or excavation begins, additional work or materials may be required. Any work outside the scope described above should be discussed with ${noteOwner} and approved by the customer before proceeding.`);
+    // Pre-fill logo from saved profile or calendar config
+    const profilePhoto = _adminBizProfile.bizLogoUrl || document.getElementById('calProfilePhoto')?.value;
     if (profilePhoto) {
       const img = document.getElementById('docLogoImg');
       const ph  = document.getElementById('docLogoPlaceholder');

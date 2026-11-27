@@ -3632,6 +3632,12 @@ function openDocCreator(type = 'invoice', existingDoc = null) {
     if (ph)  ph.style.display = 'none';
   }
 
+  // Default notes for new docs
+  if (!existingDoc) {
+    const noteOwner = biz.companyName || biz.name || 'our team';
+    _dSetVal('docNotes', `\u{1F4CC} This estimate is based on the visible and known conditions at the time of preparation. If unforeseen conditions are discovered after access is opened or excavation begins, additional work or materials may be required. Any work outside the scope described above should be discussed with ${noteOwner} and approved by the customer before proceeding.`);
+  }
+
   // Set date + doc number
   _dSetVal('docDate', new Date().toISOString().slice(0,10));
   _dSetVal('docNumber', type.slice(0,3).toUpperCase() + '-' + String(Date.now()).slice(-4));
