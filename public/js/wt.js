@@ -290,9 +290,13 @@ function subscribeMessages() {
 
         notifyIncoming(name);
         if (data.audioUrl) {
+          wtDebug(`MSG from ${name} · url=YES · ${data.mimeType || '?'}`);
           enqueueAudio(name, data.audioUrl, null);
         } else if (data.audioB64) {
+          wtDebug(`MSG from ${name} · b64=YES · ${data.mimeType || '?'}`);
           enqueueAudio(name, null, { b64: data.audioB64, type: data.mimeType || 'audio/mp4' });
+        } else {
+          wtDebug(`MSG from ${name} · NO audio data`);
         }
       }
     });
@@ -308,6 +312,14 @@ function enqueueAudio(fromName, audioUrl, b64Data) {
   if (!audioPlaying) drainAudioQueue();
 }
 
+function wtDebug(msg) {
+  console.log('[WT]', msg);
+  if ($pttHint && !isRecording) {
+    $pttHint.textContent = msg;
+    setTimeout(() => { if (!isRecording) updatePttHint(); }, 6000);
+  }
+}
+
 async function drainAudioQueue() {
   if (!audioQueue.length) { audioPlaying = false; return; }
   audioPlaying = true;
@@ -316,33 +328,35 @@ async function drainAudioQueue() {
   if ($audioFrom) $audioFrom.textContent = fromName;
   $audioInd?.classList.remove('hidden');
 
-  // Reuse the single persistent $wtRxAudio element (unlocked during onActivate).
-  // Fetch audio first → create a blob URL → play on the pre-unlocked element.
-  // Blob URLs bypass CORS and confirm the data loaded before playback starts.
   let blobUrl = null;
   try {
     if (b64Data?.b64) {
       const bytes = Uint8Array.from(atob(b64Data.b64), c => c.charCodeAt(0));
       blobUrl = URL.createObjectURL(new Blob([bytes], { type: b64Data.type || 'audio/wav' }));
     } else if (audioUrl) {
+      // Fetch → check Content-Type → create typed blob URL
       const resp = await fetch(audioUrl);
       if (!resp.ok) throw new Error(`fetch ${resp.status}`);
-      blobUrl = URL.createObjectURL(await resp.blob());
+      const blob = await resp.blob();
+      wtDebug(`Playing: ${blob.type || 'unknown'} ${(blob.size/1024).toFixed(1)}KB`);
+      blobUrl = URL.createObjectURL(blob);
     }
-    if (!blobUrl) throw new Error('no audio data');
+    if (!blobUrl) throw new Error('no audio source');
 
-    // Clear previous handlers, set source, play
     $wtRxAudio.onended = null;
     $wtRxAudio.onerror = null;
     $wtRxAudio.src = blobUrl;
 
     await new Promise((resolve, reject) => {
       $wtRxAudio.onended = resolve;
-      $wtRxAudio.onerror = () => reject(new Error('audio element playback error'));
-      $wtRxAudio.play().catch(reject);
+      $wtRxAudio.onerror = () => {
+        const code = $wtRxAudio.error?.code ?? '?';
+        reject(new Error(`MediaError ${code}`));
+      };
+      $wtRxAudio.play().catch(err => reject(new Error(`play: ${err.name}`)));
     });
   } catch (err) {
-    console.error('playAudio error:', err);
+    wtDebug(`⚠️ ${err.message}`);
   } finally {
     if (blobUrl) URL.revokeObjectURL(blobUrl);
     $audioInd?.classList.add('hidden');

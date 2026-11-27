@@ -2555,7 +2555,15 @@ async function onOwnerRecordingStop() {
   // Transcode to WAV so iOS Safari (which can't play webm) can play audio from Chrome senders
   let sendBlob = blob;
   let sendMime = 'audio/wav';
-  try { sendBlob = await wtEncodeToWav(blob); } catch { sendBlob = blob; sendMime = mimeType; }
+  try {
+    sendBlob = await wtEncodeToWav(blob);
+    console.log('[WT] WAV encode OK — size', sendBlob.size);
+  } catch (encErr) {
+    console.error('[WT] WAV encode FAILED, sending original', mimeType, encErr);
+    sendBlob = blob;
+    sendMime = mimeType;
+    if (statusEl) statusEl.textContent = `⚠️ Sending as ${mimeType.split(';')[0]} (iOS may not play)`;
+  }
 
   try {
     const payload = { bizId, from: 'owner', fromName: ownerName, mimeType: sendMime, duration: durationSec, createdAt: serverTimestamp() };
@@ -2644,13 +2652,10 @@ async function drainWtAudioQueue() {
 
 async function wtEncodeToWav(blob) {
   const arrayBuf = await blob.arrayBuffer();
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  let decoded;
-  try {
-    decoded = await audioCtx.decodeAudioData(arrayBuf);
-  } finally {
-    audioCtx.close();
-  }
+  // OfflineAudioContext is never suspended (unlike AudioContext which Chrome may
+  // suspend when created outside a user gesture), so decodeAudioData always runs.
+  const offCtx = new OfflineAudioContext(1, 1, 44100);
+  const decoded = await offCtx.decodeAudioData(arrayBuf);
   const targetSr = 16000;
   const srcData  = decoded.getChannelData(0);
   const ratio    = decoded.sampleRate / targetSr;
