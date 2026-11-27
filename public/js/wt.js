@@ -41,6 +41,11 @@ let recTimer     = null;
 let audioQueue   = [];
 let audioPlaying = false;
 
+// Single shared AudioContext created during the PTT activate gesture.
+// iOS Safari won't resume a context created outside a user gesture, so we
+// must reuse the one created (and resumed) synchronously inside onActivate.
+let sharedAudioCtx = null;
+
 // Push notifications
 let swRegistration = null;
 const VAPID_PUBLIC_KEY = 'BImnaD28aQfG8YdR9_PjwdlPLIfiGk4vfBfbmzo2uDOF21EEgDruZVxBUlupf2ObNL3zP5ATrlEgZDFRlhsEFxY';
@@ -314,17 +319,21 @@ async function drainAudioQueue() {
     }
     if (!arrayBuf) { $audioInd?.classList.add('hidden'); drainAudioQueue(); return; }
 
-    // Fresh AudioContext per message — avoids iOS suspension after first play.
-    // iOS suspends a reused context after silence; a new one starts running immediately
-    // on a page that's already been audio-activated (Activate tap).
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    await ctx.resume();
-    const decoded = await ctx.decodeAudioData(arrayBuf);
-    const src = ctx.createBufferSource();
+    // Reuse the shared AudioContext created during the PTT activate gesture.
+    // iOS Safari will only run a context that was unlocked by a real user gesture;
+    // creating a new context here (async, no gesture) would stay suspended forever.
+    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+      sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (sharedAudioCtx.state !== 'running') {
+      await sharedAudioCtx.resume();
+    }
+    // .slice(0) passes a copy so decodeAudioData doesn't detach the original buffer
+    const decoded = await sharedAudioCtx.decodeAudioData(arrayBuf.slice(0));
+    const src = sharedAudioCtx.createBufferSource();
     src.buffer = decoded;
-    src.connect(ctx.destination);
+    src.connect(sharedAudioCtx.destination);
     src.onended = () => {
-      ctx.close().catch(() => {});
       $audioInd?.classList.add('hidden');
       drainAudioQueue();
     };
@@ -358,9 +367,14 @@ function wirePtt() {
     $pttBtn.querySelector('.wt-ptt-label').textContent = 'Hold to Talk';
     $pttHint.textContent = '🎤 Allow microphone in the popup…';
 
-    // iOS Safari blocks HTMLAudioElement.play() unless audio is first triggered inside
-    // a user gesture. Play a silent clip here — in the same synchronous gesture stack —
-    // to permanently unlock audio playback for this session.
+    // Both AudioContext and HTMLAudioElement must be created/started synchronously
+    // inside a user gesture on iOS Safari, or they will be permanently blocked.
+    // Create the shared context here (sync, in gesture) so drainAudioQueue can
+    // reuse it later from async Firestore callbacks without hitting iOS restrictions.
+    try {
+      sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      sharedAudioCtx.resume().catch(() => {});
+    } catch (_) {}
     try {
       const unlock = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
       unlock.volume = 0;
@@ -376,12 +390,6 @@ function wirePtt() {
         $pttHint.textContent = 'Hold to talk · Release to send';
         requestNotifPermission();
         subscribePush();
-        // Unlock iOS audio system inside this user gesture so later AudioContext
-        // instances (created per-message in drainAudioQueue) start in running state.
-        try {
-          const unlock = new (window.AudioContext || window.webkitAudioContext)();
-          unlock.resume().then(() => unlock.close()).catch(() => {});
-        } catch (_) {}
 
         $pttBtn.addEventListener('mousedown',  startRec, { passive: false });
         $pttBtn.addEventListener('touchstart', startRec, { passive: false });
@@ -726,5 +734,10 @@ document.addEventListener('visibilitychange', () => {
       identity?.from === 'owner' ? markOwnerOnline : markEmpOnline,
       30_000
     );
+    // iOS suspends AudioContext when page goes to background; resume it when
+    // the user returns so the next incoming message plays immediately.
+    if (sharedAudioCtx?.state === 'suspended') {
+      sharedAudioCtx.resume().catch(() => {});
+    }
   }
 });
