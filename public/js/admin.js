@@ -1370,7 +1370,6 @@ window._adminSetWtPlan = async function(uid, plan) {
                                    : 'EP HUB Live Premium · $49.99 · 1,000 msgs · 100 attendees';
   try {
     await updateDoc(doc(db, 'owners', uid), { 'addOns.wtPlan': plan, 'addOns.liveCap': cap, updatedAt: serverTimestamp() });
-    await setDoc(doc(db, 'users', uid, 'appdata', 'marketing'), { attendeeCap: cap }, { merge: true });
     const idx = _allLocalBiz.findIndex(u => u.id === uid);
     if (idx !== -1) _allLocalBiz[idx].addOns = { ...(_allLocalBiz[idx].addOns || {}), wtPlan: plan, liveCap: cap };
     renderLocalBizTable(_allLocalBiz);
@@ -1402,9 +1401,6 @@ window._adminAddWtMsgs = async function(uid, bizName) {
 window._adminSetLiveCap = async function(uid, cap) {
   try {
     await updateDoc(doc(db, 'owners', uid), { 'addOns.liveCap': cap, updatedAt: serverTimestamp() });
-    if (cap > 0) {
-      await setDoc(doc(db, 'users', uid, 'appdata', 'marketing'), { attendeeCap: cap }, { merge: true });
-    }
     const idx = _allLocalBiz.findIndex(u => u.id === uid);
     if (idx !== -1) _allLocalBiz[idx].addOns = { ...(_allLocalBiz[idx].addOns || {}), liveCap: cap };
     showToast(cap ? `Live cap set to ${cap} attendees ✓` : 'Live cap removed', 'success');
