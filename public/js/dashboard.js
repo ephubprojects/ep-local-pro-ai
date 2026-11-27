@@ -3330,6 +3330,7 @@ window._dashDocSelectCustomer = function(cJson) {
   _dSetVal('docCustEmail',   c.email   || '');
   _dSetVal('docCustPhone',   c.phone   || '');
   _dSetVal('docCustAddress', c.address || '');
+  _dSetVal('docJobOrderedBy', c.name   || '');
   const dd = document.getElementById('docCustDropdown');
   if (dd) { dd.classList.add('hidden'); dd.innerHTML = ''; }
   const inp = document.getElementById('docCustSearch');
@@ -3586,6 +3587,9 @@ function openDocCreator(type = 'invoice', existingDoc = null) {
   if (!modal) return;
   modal.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
+
+  // Load customers so search works immediately (no need to visit Customers section first)
+  if (!_dAllCustomers.length) _dLoadCustomers();
 
   // Reset form fields
   ['docBizName','docBizAddress','docBizPhone','docBizEmail',

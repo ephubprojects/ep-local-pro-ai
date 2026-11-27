@@ -3381,6 +3381,9 @@ window._openDocCreator = function(existingDoc) {
     if (editBanner) editBanner.style.display = 'none';
   }
 
+  // Load customers so search works immediately (no need to visit Customers panel first)
+  if (!_docAllCustomers.length) loadCustomers();
+
   // Reset state
   _docItems = existingDoc?.items || [{ desc:'', qty:1, price:0 }];
   _docType  = existingDoc?.type || 'invoice';
@@ -5100,7 +5103,9 @@ window._docSelectCustomer = function(customer) {
   _setDocVal('docCustEmail',   customer.email   || '');
   _setDocVal('docCustPhone',   customer.phone   || '');
   _setDocVal('docCustAddress', customer.address || '');
-  document.getElementById('docCustSearch')?.value && (_setDocVal('docCustSearch', ''));
+  _setDocVal('docJobOrderedBy', customer.name   || '');
+  const srch = document.getElementById('docCustSearch');
+  if (srch) { srch.value = customer.name || ''; }
   document.getElementById('docCustDropdown')?.classList.add('hidden');
   _docUpdatePreview();
 };
