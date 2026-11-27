@@ -1102,40 +1102,60 @@ window._qrDelete = async (qrId) => {
 };
 
 window._qrDownload = (qrId) => {
-  const canvas = document.querySelector('#qrp-' + qrId + ' canvas');
-  if (!canvas) { showToast('QR code not ready — wait a moment.', 'error'); return; }
   const qr = _qrData.find(q => q.id === qrId);
-  const a  = document.createElement('a');
-  a.download = (qr?.name || 'qr-code').replace(/[^a-z0-9]/gi, '-').toLowerCase() + '.png';
-  a.href = canvas.toDataURL('image/png');
-  a.click();
+  if (!qr) return;
+  _qrHighResCanvas(qrId, qr, 1000, (dataUrl) => {
+    const a  = document.createElement('a');
+    a.download = (qr.name || 'qr-code').replace(/[^a-z0-9]/gi, '-').toLowerCase() + '.png';
+    a.href = dataUrl;
+    a.click();
+  });
 };
 
 window._qrPrint = (qrId) => {
-  const canvas = document.querySelector('#qrp-' + qrId + ' canvas');
   const qr = _qrData.find(q => q.id === qrId);
-  if (!canvas || !qr) return;
-  const img = canvas.toDataURL('image/png');
-  const win = window.open('', '_blank', 'width=500,height=600');
-  win.document.write(`<!DOCTYPE html><html><head><title>${qr.name}</title><style>
-    *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:sans-serif;text-align:center;padding:48px 32px;background:#fff;color:#0f172a;}
-    h2{font-size:1.5rem;margin-bottom:8px;}
-    .desc{color:#64748b;font-size:0.9rem;margin-bottom:28px;}
-    img{width:220px;height:220px;display:block;margin:0 auto 20px;}
-    .hint{font-size:0.75rem;color:#94a3b8;margin-top:16px;}
-    .url{font-size:0.7rem;color:#94a3b8;margin-top:8px;word-break:break-all;}
-    @media print{button{display:none;}}
-  </style></head><body>
-    <h2>${qr.name}</h2>
-    ${qr.description ? `<p class="desc">${qr.description}</p>` : ''}
-    <img src="${img}" />
-    <p class="hint">📷 Scan with your phone camera</p>
-    <p class="url">${_qrLandingUrl(qrId)}</p>
-    <br/><button onclick="window.print()" style="padding:10px 24px;background:#4f46e5;color:#fff;border:none;border-radius:8px;font-size:0.9rem;cursor:pointer;margin-top:12px;">Print</button>
-  </body></html>`);
-  win.document.close();
+  if (!qr) return;
+  _qrHighResCanvas(qrId, qr, 800, (img) => {
+    const win = window.open('', '_blank', 'width=500,height=640');
+    win.document.write(`<!DOCTYPE html><html><head><title>${qr.name}</title><style>
+      *{box-sizing:border-box;margin:0;padding:0;}
+      body{font-family:sans-serif;text-align:center;padding:48px 32px;background:#fff;color:#0f172a;}
+      h2{font-size:1.6rem;margin-bottom:8px;}
+      .desc{color:#64748b;font-size:0.9rem;margin-bottom:28px;}
+      img{width:260px;height:260px;display:block;margin:0 auto 20px;}
+      .hint{font-size:0.75rem;color:#94a3b8;margin-top:16px;}
+      .url{font-size:0.65rem;color:#cbd5e1;margin-top:6px;word-break:break-all;}
+      @media print{.no-print{display:none;}}
+    </style></head><body>
+      <h2>${qr.name}</h2>
+      ${qr.description ? `<p class="desc">${qr.description}</p>` : ''}
+      <img src="${img}" />
+      <p class="hint">📷 Scan with your phone camera</p>
+      <p class="url">${_qrLandingUrl(qrId)}</p>
+      <br/><button class="no-print" onclick="window.print()" style="padding:10px 24px;background:#4f46e5;color:#fff;border:none;border-radius:8px;font-size:0.9rem;cursor:pointer;margin-top:16px;">🖨️ Print</button>
+    </body></html>`);
+    win.document.close();
+  });
 };
+
+function _qrHighResCanvas(qrId, qr, size, callback) {
+  const tmp = document.createElement('div');
+  tmp.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
+  document.body.appendChild(tmp);
+  const url = _qrLandingUrl(qrId);
+  new window.QRCode(tmp, {
+    text: url, width: size, height: size,
+    colorDark: qr.color || '#000000', colorLight: qr.bgColor || '#ffffff',
+    correctLevel: window.QRCode.CorrectLevel.M,
+  });
+  setTimeout(() => {
+    const canvas = tmp.querySelector('canvas');
+    const dataUrl = canvas ? canvas.toDataURL('image/png') : null;
+    document.body.removeChild(tmp);
+    if (dataUrl) callback(dataUrl);
+    else showToast('Could not generate high-res QR.', 'error');
+  }, 300);
+}
 
 // ── Documents ────────────────────────────────────────────────
 async function loadDocuments() {
