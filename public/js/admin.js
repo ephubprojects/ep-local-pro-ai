@@ -1277,12 +1277,61 @@ function filterUsers() {
 // LOCAL BUSINESS (business-type owner accounts)
 // ============================================================
 let _allLocalBiz = [];
+let _wtPackConfig = { pack250: 5.00, pack500: 10.00, pack1000: 20.00 };
+
+async function _loadWtPackConfig() {
+  try {
+    const snap = await getDoc(doc(db, 'config', 'wtMsgPacks'));
+    if (snap.exists()) {
+      const d = snap.data();
+      _wtPackConfig = {
+        pack250:  parseFloat(d.pack250)  || 5,
+        pack500:  parseFloat(d.pack500)  || 10,
+        pack1000: parseFloat(d.pack1000) || 20,
+      };
+    }
+    const i250  = document.getElementById('wtPack250Price');
+    const i500  = document.getElementById('wtPack500Price');
+    const i1000 = document.getElementById('wtPack1000Price');
+    if (i250)  i250.value  = _wtPackConfig.pack250.toFixed(2);
+    if (i500)  i500.value  = _wtPackConfig.pack500.toFixed(2);
+    if (i1000) i1000.value = _wtPackConfig.pack1000.toFixed(2);
+  } catch(e) {
+    console.warn('Could not load WT pack config:', e);
+  }
+}
+
+function toggleWtPackConfig() {
+  const body  = document.getElementById('wtPackConfigBody');
+  const arrow = document.getElementById('wtPackConfigArrow');
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (arrow) arrow.textContent = open ? '▼' : '▲';
+}
+
+window._adminSaveWtPackPrices = async function() {
+  const p250  = parseFloat(document.getElementById('wtPack250Price')?.value)  || 5;
+  const p500  = parseFloat(document.getElementById('wtPack500Price')?.value)  || 10;
+  const p1000 = parseFloat(document.getElementById('wtPack1000Price')?.value) || 20;
+  try {
+    await setDoc(doc(db, 'config', 'wtMsgPacks'), { pack250: p250, pack500: p500, pack1000: p1000 }, { merge: true });
+    _wtPackConfig = { pack250: p250, pack500: p500, pack1000: p1000 };
+    const statusEl = document.getElementById('wtPackSaveStatus');
+    if (statusEl) { statusEl.style.display = 'block'; setTimeout(() => { statusEl.style.display = 'none'; }, 2500); }
+    showToast('Message pack prices saved ✓', 'success');
+  } catch(e) {
+    console.error('Save pack prices error:', e);
+    showToast('Could not save prices.', 'error');
+  }
+};
 
 async function loadLocalBiz() {
   const tbody   = document.getElementById('localBizTableBody');
   const countEl = document.getElementById('localBizCount');
   if (!tbody) return;
   tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">⏳</div><p>Loading…</p></div></td></tr>`;
+  _loadWtPackConfig();
   try {
     const snap = await getDocs(query(collection(db, 'owners'), orderBy('createdAt', 'desc')));
     _allLocalBiz = snap.docs
@@ -1380,20 +1429,54 @@ window._adminSetWtPlan = async function(uid, plan) {
   }
 };
 
-window._adminAddWtMsgs = async function(uid, bizName) {
-  const countStr = window.prompt(`Add extra WT messages for ${bizName}?\n\nEnter number of additional messages to add:`, '100');
-  if (!countStr) return;
-  const count = parseInt(countStr);
-  if (!count || count < 1 || count > 50000) { showToast('Enter a valid number (1–50000)', 'error'); return; }
+window._adminAddWtMsgs = function(uid, bizName) {
+  const modal    = document.getElementById('wtPackModal');
+  const bizNameEl = document.getElementById('wtPackModalBizName');
+  const cardsEl  = document.getElementById('wtPackCards');
+  if (!modal || !cardsEl) return;
+
+  bizNameEl.textContent = `Business: ${bizName}`;
+
+  const packs = [
+    { msgs: 250,  price: _wtPackConfig.pack250,  label: '250 Messages' },
+    { msgs: 500,  price: _wtPackConfig.pack500,  label: '500 Messages' },
+    { msgs: 1000, price: _wtPackConfig.pack1000, label: '1,000 Messages' },
+  ];
+
+  cardsEl.innerHTML = packs.map(p => `
+    <button
+      onclick="window._adminConfirmWtPack('${uid}','${bizName.replace(/'/g, '&apos;')}',${p.msgs},${p.price.toFixed(2)})"
+      style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border:1.5px solid #e2e8f0;border-radius:10px;background:#f8fafc;cursor:pointer;font-family:inherit;width:100%;text-align:left;transition:border-color .15s,background .15s;"
+      onmouseover="this.style.borderColor='#818cf8';this.style.background='#eef2ff';"
+      onmouseout="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc';">
+      <div>
+        <div style="font-size:0.95rem;font-weight:800;color:#1a1a1a;">📦 ${p.label}</div>
+        <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">Add ${p.msgs.toLocaleString()} WT messages to monthly allowance</div>
+      </div>
+      <div style="font-size:1.1rem;font-weight:900;color:#4f46e5;white-space:nowrap;margin-left:12px;">$${p.price.toFixed(2)}</div>
+    </button>
+  `).join('');
+
+  modal.style.display = 'flex';
+};
+
+window._adminCloseWtModal = function() {
+  const modal = document.getElementById('wtPackModal');
+  if (modal) modal.style.display = 'none';
+};
+
+window._adminConfirmWtPack = async function(uid, bizName, msgs, price) {
+  if (!confirm(`Add ${msgs.toLocaleString()} messages to ${bizName} for $${parseFloat(price).toFixed(2)}?`)) return;
+  window._adminCloseWtModal();
   try {
     const bizQ = await getDocs(query(collection(db, 'businesses'), where('ownerId', '==', uid), limit(1)));
     if (bizQ.empty) { showToast('No business found for this owner', 'error'); return; }
     const bizRef = bizQ.docs[0].ref;
     const currentExtra = bizQ.docs[0].data().wtMsgExtra || 0;
-    await updateDoc(bizRef, { wtMsgExtra: currentExtra + count, updatedAt: serverTimestamp() });
-    showToast(`Added ${count} extra WT messages for ${bizName} ✓`, 'success');
+    await updateDoc(bizRef, { wtMsgExtra: currentExtra + msgs, updatedAt: serverTimestamp() });
+    showToast(`Added ${msgs.toLocaleString()} extra WT messages for ${bizName} ✓`, 'success');
   } catch (e) {
-    console.error('_adminAddWtMsgs error:', e);
+    console.error('_adminConfirmWtPack error:', e);
     showToast('Could not add messages.', 'error');
   }
 };

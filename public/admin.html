@@ -390,6 +390,43 @@
         <div class="filter-bar">
           <input type="text" id="localBizSearch" placeholder="Search business name, email or category…" oninput="filterLocalBiz()" />
         </div>
+
+        <!-- ── Message Add-On Package Prices ── -->
+        <div style="margin-bottom:16px;background:#f0f4ff;border:1.5px solid #c7d2fe;border-radius:12px;overflow:hidden;">
+          <button onclick="toggleWtPackConfig()" style="width:100%;padding:11px 16px;background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-weight:700;color:#4f46e5;font-size:0.85rem;font-family:inherit;">
+            <span>⚙️ Message Add-On Package Prices</span>
+            <span id="wtPackConfigArrow">▼</span>
+          </button>
+          <div id="wtPackConfigBody" style="display:none;padding:14px 16px 16px;border-top:1px solid #c7d2fe;">
+            <div style="font-size:0.78rem;color:#64748b;margin-bottom:12px;">Set the price for each add-on message pack. Subscribers will be charged when admin approves the add-on.</div>
+            <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
+              <div>
+                <label style="font-size:0.73rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">250 Messages</label>
+                <div style="display:flex;align-items:center;gap:4px;">
+                  <span style="font-size:0.85rem;color:#64748b;font-weight:700;">$</span>
+                  <input id="wtPack250Price" type="number" step="0.01" min="0" value="5.00" style="width:80px;padding:7px 10px;border:1.5px solid #c7d2fe;border-radius:8px;font-size:0.88rem;font-weight:700;outline:none;">
+                </div>
+              </div>
+              <div>
+                <label style="font-size:0.73rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">500 Messages</label>
+                <div style="display:flex;align-items:center;gap:4px;">
+                  <span style="font-size:0.85rem;color:#64748b;font-weight:700;">$</span>
+                  <input id="wtPack500Price" type="number" step="0.01" min="0" value="10.00" style="width:80px;padding:7px 10px;border:1.5px solid #c7d2fe;border-radius:8px;font-size:0.88rem;font-weight:700;outline:none;">
+                </div>
+              </div>
+              <div>
+                <label style="font-size:0.73rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">1,000 Messages</label>
+                <div style="display:flex;align-items:center;gap:4px;">
+                  <span style="font-size:0.85rem;color:#64748b;font-weight:700;">$</span>
+                  <input id="wtPack1000Price" type="number" step="0.01" min="0" value="20.00" style="width:80px;padding:7px 10px;border:1.5px solid #c7d2fe;border-radius:8px;font-size:0.88rem;font-weight:700;outline:none;">
+                </div>
+              </div>
+              <button onclick="window._adminSaveWtPackPrices()" style="padding:8px 18px;background:#4f46e5;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.83rem;font-family:inherit;">💾 Save Prices</button>
+            </div>
+            <div id="wtPackSaveStatus" style="margin-top:8px;font-size:0.78rem;color:#22c55e;font-weight:700;display:none;">✓ Prices saved successfully</div>
+          </div>
+        </div>
+
         <div class="admin-table-wrap">
           <table class="admin-table">
             <thead>
@@ -2028,6 +2065,27 @@
   </div>
 </div>
 
-<script type="module" src="/js/admin.js?v=5"></script>
+<!-- ════════════ WT Message Pack Modal ════════════ -->
+<div id="wtPackModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:9100;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:18px;padding:28px 24px;max-width:400px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,0.3);position:relative;">
+    <button onclick="window._adminCloseWtModal()" style="position:absolute;top:14px;right:16px;background:none;border:none;cursor:pointer;font-size:1.3rem;color:#94a3b8;line-height:1;">✕</button>
+
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <span style="font-size:1.5rem;">📻</span>
+      <div>
+        <div style="font-size:1rem;font-weight:900;color:#1a1a1a;">Add Message Pack</div>
+        <div id="wtPackModalBizName" style="font-size:0.78rem;color:#64748b;font-weight:600;margin-top:1px;"></div>
+      </div>
+    </div>
+
+    <div style="font-size:0.78rem;color:#94a3b8;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid #f1f5f9;">Select a package to add to this subscriber's monthly allowance.</div>
+
+    <div id="wtPackCards" style="display:flex;flex-direction:column;gap:10px;"></div>
+
+    <button onclick="window._adminCloseWtModal()" style="margin-top:18px;width:100%;padding:10px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;font-weight:700;cursor:pointer;font-size:0.85rem;color:#64748b;font-family:inherit;">Cancel</button>
+  </div>
+</div>
+
+<script type="module" src="/js/admin.js?v=6"></script>
 </body>
 </html>
