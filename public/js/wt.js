@@ -41,10 +41,17 @@ let recTimer     = null;
 let audioQueue   = [];
 let audioPlaying = false;
 
-// Single shared AudioContext created during the PTT activate gesture.
-// iOS Safari won't resume a context created outside a user gesture, so we
-// must reuse the one created (and resumed) synchronously inside onActivate.
-let sharedAudioCtx = null;
+// Single persistent <audio> element for incoming message playback.
+// iOS Safari user-activation (play() inside a user gesture) is per-element —
+// a new Audio() created from async code won't inherit the gesture unlock.
+// We create this element once at load, play a silent clip on it inside
+// onActivate (a real user gesture), then reuse it for every incoming message.
+const $wtRxAudio = (() => {
+  const el = document.createElement('audio');
+  el.preload = 'none';
+  document.body.appendChild(el);
+  return el;
+})();
 
 // Push notifications
 let swRegistration = null;
@@ -309,34 +316,35 @@ async function drainAudioQueue() {
   if ($audioFrom) $audioFrom.textContent = fromName;
   $audioInd?.classList.remove('hidden');
 
-  // Use HTMLAudioElement instead of WebAudio API.
-  // iOS Safari suspends AudioContext nodes created outside a user gesture and
-  // the suspended src.start() never fires onended — the queue deadlocks.
-  // HTMLMediaElement.play() is unlocked for the session by the silent clip
-  // played in onActivate and reliably works from async callbacks on iOS.
+  // Reuse the single persistent $wtRxAudio element (unlocked during onActivate).
+  // Fetch audio first → create a blob URL → play on the pre-unlocked element.
+  // Blob URLs bypass CORS and confirm the data loaded before playback starts.
+  let blobUrl = null;
   try {
-    let playUrl  = audioUrl;
-    let isBlobUrl = false;
-
     if (b64Data?.b64) {
       const bytes = Uint8Array.from(atob(b64Data.b64), c => c.charCodeAt(0));
-      playUrl   = URL.createObjectURL(new Blob([bytes], { type: b64Data.type || 'audio/wav' }));
-      isBlobUrl = true;
+      blobUrl = URL.createObjectURL(new Blob([bytes], { type: b64Data.type || 'audio/wav' }));
+    } else if (audioUrl) {
+      const resp = await fetch(audioUrl);
+      if (!resp.ok) throw new Error(`fetch ${resp.status}`);
+      blobUrl = URL.createObjectURL(await resp.blob());
     }
+    if (!blobUrl) throw new Error('no audio data');
 
-    if (!playUrl) { $audioInd?.classList.add('hidden'); drainAudioQueue(); return; }
+    // Clear previous handlers, set source, play
+    $wtRxAudio.onended = null;
+    $wtRxAudio.onerror = null;
+    $wtRxAudio.src = blobUrl;
 
-    const audio = new Audio(playUrl);
-    const done  = () => {
-      if (isBlobUrl) URL.revokeObjectURL(playUrl);
-      $audioInd?.classList.add('hidden');
-      drainAudioQueue();
-    };
-    audio.onended = done;
-    audio.onerror = () => { console.error('audio element error'); done(); };
-    await audio.play();
+    await new Promise((resolve, reject) => {
+      $wtRxAudio.onended = resolve;
+      $wtRxAudio.onerror = () => reject(new Error('audio element playback error'));
+      $wtRxAudio.play().catch(reject);
+    });
   } catch (err) {
     console.error('playAudio error:', err);
+  } finally {
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
     $audioInd?.classList.add('hidden');
     drainAudioQueue();
   }
@@ -364,18 +372,12 @@ function wirePtt() {
     $pttBtn.querySelector('.wt-ptt-label').textContent = 'Hold to Talk';
     $pttHint.textContent = '🎤 Allow microphone in the popup…';
 
-    // Both AudioContext and HTMLAudioElement must be created/started synchronously
-    // inside a user gesture on iOS Safari, or they will be permanently blocked.
-    // Create the shared context here (sync, in gesture) so drainAudioQueue can
-    // reuse it later from async Firestore callbacks without hitting iOS restrictions.
+    // Unlock the persistent receiver element inside this user gesture.
+    // iOS Safari user-activation is per-element — playing anything on $wtRxAudio
+    // here marks it as gesture-unlocked so later async play() calls work.
     try {
-      sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      sharedAudioCtx.resume().catch(() => {});
-    } catch (_) {}
-    try {
-      const unlock = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
-      unlock.volume = 0;
-      unlock.play().catch(() => {});
+      $wtRxAudio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+      $wtRxAudio.play().catch(() => {});
     } catch (_) {}
 
     // getUserMedia MUST be called via .then() inside a user-gesture handler —
@@ -731,10 +733,9 @@ document.addEventListener('visibilitychange', () => {
       identity?.from === 'owner' ? markOwnerOnline : markEmpOnline,
       30_000
     );
-    // iOS suspends AudioContext when page goes to background; resume it when
-    // the user returns so the next incoming message plays immediately.
-    if (sharedAudioCtx?.state === 'suspended') {
-      sharedAudioCtx.resume().catch(() => {});
-    }
+    // On iOS, audio may be interrupted when the app backgrounds.
+    // Calling play() here (while the page is regaining focus) re-activates
+    // $wtRxAudio so the next incoming message plays without user interaction.
+    $wtRxAudio.play().catch(() => {});
   }
 });
