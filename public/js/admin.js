@@ -1334,9 +1334,9 @@ function renderLocalBizTable(list) {
         <div style="margin-top:8px;">
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;margin-bottom:4px;">🎥 Live Attendees</div>
           <select style="font-size:0.78rem;border:1.5px solid #e2e8f0;border-radius:6px;padding:3px 7px;background:#f8fafc;cursor:pointer;" onchange="window._adminSetLiveCap('${escAttr(u.id)}', parseInt(this.value))">
-            <option value="0"   ${!u.addOns?.liveCap              ? 'selected' : ''}>— None —</option>
-            <option value="50"  ${u.addOns?.liveCap === 50  ? 'selected' : ''}>Live Premium · 50</option>
-            <option value="100" ${u.addOns?.liveCap === 100 ? 'selected' : ''}>Live Stream · 100</option>
+            <option value="0"   ${!u.addOns?.liveCap               ? 'selected' : ''}>— None —</option>
+            <option value="100" ${u.addOns?.liveCap === 100 ? 'selected' : ''}>Live Premium · 100</option>
+            <option value="200" ${u.addOns?.liveCap === 200 ? 'selected' : ''}>Live Stream · 200</option>
           </select>
         </div>
       </td>
