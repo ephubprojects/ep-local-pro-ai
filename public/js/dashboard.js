@@ -2105,6 +2105,16 @@ let wtRecTimer     = null;
 let wtAudioQueue   = [];
 let wtAudioPlaying = false;
 
+// Persistent audio element for incoming employee messages.
+// new Audio() objects not in the DOM can be GC'd before onended fires —
+// keeping the element in the DOM guarantees the browser holds the reference.
+const $wtPanelAudio = (() => {
+  const el = document.createElement('audio');
+  el.preload = 'none';
+  document.body.appendChild(el);
+  return el;
+})();
+
 // Push notifications
 let wtSwRegistration = null;
 const WT_VAPID_PUBLIC_KEY = 'BImnaD28aQfG8YdR9_PjwdlPLIfiGk4vfBfbmzo2uDOF21EEgDruZVxBUlupf2ObNL3zP5ATrlEgZDFRlhsEFxY';
@@ -2622,39 +2632,42 @@ async function drainWtAudioQueue() {
   if (audioFrom) audioFrom.textContent = fromName;
   if (audioInd)  audioInd.classList.remove('hidden');
 
-  // Declared outside try so catch can clear it
-  let safetyTimer;
+  let blobUrl = null;
   try {
-    let url = audioUrl;
-    let isObjectUrl = false;
-    if (!url && b64Data?.b64) {
+    let src = audioUrl;
+    if (!src && b64Data?.b64) {
       const bytes = Uint8Array.from(atob(b64Data.b64), c => c.charCodeAt(0));
-      url = URL.createObjectURL(new Blob([bytes], { type: b64Data.type }));
-      isObjectUrl = true;
+      blobUrl = URL.createObjectURL(new Blob([bytes], { type: b64Data.type || 'audio/mp4' }));
+      src = blobUrl;
     }
-    if (!url) { if (audioInd) audioInd.classList.add('hidden'); drainWtAudioQueue(); return; }
+    if (!src) throw new Error('no audio source');
 
-    console.log('[WT-DASH] Playing from', fromName, url.slice(0, 60));
+    console.log('[WT-DASH] Playing from', fromName, src.slice(0, 60));
 
-    const player = new Audio(url);
-    // done guard: prevents double drainWtAudioQueue() if onended + onerror both fire
-    let done = false;
-    const cleanup = () => {
-      if (done) return;
-      done = true;
-      clearTimeout(safetyTimer);
-      if (isObjectUrl) URL.revokeObjectURL(url);
-      if (audioInd) audioInd.classList.add('hidden');
-      drainWtAudioQueue();
-    };
-    safetyTimer = setTimeout(cleanup, 25_000);
-    player.onended = cleanup;
-    player.onerror = () => { console.error('[WT-DASH] MediaError', player.error?.code); cleanup(); };
-    await player.play();
-    console.log('[WT-DASH] play() started OK');
+    // Use the persistent DOM-attached element so Chrome never GC's it before onended fires
+    $wtPanelAudio.onended = null;
+    $wtPanelAudio.onerror = null;
+    $wtPanelAudio.src = src;
+    $wtPanelAudio.load();
+
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(resolve, 25_000);
+      $wtPanelAudio.onended = () => { clearTimeout(timeout); console.log('[WT-DASH] ✓ played OK'); resolve(); };
+      $wtPanelAudio.onerror = () => {
+        clearTimeout(timeout);
+        const code = $wtPanelAudio.error?.code ?? '?';
+        const msg  = ['','aborted','network','decode','unsupported'][code] || code;
+        reject(new Error(`MediaError: ${msg}`));
+      };
+      $wtPanelAudio.play().catch(err => {
+        clearTimeout(timeout);
+        reject(new Error(`play blocked: ${err.name}`));
+      });
+    });
   } catch (err) {
-    clearTimeout(safetyTimer);
-    console.error('[WT-DASH] play() blocked:', err.message);
+    console.error('[WT-DASH] playback error:', err.message);
+  } finally {
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
     if (audioInd) audioInd.classList.add('hidden');
     drainWtAudioQueue();
   }
