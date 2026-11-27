@@ -2444,6 +2444,7 @@ function subscribeWtMessages() {
       // Play audio for new messages from staff (not the owner's own messages)
       if (data.from !== 'owner') {
         const name = data.fromName || 'Staff';
+        console.log('[WT-DASH] Received from', name, '| to:', data.to ?? '(broadcast)', '| hasAudio:', !!data.audioUrl, '| playing:', wtAudioPlaying, '| queue:', wtAudioQueue.length);
 
         // Auto-select the employee who just spoke and open the dropdown
         wtLastSpeakerId  = data.from;
@@ -2621,6 +2622,8 @@ async function drainWtAudioQueue() {
   if (audioFrom) audioFrom.textContent = fromName;
   if (audioInd)  audioInd.classList.remove('hidden');
 
+  // Declared outside try so catch can clear it
+  let safetyTimer;
   try {
     let url = audioUrl;
     let isObjectUrl = false;
@@ -2631,20 +2634,27 @@ async function drainWtAudioQueue() {
     }
     if (!url) { if (audioInd) audioInd.classList.add('hidden'); drainWtAudioQueue(); return; }
 
+    console.log('[WT-DASH] Playing from', fromName, url.slice(0, 60));
+
     const player = new Audio(url);
+    // done guard: prevents double drainWtAudioQueue() if onended + onerror both fire
+    let done = false;
     const cleanup = () => {
+      if (done) return;
+      done = true;
       clearTimeout(safetyTimer);
       if (isObjectUrl) URL.revokeObjectURL(url);
       if (audioInd) audioInd.classList.add('hidden');
       drainWtAudioQueue();
     };
-    // 25s safety: if onended never fires (tab throttled, etc.) force queue advance
-    const safetyTimer = setTimeout(cleanup, 25_000);
+    safetyTimer = setTimeout(cleanup, 25_000);
     player.onended = cleanup;
-    player.onerror = cleanup;
+    player.onerror = () => { console.error('[WT-DASH] MediaError', player.error?.code); cleanup(); };
     await player.play();
+    console.log('[WT-DASH] play() started OK');
   } catch (err) {
-    console.error('drainWtAudioQueue error:', err);
+    clearTimeout(safetyTimer);
+    console.error('[WT-DASH] play() blocked:', err.message);
     if (audioInd) audioInd.classList.add('hidden');
     drainWtAudioQueue();
   }
