@@ -51,6 +51,9 @@
       <span class="nav-icon">🎯</span> Leads
       <span id="adminLeadsBadge" style="display:none;background:#ef4444;color:#fff;border-radius:20px;font-size:0.65rem;font-weight:700;padding:1px 6px;margin-left:4px;">0</span>
     </a>
+    <a data-nav="jobPhotos">
+      <span class="nav-icon">📸</span> Job Photos
+    </a>
     <a data-nav="calendar">
       <span class="nav-icon">📅</span> Calendar
     </a>
@@ -1014,6 +1017,60 @@
       </div>
 
     </div><!-- /calendar -->
+
+
+    <!-- ════════════ SECTION: Job Photos ════════════ -->
+    <div data-section="jobPhotos" class="hidden">
+
+      <div class="section-card-header" style="margin-bottom:20px;">
+        <h2>📸 Job Photos</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn-action" onclick="window._adminLoadAllPhotos()">🔄 Refresh</button>
+        </div>
+      </div>
+
+      <!-- Business filter -->
+      <div style="margin-bottom:16px;">
+        <input id="adminPhotoSearch" type="text" placeholder="🔍 Filter by business name or email…"
+          style="width:100%;max-width:360px;padding:9px 14px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:0.88rem;color:#1e293b;outline:none;box-sizing:border-box;"
+          oninput="window._adminFilterPhotosByBiz(this.value)" />
+      </div>
+
+      <!-- Stats -->
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
+        <div class="stat-card" style="flex:1;min-width:100px;"><div class="stat-label">TOTAL</div><div class="stat-value" id="adminPhotoStatTotal">—</div></div>
+        <div class="stat-card" style="flex:1;min-width:100px;"><div class="stat-label">BEFORE</div><div class="stat-value" id="adminPhotoStatBefore">—</div></div>
+        <div class="stat-card" style="flex:1;min-width:100px;"><div class="stat-label">AFTER</div><div class="stat-value" id="adminPhotoStatAfter">—</div></div>
+        <div class="stat-card" style="flex:1;min-width:100px;"><div class="stat-label">IN PROGRESS</div><div class="stat-value" id="adminPhotoStatProgress">—</div></div>
+      </div>
+
+      <!-- Filter bar -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
+        <button class="docs-tab active" data-admin-photo-filter="all"       onclick="window._adminFilterPhotos('all')"      ><span class="docs-tab-label">All</span></button>
+        <button class="docs-tab"        data-admin-photo-filter="before"    onclick="window._adminFilterPhotos('before')"   ><span class="docs-tab-label">🟠 Before</span></button>
+        <button class="docs-tab"        data-admin-photo-filter="after"     onclick="window._adminFilterPhotos('after')"    ><span class="docs-tab-label">🟢 After</span></button>
+        <button class="docs-tab"        data-admin-photo-filter="progress"  onclick="window._adminFilterPhotos('progress')" ><span class="docs-tab-label">🔵 Progress</span></button>
+        <button class="docs-tab"        data-admin-photo-filter="completed" onclick="window._adminFilterPhotos('completed')"><span class="docs-tab-label">🟣 Done</span></button>
+      </div>
+
+      <!-- Gallery -->
+      <div id="adminPhotoGallery">
+        <div class="empty-state"><div class="empty-state-icon">📷</div><p>Click Refresh to load photos.</p></div>
+      </div>
+
+      <!-- Lightbox -->
+      <div id="adminPhotoLightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column;padding:20px;">
+        <button onclick="document.getElementById('adminPhotoLightbox').style.display='none'"
+          style="position:absolute;top:16px;right:20px;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:1.4rem;width:40px;height:40px;border-radius:50%;cursor:pointer;z-index:1;">✕</button>
+        <button id="adminLightboxPrev" onclick="window._adminLightboxNav(-1)"
+          style="position:absolute;left:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:#fff;font-size:1.6rem;width:44px;height:44px;border-radius:50%;cursor:pointer;">‹</button>
+        <button id="adminLightboxNext" onclick="window._adminLightboxNav(1)"
+          style="position:absolute;right:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:#fff;font-size:1.6rem;width:44px;height:44px;border-radius:50%;cursor:pointer;">›</button>
+        <img id="adminLightboxImg" src="" alt="" style="max-width:90vw;max-height:75vh;border-radius:10px;object-fit:contain;" />
+        <div id="adminLightboxCaption" style="color:#fff;text-align:center;margin-top:14px;font-size:0.9rem;max-width:600px;"></div>
+      </div>
+
+    </div><!-- /jobPhotos -->
 
 
     <!-- ════════════ SECTION: Profile ════════════ -->

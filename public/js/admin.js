@@ -9,7 +9,7 @@ import {
   signOut
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
-  ref as storageRef, uploadBytes, getDownloadURL
+  ref as storageRef, uploadBytes, getDownloadURL, deleteObject
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 import {
   collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
@@ -484,6 +484,7 @@ function showSection(name) {
     categories:    'Categories',
     documents:     'Documents',
     financing:     'Financing',
+    jobPhotos:     'Job Photos',
     calendar:      'Calendar',
     'market-rate':     'Market Rate Calculator',
     'material-search': 'Material Pricing Search',
@@ -507,6 +508,7 @@ function showSection(name) {
   if (name === 'demos')        { loadDemos(); window._adminLoadDemoRequests(); }
   if (name === 'businesses')   loadBusinesses();
   if (name === 'settings')     { loadSettings(); adminLoadFinancingUsers(); }
+  if (name === 'jobPhotos')    window._adminLoadAllPhotos();
   if (name === 'calendar')     { loadCalendarConfig(); window._adminLoadBookings(); }
   if (name === 'market-rate')  _mrRenderHistory(document.getElementById('mrHistoryAdmin'), (svc, cty) => {
     const s = document.getElementById('mrServiceAdmin');
@@ -2911,6 +2913,176 @@ window._adminAddCalendar = async function() {
     _updateCalBookingLink();
     window._adminLoadBookings();
   } catch(e) { alert('Error creating calendar: ' + e.message); }
+};
+
+// ============================================================
+// JOB PHOTOS (admin — all businesses)
+// ============================================================
+
+let _adminAllPhotos      = [];
+let _adminFilteredPhotos = [];
+let _adminLightboxIndex  = 0;
+let _adminPhotoBizFilter = '';
+let _adminPhotoLabelFilter = 'all';
+
+const _PHOTO_LABEL_STYLE = {
+  before:    { bg: '#fef3c7', color: '#92400e', dot: '🟠' },
+  after:     { bg: '#dcfce7', color: '#14532d', dot: '🟢' },
+  progress:  { bg: '#dbeafe', color: '#1e40af', dot: '🔵' },
+  completed: { bg: '#f3e8ff', color: '#6b21a8', dot: '🟣' },
+};
+
+window._adminLoadAllPhotos = async function() {
+  const gallery = document.getElementById('adminPhotoGallery');
+  if (!gallery) return;
+  gallery.innerHTML = `<div class="empty-state"><p>⏳ Loading…</p></div>`;
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'job_photos'),
+      orderBy('uploadedAt', 'desc'),
+      limit(500)
+    ));
+    _adminAllPhotos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    _adminApplyPhotoFilters();
+  } catch(e) {
+    console.error('_adminLoadAllPhotos:', e);
+    gallery.innerHTML = `<div class="empty-state"><p>⚠️ Could not load photos.</p></div>`;
+  }
+};
+
+function _adminApplyPhotoFilters() {
+  let photos = [..._adminAllPhotos];
+  if (_adminPhotoBizFilter) {
+    const q = _adminPhotoBizFilter.toLowerCase();
+    photos = photos.filter(p =>
+      (p.businessId || '').toLowerCase().includes(q) ||
+      (p.uid || '').toLowerCase().includes(q)
+    );
+  }
+  if (_adminPhotoLabelFilter !== 'all') {
+    photos = photos.filter(p => p.label === _adminPhotoLabelFilter);
+  }
+  _adminFilteredPhotos = photos;
+  _adminUpdatePhotoStats();
+  _adminRenderPhotoGallery();
+}
+
+function _adminUpdatePhotoStats() {
+  const counts = { before: 0, after: 0, progress: 0, completed: 0 };
+  _adminAllPhotos.forEach(p => { if (counts[p.label] !== undefined) counts[p.label]++; });
+  const s = id => document.getElementById(id);
+  if (s('adminPhotoStatTotal'))    s('adminPhotoStatTotal').textContent    = _adminAllPhotos.length;
+  if (s('adminPhotoStatBefore'))   s('adminPhotoStatBefore').textContent   = counts.before;
+  if (s('adminPhotoStatAfter'))    s('adminPhotoStatAfter').textContent    = counts.after;
+  if (s('adminPhotoStatProgress')) s('adminPhotoStatProgress').textContent = counts.progress;
+}
+
+function _adminRenderPhotoGallery() {
+  const gallery = document.getElementById('adminPhotoGallery');
+  if (!gallery) return;
+  if (!_adminFilteredPhotos.length) {
+    gallery.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📷</div><p>No photos found.</p></div>`;
+    return;
+  }
+  // Group by uid/businessId
+  const groups = {};
+  _adminFilteredPhotos.forEach(p => {
+    const key = p.businessId || p.uid || 'unknown';
+    (groups[key] = groups[key] || []).push(p);
+  });
+  let html = '';
+  Object.entries(groups).forEach(([bizKey, photos]) => {
+    // Try to get company name from cached local biz list
+    const biz = _allLocalBiz.find(b => b.id === (photos[0].uid || photos[0].businessId));
+    const bizLabel = biz ? (biz.companyName || biz.email || bizKey) : bizKey;
+    html += `<div style="margin-bottom:28px;">
+      <div style="font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#4f46e5;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #e0e7ff;">
+        🏪 ${escHTML(bizLabel)} <span style="font-weight:400;color:#94a3b8;">(${photos.length} photo${photos.length !== 1 ? 's' : ''})</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;">
+        ${photos.map(p => _adminPhotoCard(p, _adminFilteredPhotos.indexOf(p))).join('')}
+      </div>
+    </div>`;
+  });
+  gallery.innerHTML = html;
+}
+
+function _adminPhotoCard(p, idx) {
+  const s = _PHOTO_LABEL_STYLE[p.label] || _PHOTO_LABEL_STYLE.before;
+  const date = p.uploadedAt?.toDate?.()?.toLocaleDateString() || '';
+  return `<div style="border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;background:#fff;cursor:pointer;transition:box-shadow .2s;" onclick="window._adminOpenLightbox(${idx})">
+    <div style="position:relative;padding-top:75%;background:#f1f5f9;">
+      <img src="${escHTML(p.photoUrl)}" alt="${escHTML(p.caption||'')}"
+        style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" loading="lazy" />
+      <span style="position:absolute;top:8px;left:8px;padding:3px 9px;border-radius:20px;font-size:0.7rem;font-weight:700;background:${s.bg};color:${s.color};">${s.dot} ${p.label.charAt(0).toUpperCase()+p.label.slice(1)}</span>
+    </div>
+    <div style="padding:9px 12px;">
+      ${p.caption ? `<div style="font-size:0.8rem;font-weight:600;color:#1e293b;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHTML(p.caption)}</div>` : ''}
+      ${p.jobRef  ? `<div style="font-size:0.72rem;color:#64748b;margin-bottom:2px;">📋 ${escHTML(p.jobRef)}</div>` : ''}
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+        <span style="font-size:0.7rem;color:#94a3b8;">${date}</span>
+        <button onclick="event.stopPropagation();window._adminDeletePhoto('${escHTML(p.id)}','${escHTML(p.storagePath||'')}')"
+          style="background:none;border:none;cursor:pointer;font-size:0.85rem;color:#ef4444;padding:2px 4px;" title="Delete">🗑️</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+window._adminFilterPhotos = function(filter) {
+  _adminPhotoLabelFilter = filter;
+  document.querySelectorAll('[data-admin-photo-filter]').forEach(b => {
+    b.classList.toggle('active', b.dataset.adminPhotoFilter === filter);
+  });
+  _adminApplyPhotoFilters();
+};
+
+window._adminFilterPhotosByBiz = function(q) {
+  _adminPhotoBizFilter = q.trim();
+  _adminApplyPhotoFilters();
+};
+
+window._adminOpenLightbox = function(idx) {
+  _adminLightboxIndex = idx;
+  const lb = document.getElementById('adminPhotoLightbox');
+  if (!lb) return;
+  lb.style.display = 'flex';
+  _adminLightboxShow();
+};
+
+function _adminLightboxShow() {
+  const p = _adminFilteredPhotos[_adminLightboxIndex];
+  if (!p) return;
+  document.getElementById('adminLightboxImg').src = p.photoUrl;
+  const s = _PHOTO_LABEL_STYLE[p.label] || _PHOTO_LABEL_STYLE.before;
+  const cap = [s.dot + ' ' + (p.label.charAt(0).toUpperCase()+p.label.slice(1)), p.caption, p.jobRef ? '📋 ' + p.jobRef : ''].filter(Boolean).join('  ·  ');
+  document.getElementById('adminLightboxCaption').textContent = cap;
+  document.getElementById('adminLightboxPrev').style.display = _adminLightboxIndex > 0 ? '' : 'none';
+  document.getElementById('adminLightboxNext').style.display = _adminLightboxIndex < _adminFilteredPhotos.length - 1 ? '' : 'none';
+}
+
+window._adminLightboxNav = function(dir) {
+  _adminLightboxIndex = Math.max(0, Math.min(_adminFilteredPhotos.length - 1, _adminLightboxIndex + dir));
+  _adminLightboxShow();
+};
+
+document.addEventListener('click', e => {
+  const lb = document.getElementById('adminPhotoLightbox');
+  if (lb && e.target === lb) lb.style.display = 'none';
+});
+
+window._adminDeletePhoto = async function(photoId, storagePath) {
+  if (!confirm('Delete this photo permanently?')) return;
+  try {
+    await deleteDoc(doc(db, 'job_photos', photoId));
+    if (storagePath) {
+      try { await deleteObject(storageRef(storage, storagePath)); } catch(_) {}
+    }
+    _adminAllPhotos = _adminAllPhotos.filter(p => p.id !== photoId);
+    _adminApplyPhotoFilters();
+    showToast('Photo deleted', 'success');
+  } catch(e) {
+    showToast('Could not delete photo', 'error');
+  }
 };
 
 // ── Load config ──────────────────────────────────────────────
