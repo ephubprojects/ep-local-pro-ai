@@ -3172,15 +3172,15 @@ function _dApplyTypeLayout() {
 
   show('docInvoiceRefRow',   isReceipt);
   show('docPayInstructRow',  isInvoice);
-  show('docProjectTitleRow', isEstimate || isContract);
+  show('docProjectTitleRow', isEstimate || isContract || isInvoice);
   show('docDueDateWrap',     !isReceipt);
   if (isEstimate)      setTxt('docDueDateLabel', es ? 'Valido Hasta' : 'Valid Until');
   else if (isContract) setTxt('docDueDateLabel', es ? 'Fecha de Fin' : 'End Date');
   else                 setTxt('docDueDateLabel', es ? 'Vencimiento' : 'Due Date');
 
   show('docPaymentMethodRow', isReceipt);
-  show('docJobDetailsSection', isEstimate || isContract);
-  show('docOrderedByRow', isEstimate);
+  show('docJobDetailsSection', isEstimate || isContract || isInvoice);
+  show('docOrderedByRow', isEstimate || isInvoice);
   show('docDurationRow',  isEstimate);
   setTxt('docJobDetailsTitle', isContract ? (es ? 'Detalles del Proyecto' : 'Project Details') : (es ? 'Detalles del Trabajo' : 'Job Details'));
   show('docScopeSection', isEstimate || isContract);

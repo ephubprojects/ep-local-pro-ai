@@ -3893,8 +3893,8 @@ function _docApplyTypeLayout() {
   // ── Payment Instructions (invoice only) ──────────────────
   show('docPayInstructRow', isInvoice);
 
-  // Project Title — estimates & contracts only
-  show('docProjectTitleRow', isEstimate || isContract);
+  // Project Title — estimates, contracts, and invoices
+  show('docProjectTitleRow', isEstimate || isContract || isInvoice);
 
   // Due Date — hidden for receipt; label adapts
   show('docDueDateWrap', !isReceipt);
@@ -3905,10 +3905,10 @@ function _docApplyTypeLayout() {
   // Payment Method — receipt only
   show('docPaymentMethodRow', isReceipt);
 
-  // Job Details section — estimate & contract only (invoice & receipt don't need job location)
-  show('docJobDetailsSection', isEstimate || isContract);
-  // Ordered By — estimate only (contract client IS the person who ordered)
-  show('docOrderedByRow', isEstimate);
+  // Job Details section — estimate, contract, and invoice (receipt doesn't need job location)
+  show('docJobDetailsSection', isEstimate || isContract || isInvoice);
+  // Ordered By — estimate and invoice
+  show('docOrderedByRow', isEstimate || isInvoice);
   // Duration — estimate only
   show('docDurationRow', isEstimate);
   // Job Details title adapts
