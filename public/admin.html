@@ -54,6 +54,9 @@
     <a data-nav="jobPhotos">
       <span class="nav-icon">📸</span> Job Photos
     </a>
+    <a data-nav="qrCodes">
+      <span class="nav-icon">📱</span> QR Codes
+    </a>
     <a data-nav="calendar">
       <span class="nav-icon">📅</span> Calendar
     </a>
@@ -1127,6 +1130,23 @@
       </div>
 
     </div><!-- /jobPhotos -->
+
+
+    <!-- ════════════ SECTION: QR Codes ════════════ -->
+    <div data-section="qrCodes" class="hidden">
+      <div class="section-card">
+        <div class="section-card-header">
+          <div>
+            <h2>📱 QR Code Generator</h2>
+            <p style="color:var(--muted);font-size:0.82rem;margin-top:4px;">Dynamic codes — update content anytime without reprinting</p>
+          </div>
+          <button class="btn-primary" id="adminAddQrBtn">＋ Create QR Code</button>
+        </div>
+        <div id="adminQrCodesList">
+          <div class="empty-state"><div class="empty-state-icon">📱</div><p>No QR codes yet. Create your first one!</p></div>
+        </div>
+      </div>
+    </div><!-- /qrCodes -->
 
 
     <!-- ════════════ SECTION: Profile ════════════ -->
@@ -2213,6 +2233,61 @@
     <div id="wtPackCards" style="display:flex;flex-direction:column;gap:10px;"></div>
 
     <button onclick="window._adminCloseWtModal()" style="margin-top:18px;width:100%;padding:10px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;font-weight:700;cursor:pointer;font-size:0.85rem;color:#64748b;font-family:inherit;">Cancel</button>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: QR Code Create / Edit (Admin) ══════════════ -->
+<div class="modal-overlay hidden" id="adminQrModal">
+  <div class="modal-card" style="max-width:620px;">
+    <div class="modal-header">
+      <h3 id="adminQrModalTitle">Create QR Code</h3>
+      <button class="modal-close" data-close="adminQrModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="qr-modal-grid">
+        <div>
+          <input type="hidden" id="adminQrId" />
+          <div class="form-group">
+            <label>Label Name *</label>
+            <input type="text" id="adminQrName" placeholder="e.g. Main Menu, Order Here…" />
+          </div>
+          <div class="form-group" style="margin-top:12px;">
+            <label>Description</label>
+            <textarea id="adminQrDescription" rows="2" placeholder="Scan to view our digital menu…"></textarea>
+          </div>
+          <div class="form-group" style="margin-top:12px;">
+            <label>Target URL *</label>
+            <input type="url" id="adminQrTargetUrl" placeholder="https://..." />
+            <small style="color:var(--muted);">Where to send people when they scan</small>
+          </div>
+          <div class="form-row" style="margin-top:12px;">
+            <div class="form-group">
+              <label>QR Color</label>
+              <input type="color" id="adminQrColor" value="#4f46e5" class="qr-color-input" />
+            </div>
+            <div class="form-group">
+              <label>Background</label>
+              <input type="color" id="adminQrBgColor" value="#ffffff" class="qr-color-input" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:12px;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400;">
+              <input type="checkbox" id="adminQrEnabled" checked /> Active (QR code is live)
+            </label>
+          </div>
+        </div>
+        <div class="qr-preview-col">
+          <p class="qr-preview-label">Live Preview</p>
+          <div id="adminQrPreview" class="qr-preview-box"></div>
+          <p id="adminQrPreviewName" class="qr-preview-name"></p>
+          <p id="adminQrPreviewDesc" class="qr-preview-desc"></p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" data-close="adminQrModal">Cancel</button>
+      <button class="btn-primary" id="adminQrSaveBtn">Save QR Code</button>
+    </div>
   </div>
 </div>
 

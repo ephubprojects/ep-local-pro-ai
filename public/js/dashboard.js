@@ -241,6 +241,7 @@ function showSection(name) {
     'dashboard':   'Dashboard',
     'orders':      'Orders',
     'menu':        'Menu',
+    'qr':          'QR Codes',
     'documents':   'Documents',
     'myleads':     'My Leads',
     'photos':      'Job Photos',
@@ -258,6 +259,7 @@ function showSection(name) {
   if (name === 'dashboard')   { loadStats(); loadRecentOrders(); }
   if (name === 'orders')      { loadOrders('all'); }
   if (name === 'menu')        { loadMenu(); }
+  if (name === 'qr')          { loadQrCodes(); }
   if (name === 'documents')   { loadDocuments(); }
   if (name === 'myleads')     { window._loadMyLeads(); }
   if (name === 'photos')      { window._loadPhotosSection(); }
@@ -951,6 +953,188 @@ window._dmCopyUrl = (inputId) => {
     document.execCommand('copy');
     showToast('Copied!');
   });
+};
+
+// ── QR Codes ─────────────────────────────────────────────────
+let _qrData        = [];
+let _qrLibLoaded   = false;
+let _qrPrevTimeout = null;
+
+function _loadQrLib() {
+  if (_qrLibLoaded) return Promise.resolve();
+  return new Promise(resolve => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    s.onload = () => { _qrLibLoaded = true; resolve(); };
+    document.head.appendChild(s);
+  });
+}
+
+async function loadQrCodes() {
+  if (!bizId) return;
+  await _loadQrLib();
+  try {
+    const snap = await getDoc(doc(db, 'businesses', bizId));
+    _qrData = Array.isArray(snap.data()?.qrCodes) ? snap.data().qrCodes : [];
+    _renderQrList();
+  } catch (err) {
+    console.error('loadQrCodes error:', err);
+    showToast('Failed to load QR codes.', 'error');
+  }
+  qs('#addQrBtn').onclick = () => _openQrModal(null);
+}
+
+function _renderQrList() {
+  const list = qs('#qrCodesList');
+  if (!_qrData.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📱</div><p>No QR codes yet. Create your first one!</p></div>';
+    return;
+  }
+  list.innerHTML = '';
+  _qrData.forEach(qr => {
+    const card = document.createElement('div');
+    card.className = 'qr-card' + (qr.enabled !== false ? '' : ' qr-disabled');
+    card.innerHTML = `
+      <div class="qr-card-preview" id="qrp-${esc(qr.id)}"></div>
+      <div class="qr-card-body">
+        <div class="qr-card-name">${esc(qr.name)}</div>
+        ${qr.description ? `<div class="qr-card-desc">${esc(qr.description)}</div>` : ''}
+        <div class="qr-card-url" title="${esc(qr.targetUrl || '')}">${esc(qr.targetUrl || '—')}</div>
+        <div class="qr-card-actions">
+          <span class="qr-status ${qr.enabled !== false ? 'qr-active' : 'qr-inactive'}">${qr.enabled !== false ? '● Active' : '○ Inactive'}</span>
+          <button class="btn-secondary btn-xs" onclick="window._qrEdit('${esc(qr.id)}')">✏️ Edit</button>
+          <button class="btn-secondary btn-xs" onclick="window._qrDownload('${esc(qr.id)}')">⬇️ Download</button>
+          <button class="btn-secondary btn-xs" onclick="window._qrPrint('${esc(qr.id)}')">🖨️ Print</button>
+          <button class="btn-secondary btn-xs danger" onclick="window._qrDelete('${esc(qr.id)}')">🗑️</button>
+        </div>
+      </div>`;
+    list.appendChild(card);
+    // Render QR into preview
+    _buildQrCanvas(card.querySelector('#qrp-' + qr.id), _qrLandingUrl(qr.id), qr.color || '#000000', qr.bgColor || '#ffffff', 100);
+  });
+}
+
+function _qrLandingUrl(qrId) {
+  return location.origin + '/qr?biz=' + encodeURIComponent(bizId) + '&id=' + encodeURIComponent(qrId);
+}
+
+function _buildQrCanvas(container, text, dark, light, size) {
+  container.innerHTML = '';
+  if (!_qrLibLoaded || !window.QRCode) return;
+  new window.QRCode(container, { text, width: size, height: size, colorDark: dark, colorLight: light, correctLevel: window.QRCode.CorrectLevel.M });
+}
+
+function _openQrModal(qrId) {
+  const qr = qrId ? _qrData.find(q => q.id === qrId) : null;
+  qs('#qrModalTitle').textContent = qr ? 'Edit QR Code' : 'Create QR Code';
+  qs('#qrId').value           = qrId || '';
+  qs('#qrName').value         = qr?.name        || '';
+  qs('#qrDescription').value  = qr?.description || '';
+  qs('#qrTargetUrl').value    = qr?.targetUrl   || '';
+  qs('#qrColor').value        = qr?.color       || '#4f46e5';
+  qs('#qrBgColor').value      = qr?.bgColor     || '#ffffff';
+  qs('#qrEnabled').checked    = qr?.enabled !== false;
+  qs('#qrModal').classList.remove('hidden');
+  qs('#qrSaveBtn').onclick = _saveQrCode;
+  ['#qrName','#qrDescription','#qrColor','#qrBgColor'].forEach(sel => {
+    qs(sel).addEventListener('input', _updateQrPreview);
+  });
+  _updateQrPreview();
+}
+
+function _updateQrPreview() {
+  clearTimeout(_qrPrevTimeout);
+  _qrPrevTimeout = setTimeout(() => {
+    const id      = qs('#qrId').value;
+    const previewUrl = id ? _qrLandingUrl(id) : (qs('#qrTargetUrl').value.trim() || location.origin);
+    _buildQrCanvas(qs('#qrPreview'), previewUrl, qs('#qrColor').value || '#000', qs('#qrBgColor').value || '#fff', 150);
+    qs('#qrPreviewName').textContent = qs('#qrName').value.trim() || 'Label Name';
+    qs('#qrPreviewDesc').textContent = qs('#qrDescription').value.trim();
+  }, 250);
+}
+
+async function _saveQrCode() {
+  const id   = qs('#qrId').value;
+  const name = qs('#qrName').value.trim();
+  const url  = qs('#qrTargetUrl').value.trim();
+  if (!name) { showToast('Label name is required.', 'error'); return; }
+  if (!url)  { showToast('Target URL is required.', 'error'); return; }
+
+  const item = {
+    id:          id || 'qr_' + Date.now(),
+    name,
+    description: qs('#qrDescription').value.trim(),
+    targetUrl:   url,
+    color:       qs('#qrColor').value   || '#000000',
+    bgColor:     qs('#qrBgColor').value || '#ffffff',
+    enabled:     qs('#qrEnabled').checked,
+  };
+
+  if (id) {
+    const idx = _qrData.findIndex(q => q.id === id);
+    if (idx !== -1) _qrData[idx] = item; else _qrData.push(item);
+  } else {
+    _qrData.push(item);
+  }
+
+  try {
+    await updateDoc(doc(db, 'businesses', bizId), { qrCodes: _qrData });
+    qs('#qrModal').classList.add('hidden');
+    showToast(id ? 'QR code updated!' : 'QR code created!');
+    _renderQrList();
+  } catch (err) {
+    showToast('Failed to save QR code.', 'error');
+  }
+}
+
+window._qrEdit = (qrId) => _openQrModal(qrId);
+
+window._qrDelete = async (qrId) => {
+  if (!confirm('Delete this QR code? This cannot be undone.')) return;
+  _qrData = _qrData.filter(q => q.id !== qrId);
+  try {
+    await updateDoc(doc(db, 'businesses', bizId), { qrCodes: _qrData });
+    showToast('QR code deleted.');
+    _renderQrList();
+  } catch (err) {
+    showToast('Failed to delete.', 'error');
+  }
+};
+
+window._qrDownload = (qrId) => {
+  const canvas = document.querySelector('#qrp-' + qrId + ' canvas');
+  if (!canvas) { showToast('QR code not ready — wait a moment.', 'error'); return; }
+  const qr = _qrData.find(q => q.id === qrId);
+  const a  = document.createElement('a');
+  a.download = (qr?.name || 'qr-code').replace(/[^a-z0-9]/gi, '-').toLowerCase() + '.png';
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+};
+
+window._qrPrint = (qrId) => {
+  const canvas = document.querySelector('#qrp-' + qrId + ' canvas');
+  const qr = _qrData.find(q => q.id === qrId);
+  if (!canvas || !qr) return;
+  const img = canvas.toDataURL('image/png');
+  const win = window.open('', '_blank', 'width=500,height=600');
+  win.document.write(`<!DOCTYPE html><html><head><title>${qr.name}</title><style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:sans-serif;text-align:center;padding:48px 32px;background:#fff;color:#0f172a;}
+    h2{font-size:1.5rem;margin-bottom:8px;}
+    .desc{color:#64748b;font-size:0.9rem;margin-bottom:28px;}
+    img{width:220px;height:220px;display:block;margin:0 auto 20px;}
+    .hint{font-size:0.75rem;color:#94a3b8;margin-top:16px;}
+    .url{font-size:0.7rem;color:#94a3b8;margin-top:8px;word-break:break-all;}
+    @media print{button{display:none;}}
+  </style></head><body>
+    <h2>${qr.name}</h2>
+    ${qr.description ? `<p class="desc">${qr.description}</p>` : ''}
+    <img src="${img}" />
+    <p class="hint">📷 Scan with your phone camera</p>
+    <p class="url">${_qrLandingUrl(qrId)}</p>
+    <br/><button onclick="window.print()" style="padding:10px 24px;background:#4f46e5;color:#fff;border:none;border-radius:8px;font-size:0.9rem;cursor:pointer;margin-top:12px;">Print</button>
+  </body></html>`);
+  win.document.close();
 };
 
 // ── Documents ────────────────────────────────────────────────

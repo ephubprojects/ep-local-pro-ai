@@ -507,6 +507,7 @@ function showSection(name) {
     documents:     'Documents',
     financing:     'Financing',
     jobPhotos:     'Job Photos',
+    qrCodes:       'QR Code Generator',
     calendar:      'Calendar',
     'market-rate':     'Market Rate Calculator',
     'material-search': 'Material Pricing Search',
@@ -531,6 +532,7 @@ function showSection(name) {
   if (name === 'businesses')   loadBusinesses();
   if (name === 'settings')     { loadSettings(); adminLoadFinancingUsers(); }
   if (name === 'jobPhotos')    window._adminLoadAllPhotos();
+  if (name === 'qrCodes')     adminLoadQrCodes();
   if (name === 'calendar')     { loadCalendarConfig(); window._adminLoadBookings(); }
   if (name === 'market-rate')  _mrRenderHistory(document.getElementById('mrHistoryAdmin'), (svc, cty) => {
     const s = document.getElementById('mrServiceAdmin');
@@ -6155,4 +6157,191 @@ window._msEnableAll = async function(enable) {
     console.error('_msEnableAll error:', e);
     showToast('Error updating users.', 'error');
   }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// QR CODE GENERATOR — Admin
+// ═══════════════════════════════════════════════════════════════
+let _adminQrData      = [];
+let _adminQrLibLoaded = false;
+let _adminQrPrevTO    = null;
+let _adminQrOwnerUid  = null;
+
+function _adminLoadQrLib() {
+  if (_adminQrLibLoaded) return Promise.resolve();
+  return new Promise(resolve => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    s.onload = () => { _adminQrLibLoaded = true; resolve(); };
+    document.head.appendChild(s);
+  });
+}
+
+async function adminLoadQrCodes() {
+  await _adminLoadQrLib();
+  if (!currentUser) return;
+  _adminQrOwnerUid = currentUser.uid;
+  try {
+    const snap = await getDoc(doc(db, 'owners', _adminQrOwnerUid));
+    _adminQrData = Array.isArray(snap.data()?.qrCodes) ? snap.data().qrCodes : [];
+    _adminRenderQrList();
+  } catch (err) {
+    console.error('adminLoadQrCodes error:', err);
+    showToast('Failed to load QR codes.', 'error');
+  }
+  document.getElementById('adminAddQrBtn').onclick = () => _adminOpenQrModal(null);
+}
+
+function _adminQrLandingUrl(qrId) {
+  return location.origin + '/qr?admin=' + encodeURIComponent(_adminQrOwnerUid) + '&id=' + encodeURIComponent(qrId);
+}
+
+function _adminBuildQrCanvas(container, text, dark, light, size) {
+  container.innerHTML = '';
+  if (!_adminQrLibLoaded || !window.QRCode) return;
+  new window.QRCode(container, { text, width: size, height: size, colorDark: dark, colorLight: light, correctLevel: window.QRCode.CorrectLevel.M });
+}
+
+function _adminRenderQrList() {
+  const list = document.getElementById('adminQrCodesList');
+  if (!_adminQrData.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📱</div><p>No QR codes yet. Create your first one!</p></div>';
+    return;
+  }
+  list.innerHTML = '';
+  _adminQrData.forEach(qr => {
+    const card = document.createElement('div');
+    card.className = 'qr-card' + (qr.enabled !== false ? '' : ' qr-disabled');
+    card.innerHTML = `
+      <div class="qr-card-preview" id="aqrp-${qr.id}"></div>
+      <div class="qr-card-body">
+        <div class="qr-card-name">${qr.name}</div>
+        ${qr.description ? `<div class="qr-card-desc">${qr.description}</div>` : ''}
+        <div class="qr-card-url" title="${qr.targetUrl || ''}">${qr.targetUrl || '—'}</div>
+        <div class="qr-card-actions">
+          <span class="qr-status ${qr.enabled !== false ? 'qr-active' : 'qr-inactive'}">${qr.enabled !== false ? '● Active' : '○ Inactive'}</span>
+          <button class="btn-secondary btn-xs" onclick="window._adminQrEdit('${qr.id}')">✏️ Edit</button>
+          <button class="btn-secondary btn-xs" onclick="window._adminQrDownload('${qr.id}')">⬇️ Download</button>
+          <button class="btn-secondary btn-xs" onclick="window._adminQrPrint('${qr.id}')">🖨️ Print</button>
+          <button class="btn-secondary btn-xs danger" onclick="window._adminQrDelete('${qr.id}')">🗑️</button>
+        </div>
+      </div>`;
+    list.appendChild(card);
+    _adminBuildQrCanvas(card.querySelector('#aqrp-' + qr.id), _adminQrLandingUrl(qr.id), qr.color || '#000000', qr.bgColor || '#ffffff', 100);
+  });
+}
+
+function _adminOpenQrModal(qrId) {
+  const qr = qrId ? _adminQrData.find(q => q.id === qrId) : null;
+  document.getElementById('adminQrModalTitle').textContent = qr ? 'Edit QR Code' : 'Create QR Code';
+  document.getElementById('adminQrId').value           = qrId || '';
+  document.getElementById('adminQrName').value         = qr?.name        || '';
+  document.getElementById('adminQrDescription').value  = qr?.description || '';
+  document.getElementById('adminQrTargetUrl').value    = qr?.targetUrl   || '';
+  document.getElementById('adminQrColor').value        = qr?.color       || '#4f46e5';
+  document.getElementById('adminQrBgColor').value      = qr?.bgColor     || '#ffffff';
+  document.getElementById('adminQrEnabled').checked    = qr?.enabled !== false;
+  document.getElementById('adminQrModal').classList.remove('hidden');
+  document.getElementById('adminQrSaveBtn').onclick = _adminSaveQrCode;
+  ['adminQrName','adminQrDescription','adminQrColor','adminQrBgColor'].forEach(id => {
+    document.getElementById(id).addEventListener('input', _adminUpdateQrPreview);
+  });
+  _adminUpdateQrPreview();
+}
+
+function _adminUpdateQrPreview() {
+  clearTimeout(_adminQrPrevTO);
+  _adminQrPrevTO = setTimeout(() => {
+    const id  = document.getElementById('adminQrId').value;
+    const url = id ? _adminQrLandingUrl(id) : (document.getElementById('adminQrTargetUrl').value.trim() || location.origin);
+    _adminBuildQrCanvas(document.getElementById('adminQrPreview'), url,
+      document.getElementById('adminQrColor').value   || '#000',
+      document.getElementById('adminQrBgColor').value || '#fff', 150);
+    document.getElementById('adminQrPreviewName').textContent = document.getElementById('adminQrName').value.trim() || 'Label Name';
+    document.getElementById('adminQrPreviewDesc').textContent = document.getElementById('adminQrDescription').value.trim();
+  }, 250);
+}
+
+async function _adminSaveQrCode() {
+  const id   = document.getElementById('adminQrId').value;
+  const name = document.getElementById('adminQrName').value.trim();
+  const url  = document.getElementById('adminQrTargetUrl').value.trim();
+  if (!name) { showToast('Label name is required.', 'error'); return; }
+  if (!url)  { showToast('Target URL is required.', 'error'); return; }
+
+  const item = {
+    id:          id || 'qr_' + Date.now(),
+    name,
+    description: document.getElementById('adminQrDescription').value.trim(),
+    targetUrl:   url,
+    color:       document.getElementById('adminQrColor').value   || '#000000',
+    bgColor:     document.getElementById('adminQrBgColor').value || '#ffffff',
+    enabled:     document.getElementById('adminQrEnabled').checked,
+  };
+
+  if (id) {
+    const idx = _adminQrData.findIndex(q => q.id === id);
+    if (idx !== -1) _adminQrData[idx] = item; else _adminQrData.push(item);
+  } else {
+    _adminQrData.push(item);
+  }
+
+  try {
+    await updateDoc(doc(db, 'owners', _adminQrOwnerUid), { qrCodes: _adminQrData });
+    document.getElementById('adminQrModal').classList.add('hidden');
+    showToast(id ? 'QR code updated!' : 'QR code created!');
+    _adminRenderQrList();
+  } catch (err) {
+    showToast('Failed to save QR code.', 'error');
+  }
+}
+
+window._adminQrEdit = (qrId) => _adminOpenQrModal(qrId);
+
+window._adminQrDelete = async (qrId) => {
+  if (!confirm('Delete this QR code?')) return;
+  _adminQrData = _adminQrData.filter(q => q.id !== qrId);
+  try {
+    await updateDoc(doc(db, 'owners', _adminQrOwnerUid), { qrCodes: _adminQrData });
+    showToast('QR code deleted.');
+    _adminRenderQrList();
+  } catch (err) {
+    showToast('Failed to delete.', 'error');
+  }
+};
+
+window._adminQrDownload = (qrId) => {
+  const canvas = document.querySelector('#aqrp-' + qrId + ' canvas');
+  if (!canvas) { showToast('QR code not ready — wait a moment.', 'error'); return; }
+  const qr = _adminQrData.find(q => q.id === qrId);
+  const a  = document.createElement('a');
+  a.download = (qr?.name || 'qr-code').replace(/[^a-z0-9]/gi, '-').toLowerCase() + '.png';
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+};
+
+window._adminQrPrint = (qrId) => {
+  const canvas = document.querySelector('#aqrp-' + qrId + ' canvas');
+  const qr = _adminQrData.find(q => q.id === qrId);
+  if (!canvas || !qr) return;
+  const img = canvas.toDataURL('image/png');
+  const win = window.open('', '_blank', 'width=500,height=600');
+  win.document.write(`<!DOCTYPE html><html><head><title>${qr.name}</title><style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:sans-serif;text-align:center;padding:48px 32px;background:#fff;color:#0f172a;}
+    h2{font-size:1.5rem;margin-bottom:8px;}
+    .desc{color:#64748b;font-size:0.9rem;margin-bottom:28px;}
+    img{width:220px;height:220px;display:block;margin:0 auto 20px;}
+    .hint{font-size:0.75rem;color:#94a3b8;margin-top:16px;}
+    .url{font-size:0.7rem;color:#94a3b8;margin-top:8px;word-break:break-all;}
+    @media print{button{display:none;}}
+  </style></head><body>
+    <h2>${qr.name}</h2>
+    ${qr.description ? `<p class="desc">${qr.description}</p>` : ''}
+    <img src="${img}" />
+    <p class="hint">📷 Scan with your phone camera</p>
+    <p class="url">${_adminQrLandingUrl(qrId)}</p>
+    <br/><button onclick="window.print()" style="padding:10px 24px;background:#4f46e5;color:#fff;border:none;border-radius:8px;font-size:0.9rem;cursor:pointer;margin-top:12px;">Print</button>
+  </body></html>`);
+  win.document.close();
 };

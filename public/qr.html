@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Loading…</title>
+  <meta name="robots" content="noindex" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f8fafc;
+      color: #1e293b;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 40px 32px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.1);
+    }
+
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid #e2e8f0;
+      border-top-color: #4f46e5;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .icon  { font-size: 3rem; margin-bottom: 16px; }
+    .title { font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-bottom: 8px; }
+    .desc  { font-size: 0.9rem; color: #64748b; line-height: 1.6; margin-bottom: 24px; }
+
+    .visit-btn {
+      display: inline-block;
+      padding: 14px 32px;
+      background: #4f46e5;
+      color: #fff;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: background 0.15s;
+      margin-bottom: 16px;
+    }
+    .visit-btn:hover { background: #4338ca; }
+
+    .countdown {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin-top: 8px;
+    }
+
+    .inactive-icon  { font-size: 3rem; margin-bottom: 16px; color: #94a3b8; }
+    .inactive-title { font-size: 1.3rem; font-weight: 700; color: #64748b; margin-bottom: 8px; }
+    .inactive-sub   { font-size: 0.85rem; color: #94a3b8; }
+
+    .error-icon  { font-size: 3rem; margin-bottom: 12px; }
+    .error-title { font-size: 1.2rem; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
+    .error-sub   { font-size: 0.85rem; color: #94a3b8; }
+
+    .powered {
+      margin-top: 28px;
+      font-size: 0.72rem;
+      color: #cbd5e1;
+    }
+    .powered a { color: #94a3b8; text-decoration: none; }
+
+    #state-loading  { display: block; }
+    #state-active   { display: none; }
+    #state-inactive { display: none; }
+    #state-error    { display: none; }
+  </style>
+</head>
+<body>
+<div class="card">
+
+  <!-- Loading -->
+  <div id="state-loading">
+    <div class="spinner"></div>
+    <p style="color:#94a3b8;font-size:0.85rem;">Loading…</p>
+  </div>
+
+  <!-- Active -->
+  <div id="state-active">
+    <div class="icon" id="qr-icon">📱</div>
+    <div class="title" id="qr-title"></div>
+    <div class="desc"  id="qr-desc"></div>
+    <a class="visit-btn" id="qr-link" href="#">Visit →</a>
+    <div class="countdown" id="qr-countdown"></div>
+  </div>
+
+  <!-- Inactive -->
+  <div id="state-inactive">
+    <div class="inactive-icon">🔒</div>
+    <div class="inactive-title">QR Code Inactive</div>
+    <p class="inactive-sub">This QR code has been temporarily disabled by the owner.</p>
+  </div>
+
+  <!-- Error -->
+  <div id="state-error">
+    <div class="error-icon">😕</div>
+    <div class="error-title">QR Code Not Found</div>
+    <p class="error-sub">This QR code doesn't exist or may have been removed.</p>
+  </div>
+
+  <div class="powered">Powered by <a href="https://eplocalproai.com" target="_blank" rel="noopener">EP Local Pro AI</a></div>
+</div>
+
+<script type="module" src="/js/qr.js"></script>
+</body>
+</html>
