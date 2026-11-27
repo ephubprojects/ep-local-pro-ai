@@ -253,11 +253,17 @@ function subscribeMessages() {
       if (historyLoaded && data.from !== identity?.from) {
         const name = data.fromName || (data.from === 'owner' ? 'Boss' : 'Staff');
 
-        // Auto-select this sender so the employee can reply directly
-        empLastSpeakerId  = data.from;
-        empSelectedTarget = data.from;
-        empContactsOpen   = true;
-        document.getElementById('wtContacts')?.classList.add('open');
+        // Track who last spoke (for the 🔊 indicator in contacts)
+        empLastSpeakerId = data.from;
+
+        // Employees auto-select the sender for a direct reply.
+        // Owner stays in their current broadcast/direct mode — don't override their selection.
+        if (identity?.from !== 'owner') {
+          empSelectedTarget = data.from;
+          empContactsOpen   = true;
+          document.getElementById('wtContacts')?.classList.add('open');
+        }
+
         renderEmpContacts();
         if (!isRecording) updatePttHint();
 
@@ -516,6 +522,11 @@ function renderEmpContacts() {
   if (!list) return;
   list.innerHTML = '';
 
+  // Safety: if the owner somehow has themselves selected as target, reset to broadcast
+  if (identity?.from === 'owner' && empSelectedTarget === 'owner') {
+    empSelectedTarget = null;
+  }
+
   const mk = (isActive, isSelected, icon, name, role, online, code) => {
     const btn = document.createElement('button');
     btn.className = 'wt-contact-item'
@@ -536,7 +547,10 @@ function renderEmpContacts() {
   };
 
   list.appendChild(mk(false, empSelectedTarget === null, '📡', 'All Staff', '', false, null));
-  list.appendChild(mk(empLastSpeakerId === 'owner', empSelectedTarget === 'owner', null, 'Boss', 'Owner', ownerIsOnline, 'owner'));
+  // Only show "Boss" contact for employees — owner shouldn't see themselves as a send target
+  if (identity?.from !== 'owner') {
+    list.appendChild(mk(empLastSpeakerId === 'owner', empSelectedTarget === 'owner', null, 'Boss', 'Owner', ownerIsOnline, 'owner'));
+  }
   empEmployeeList.forEach(emp =>
     list.appendChild(mk(empLastSpeakerId === emp.empCode, empSelectedTarget === emp.empCode, null, emp.name, emp.role, emp.online, emp.empCode))
   );
@@ -561,12 +575,12 @@ function updateEmpContactsToggle() {
   const el = document.getElementById('wtContactsCurrent');
   if (!el) return;
   if (empSelectedTarget === null) {
-    el.textContent = '📡 All Staff';
+    el.textContent = identity?.from === 'owner' ? '📡 Broadcast to All' : '📡 All Staff';
   } else if (empSelectedTarget === 'owner') {
     el.textContent = '👤 Boss';
   } else {
     const emp = empEmployeeList.find(e => e.empCode === empSelectedTarget);
-    el.textContent = `👤 ${emp?.name || empSelectedTarget}`;
+    el.textContent = `🎯 ${emp?.name || empSelectedTarget} only`;
   }
   el.classList.toggle('has-activity', empLastSpeakerId === empSelectedTarget && empSelectedTarget !== null);
   document.getElementById('wtContacts')?.classList.toggle('open', empContactsOpen);
@@ -574,12 +588,14 @@ function updateEmpContactsToggle() {
 
 function updatePttHint() {
   if (empSelectedTarget === null) {
-    $pttHint.textContent = 'Hold to talk · Release to send';
+    $pttHint.textContent = identity?.from === 'owner'
+      ? 'Hold to broadcast to all staff'
+      : 'Hold to talk · Release to send';
   } else if (empSelectedTarget === 'owner') {
     $pttHint.textContent = 'Hold to reply to Boss only';
   } else {
     const emp = empEmployeeList.find(e => e.empCode === empSelectedTarget);
-    $pttHint.textContent = `Hold to reply to ${emp?.name || 'Staff'} only`;
+    $pttHint.textContent = `Hold to send to ${emp?.name || 'Staff'} only`;
   }
 }
 
