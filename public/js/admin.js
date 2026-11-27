@@ -1326,18 +1326,13 @@ function renderLocalBizTable(list) {
         <div style="margin-top:8px;">
           <div style="font-size:0.72rem;font-weight:700;color:#64748b;margin-bottom:4px;">📻 WT Plan</div>
           <select style="font-size:0.78rem;border:1.5px solid #e2e8f0;border-radius:6px;padding:3px 7px;background:#f8fafc;cursor:pointer;" onchange="window._adminSetWtPlan('${escAttr(u.id)}', this.value)">
-            <option value="starter" ${wtPlan === 'starter' ? 'selected' : ''}>Starter · 1,000/mo</option>
-            <option value="pro"     ${wtPlan === 'pro'     ? 'selected' : ''}>Pro · 2,000/mo</option>
+            <option value="starter" ${wtPlan === 'starter' ? 'selected' : ''}>EP HUB Live Premium · $49.99</option>
+            <option value="pro"     ${wtPlan === 'pro'     ? 'selected' : ''}>EP HUB LIVE STREAM · $279.99</option>
           </select>
           <button style="margin-left:5px;font-size:0.72rem;padding:3px 9px;border:1.5px solid #e2e8f0;border-radius:6px;cursor:pointer;background:#f8fafc;font-weight:700;" onclick="window._adminAddWtMsgs('${escAttr(u.id)}','${escAttr(u.companyName || u.email || 'Business')}')">+Msgs</button>
         </div>
-        <div style="margin-top:8px;">
-          <div style="font-size:0.72rem;font-weight:700;color:#64748b;margin-bottom:4px;">🎥 Live Attendees</div>
-          <select style="font-size:0.78rem;border:1.5px solid #e2e8f0;border-radius:6px;padding:3px 7px;background:#f8fafc;cursor:pointer;" onchange="window._adminSetLiveCap('${escAttr(u.id)}', parseInt(this.value))">
-            <option value="0"   ${!u.addOns?.liveCap               ? 'selected' : ''}>— None —</option>
-            <option value="100" ${u.addOns?.liveCap === 100 ? 'selected' : ''}>Live Premium · 100</option>
-            <option value="200" ${u.addOns?.liveCap === 200 ? 'selected' : ''}>Live Stream · 200</option>
-          </select>
+        <div style="margin-top:6px;font-size:0.72rem;color:#64748b;">
+          🎥 ${wtPlan === 'pro' ? 'EP HUB LIVE STREAM · 200 attendees' : 'EP HUB Live Premium · 100 attendees'}
         </div>
       </td>
       <td><button class="btn-action danger" onclick="window._adminCancelUser('${escAttr(u.id)}','${escAttr(((u.firstName||'')+' '+(u.lastName||'')).trim()||u.email||'this user')}')">Cancel</button></td>
@@ -1370,14 +1365,19 @@ window._adminToggleMarketRate = async function(uid, currentVal) {
 };
 
 window._adminSetWtPlan = async function(uid, plan) {
+  const cap = plan === 'pro' ? 200 : 100;
+  const planLabel = plan === 'pro' ? 'EP HUB LIVE STREAM · $279.99 · 2,000 msgs · 200 attendees'
+                                   : 'EP HUB Live Premium · $49.99 · 1,000 msgs · 100 attendees';
   try {
-    await updateDoc(doc(db, 'owners', uid), { 'addOns.wtPlan': plan, updatedAt: serverTimestamp() });
+    await updateDoc(doc(db, 'owners', uid), { 'addOns.wtPlan': plan, 'addOns.liveCap': cap, updatedAt: serverTimestamp() });
+    await setDoc(doc(db, 'users', uid, 'appdata', 'marketing'), { attendeeCap: cap }, { merge: true });
     const idx = _allLocalBiz.findIndex(u => u.id === uid);
-    if (idx !== -1) _allLocalBiz[idx].addOns = { ...(_allLocalBiz[idx].addOns || {}), wtPlan: plan };
-    showToast(`WT Plan set to ${plan === 'pro' ? 'Pro (500/mo)' : 'Starter (200/mo)'} ✓`, 'success');
+    if (idx !== -1) _allLocalBiz[idx].addOns = { ...(_allLocalBiz[idx].addOns || {}), wtPlan: plan, liveCap: cap };
+    renderLocalBizTable(_allLocalBiz);
+    showToast(`Plan set: ${planLabel} ✓`, 'success');
   } catch (e) {
     console.error('_adminSetWtPlan error:', e);
-    showToast('Could not update WT plan.', 'error');
+    showToast('Could not update plan.', 'error');
   }
 };
 
