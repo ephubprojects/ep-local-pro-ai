@@ -182,16 +182,142 @@
     <!-- ════════════ SECTION: Menu ════════════ -->
     <div data-section="menu" class="hidden">
 
-      <div class="section-card">
-        <div class="section-card-header">
-          <h2>My Menu</h2>
-          <button class="btn-primary" id="addMenuItemBtn">＋ Add Item</button>
-        </div>
+      <!-- Tab nav -->
+      <div class="dm-tabs">
+        <button class="dm-tab active" data-dm-tab="restaurant">🏪 Restaurant</button>
+        <button class="dm-tab" data-dm-tab="categories">📂 Categories</button>
+        <button class="dm-tab" data-dm-tab="items">🍽️ Items</button>
+        <button class="dm-tab" data-dm-tab="settings">⚙️ Settings</button>
+        <button class="dm-tab" data-dm-tab="share">🔗 Share</button>
+      </div>
 
-        <div class="menu-grid" id="menuGrid">
-          <div class="empty-state" style="grid-column:1/-1;">
-            <div class="empty-state-icon">🍽️</div>
-            <p>No menu items yet. Add your first item!</p>
+      <!-- RESTAURANT PROFILE -->
+      <div class="dm-panel" id="dmPanel-restaurant">
+        <div class="section-card">
+          <div class="section-card-header">
+            <h2>Restaurant Profile</h2>
+            <button class="btn-primary" id="dmSaveProfileBtn">Save Profile</button>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Restaurant Name</label>
+              <input type="text" id="dmRestaurantName" placeholder="Your Restaurant Name" />
+            </div>
+            <div class="form-group">
+              <label>Tagline</label>
+              <input type="text" id="dmTagline" placeholder="Authentic cuisine…" />
+            </div>
+          </div>
+          <div class="form-row" style="margin-top:14px;">
+            <div class="form-group">
+              <label>Logo URL</label>
+              <input type="url" id="dmLogoUrl" placeholder="https://..." />
+            </div>
+            <div class="form-group">
+              <label>Cover Image URL</label>
+              <input type="url" id="dmCoverUrl" placeholder="https://..." />
+            </div>
+          </div>
+          <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+            <p style="margin:0 0 14px;font-weight:600;font-size:0.9rem;">Hours of Operation</p>
+            <div id="dmHoursTable"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CATEGORIES -->
+      <div class="dm-panel hidden" id="dmPanel-categories">
+        <div class="section-card">
+          <div class="section-card-header">
+            <h2>Menu Categories</h2>
+            <button class="btn-primary" id="dmAddCatBtn">＋ Add Category</button>
+          </div>
+          <div id="dmCategoriesList">
+            <div class="empty-state"><div class="empty-state-icon">📂</div><p>No categories yet.</p></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ITEMS -->
+      <div class="dm-panel hidden" id="dmPanel-items">
+        <div class="section-card">
+          <div class="section-card-header">
+            <h2>Menu Items</h2>
+            <button class="btn-primary" id="dmAddItemBtn">＋ Add Item</button>
+          </div>
+          <div class="dm-cat-filter-row" id="dmCatFilter"></div>
+          <div class="menu-grid" id="dmItemsGrid">
+            <div class="empty-state" style="grid-column:1/-1;"><div class="empty-state-icon">🍽️</div><p>No items yet.</p></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="dm-panel hidden" id="dmPanel-settings">
+        <div class="section-card">
+          <div class="section-card-header">
+            <h2>Order Settings</h2>
+            <button class="btn-primary" id="dmSaveSettingsBtn">Save Settings</button>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Tax Rate (%)</label>
+              <input type="number" id="dmTaxRate" placeholder="8.5" step="0.01" min="0" max="30" />
+            </div>
+            <div class="form-group">
+              <label>Currency</label>
+              <select id="dmCurrency">
+                <option value="USD">USD — $</option>
+                <option value="EUR">EUR — €</option>
+                <option value="GBP">GBP — £</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:14px;">
+            <label>Accepted Payments</label>
+            <div style="display:flex;gap:20px;margin-top:8px;flex-wrap:wrap;">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;"><input type="checkbox" id="dmAcceptCash" /> Cash</label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;"><input type="checkbox" id="dmAcceptCard" /> Card / Tap</label>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:14px;">
+            <label>Tip Options (%)</label>
+            <input type="text" id="dmTipOptions" placeholder="15, 18, 20, 25" />
+            <small style="color:var(--muted);">Comma-separated percentages</small>
+          </div>
+          <div class="form-group" style="margin-top:14px;">
+            <label>Order Types Allowed</label>
+            <div style="display:flex;gap:20px;margin-top:8px;flex-wrap:wrap;">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;"><input type="checkbox" id="dmAllowPickup" /> Pickup</label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;"><input type="checkbox" id="dmAllowDineIn" /> Dine-In</label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;"><input type="checkbox" id="dmAllowDelivery" /> Delivery</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SHARE -->
+      <div class="dm-panel hidden" id="dmPanel-share">
+        <div class="section-card">
+          <h2 style="margin-bottom:20px;">Share Your Menu</h2>
+          <div class="dm-share-row">
+            <span class="dm-share-label">🍽️ Customer Menu</span>
+            <input type="text" readonly id="dmMenuUrl" class="dm-share-input" />
+            <button class="btn-secondary" onclick="window._dmCopyUrl('dmMenuUrl')">Copy</button>
+          </div>
+          <div class="dm-share-row" style="margin-top:12px;">
+            <span class="dm-share-label">🍳 Kitchen Display</span>
+            <input type="text" readonly id="dmKitchenUrl" class="dm-share-input" />
+            <button class="btn-secondary" onclick="window._dmCopyUrl('dmKitchenUrl')">Copy</button>
+          </div>
+          <div class="dm-share-row" style="margin-top:12px;">
+            <span class="dm-share-label">🤖 AI Order Page</span>
+            <input type="text" readonly id="dmOrderUrl" class="dm-share-input" />
+            <button class="btn-secondary" onclick="window._dmCopyUrl('dmOrderUrl')">Copy</button>
+          </div>
+          <div style="margin-top:28px;text-align:center;">
+            <p style="font-size:0.82rem;color:var(--muted);margin-bottom:12px;">QR Code — Customer Menu</p>
+            <div id="dmQrCode" style="display:inline-block;padding:12px;background:#fff;border-radius:8px;border:1px solid var(--border);"></div>
           </div>
         </div>
       </div>
@@ -1046,37 +1172,90 @@
 </div>
 
 
-<!-- ══════════════ MODAL: Add / Edit Menu Item ══════════════ -->
-<div class="modal-overlay hidden" id="menuItemModal">
+<!-- ══════════════ MODAL: Digital Menu — Add / Edit Category ══════════════ -->
+<div class="modal-overlay hidden" id="dmCatModal">
   <div class="modal-card">
     <div class="modal-header">
-      <h3 id="menuItemModalTitle">Add Menu Item</h3>
-      <button class="modal-close" data-close="menuItemModal">✕</button>
+      <h3 id="dmCatModalTitle">Add Category</h3>
+      <button class="modal-close" data-close="dmCatModal">✕</button>
     </div>
     <div class="modal-body">
-      <input type="hidden" id="menuItemIndex" value="-1" />
+      <input type="hidden" id="dmCatId" />
       <div class="form-row">
-        <div class="form-group">
-          <label for="menuItemName">Item Name *</label>
-          <input type="text" id="menuItemName" placeholder="e.g. Margherita Pizza" />
+        <div class="form-group" style="flex:3;">
+          <label>Category Name *</label>
+          <input type="text" id="dmCatName" placeholder="e.g. Appetizers, Mains, Drinks…" />
         </div>
-        <div class="form-group">
-          <label for="menuItemEmoji">Emoji</label>
-          <input type="text" id="menuItemEmoji" placeholder="🍕" maxlength="4" />
+        <div class="form-group" style="flex:1;">
+          <label>Icon</label>
+          <input type="text" id="dmCatIcon" placeholder="🥗" maxlength="4" />
         </div>
-      </div>
-      <div class="form-group">
-        <label for="menuItemPrice">Price *</label>
-        <input type="number" id="menuItemPrice" placeholder="12.99" step="0.01" min="0" />
-      </div>
-      <div class="form-group">
-        <label for="menuItemDesc">Description</label>
-        <textarea id="menuItemDesc" placeholder="Fresh tomato sauce, mozzarella, basil…"></textarea>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn-secondary" data-close="menuItemModal">Cancel</button>
-      <button class="btn-primary" id="saveMenuItemBtn">Save Item</button>
+      <button class="btn-secondary" data-close="dmCatModal">Cancel</button>
+      <button class="btn-primary" id="dmSaveCatBtn">Save Category</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════ MODAL: Digital Menu — Add / Edit Item ══════════════ -->
+<div class="modal-overlay hidden" id="dmItemModal">
+  <div class="modal-card" style="max-width:580px;">
+    <div class="modal-header">
+      <h3 id="dmItemModalTitle">Add Menu Item</h3>
+      <button class="modal-close" data-close="dmItemModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="dmItemId" />
+      <div class="form-row">
+        <div class="form-group" style="flex:3;">
+          <label>Item Name *</label>
+          <input type="text" id="dmItemName" placeholder="e.g. Margherita Pizza" />
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>Emoji</label>
+          <input type="text" id="dmItemEmoji" placeholder="🍕" maxlength="4" />
+        </div>
+      </div>
+      <div class="form-row" style="margin-top:12px;">
+        <div class="form-group">
+          <label>Price *</label>
+          <input type="number" id="dmItemPrice" placeholder="12.99" step="0.01" min="0" />
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <select id="dmItemCategory"></select>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:12px;">
+        <label>Description</label>
+        <textarea id="dmItemDesc" rows="2" placeholder="Fresh tomato sauce, mozzarella, basil…"></textarea>
+      </div>
+      <div class="form-group" style="margin-top:12px;">
+        <label>Image URL <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
+        <input type="url" id="dmItemImageUrl" placeholder="https://..." />
+      </div>
+      <div class="form-row" style="margin-top:12px;align-items:flex-end;">
+        <div class="form-group">
+          <label>Spicy Level</label>
+          <select id="dmItemSpicy">
+            <option value="0">Not spicy</option>
+            <option value="1">🌶️ Mild</option>
+            <option value="2">🌶️🌶️ Medium</option>
+            <option value="3">🌶️🌶️🌶️ Hot</option>
+          </select>
+        </div>
+        <div class="form-group" style="display:flex;gap:18px;padding-bottom:8px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;"><input type="checkbox" id="dmItemSpecial" /> ⭐ Special</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;"><input type="checkbox" id="dmItemAvailable" checked /> Available</label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" data-close="dmItemModal">Cancel</button>
+      <button class="btn-primary" id="dmSaveItemBtn">Save Item</button>
     </div>
   </div>
 </div>

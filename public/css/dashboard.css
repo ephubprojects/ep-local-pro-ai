@@ -3612,3 +3612,157 @@ textarea.doc-input { resize: vertical; }
   .doc-row-amount { min-width: 60px; font-size: 0.85rem; }
   .doc-row-actions .btn-action { padding: 4px 8px; font-size: 0.7rem; }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   Digital Menu — Dashboard Styles
+══════════════════════════════════════════════════════════════ */
+
+/* Tab nav */
+.dm-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.dm-tab {
+  padding: 8px 16px;
+  border: 1.5px solid var(--border, #e2e8f0);
+  border-radius: 20px;
+  background: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted, #64748b);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.dm-tab:hover  { background: #f1f5f9; color: var(--navy, #0f172a); }
+.dm-tab.active { background: var(--indigo, #4f46e5); border-color: var(--indigo, #4f46e5); color: #fff; }
+
+/* Hours table */
+.dm-hours-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  flex-wrap: wrap;
+}
+.dm-hours-row:last-child { border-bottom: none; }
+.dm-hours-day {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 110px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.dm-hours-times {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dm-hours-times input[type="time"] {
+  padding: 4px 8px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 6px;
+  font-size: 0.82rem;
+  background: #fff;
+}
+.dm-hours-closed {
+  font-size: 0.8rem;
+  color: var(--muted, #64748b);
+  font-style: italic;
+}
+.dm-hours-times.hidden,
+.dm-hours-closed.hidden { display: none; }
+
+/* Category list rows */
+.dm-cat-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+.dm-cat-row:last-child { border-bottom: none; }
+.dm-cat-icon { font-size: 1.4rem; }
+.dm-cat-name { font-size: 0.9rem; font-weight: 600; }
+
+/* Category filter pills */
+.dm-cat-filter-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.dm-cat-pill {
+  padding: 5px 14px;
+  border: 1.5px solid var(--border, #e2e8f0);
+  border-radius: 20px;
+  background: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted, #64748b);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.dm-cat-pill:hover  { background: #f1f5f9; color: var(--navy, #0f172a); }
+.dm-cat-pill.active { background: var(--indigo, #4f46e5); border-color: var(--indigo, #4f46e5); color: #fff; }
+
+/* Item card image */
+.dm-item-img {
+  width: 100%;
+  height: 110px;
+  border-radius: 8px;
+  background-size: cover;
+  background-position: center;
+  background-color: #f1f5f9;
+  margin-bottom: 4px;
+}
+
+/* Item badges */
+.dm-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.dm-badge-special { background: #fef3c7; color: #92400e; }
+.dm-badge-spicy   { background: #fee2e2; color: #991b1b; }
+.dm-badge-off     { background: #f1f5f9; color: #94a3b8; }
+
+/* Unavailable card dim */
+.menu-item-card.dm-unavailable { opacity: 0.55; }
+
+/* Share section */
+.dm-share-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.dm-share-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  min-width: 140px;
+  color: var(--navy, #0f172a);
+}
+.dm-share-input {
+  flex: 1;
+  min-width: 200px;
+  font-size: 0.8rem;
+  padding: 7px 10px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 6px;
+  background: #f8fafc;
+  color: var(--muted, #64748b);
+}
+
+@media (max-width: 600px) {
+  .dm-share-label { min-width: 100%; }
+  .dm-share-input { min-width: 0; }
+  .dm-hours-row   { gap: 8px; }
+  .dm-hours-day   { min-width: 90px; }
+}

@@ -594,135 +594,364 @@ function openKitchenDisplay(orderId, data) {
   qs('#kitchenModal').classList.remove('hidden');
 }
 
-// ── Menu ─────────────────────────────────────────────────────
+// ── Digital Menu ─────────────────────────────────────────────
+let _dmData      = { profile: {}, categories: [], items: [], settings: {} };
+let _dmActiveCat = 'all';
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 async function loadMenu() {
   if (!bizId) return;
-  const grid = qs('#menuGrid');
-  grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><p>Loading menu…</p></div>';
 
-  // Wire add button first so it always works regardless of item count
-  qs('#addMenuItemBtn').onclick = openAddMenuItemModal;
+  document.querySelectorAll('[data-dm-tab]').forEach(btn => {
+    btn.onclick = () => dmSwitchTab(btn.dataset.dmTab);
+  });
 
   try {
-    const bizRef  = doc(db, 'businesses', bizId);
-    const bizSnap = await getDoc(bizRef);
-    const data    = bizSnap.data() || {};
-    const items   = Array.isArray(data.menuItems) ? data.menuItems : [];
-
-    if (items.length === 0) {
-      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="empty-state-icon">🍽️</div><p>No menu items yet. Add your first item!</p></div>`;
-      return;
-    }
-
-    grid.innerHTML = '';
-    items.forEach((item, index) => {
-      grid.appendChild(renderMenuCard(item, index));
-    });
-
+    const snap = await getDoc(doc(db, 'businesses', bizId));
+    const data = snap.data() || {};
+    _dmData.profile    = data.menuProfile    || {};
+    _dmData.categories = Array.isArray(data.menuCategories) ? data.menuCategories : [];
+    _dmData.items      = Array.isArray(data.menuItems)      ? data.menuItems      : [];
+    _dmData.settings   = data.menuSettings   || {};
+    dmPopulateProfile();
+    dmRenderCategories();
+    dmRenderItems();
+    dmPopulateSettings();
   } catch (err) {
     console.error('loadMenu error:', err);
-    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><p>Failed to load menu.</p></div>';
+    showToast('Failed to load menu data.', 'error');
   }
 }
 
-function renderMenuCard(item, index) {
-  const card = document.createElement('div');
-  card.className = 'menu-item-card';
-  card.dataset.index = index;
-  card.innerHTML = `
-    <div class="menu-item-emoji">${item.emoji || '🍴'}</div>
-    <div class="menu-item-name">${item.name || 'Unnamed Item'}</div>
-    <div class="menu-item-price">${fmtCurrency(item.price)}</div>
-    ${item.description ? `<div class="menu-item-desc">${item.description}</div>` : ''}
-    <div class="menu-item-actions">
-      <button class="btn-icon" title="Edit" data-edit="${index}">✏️</button>
-      <button class="btn-icon danger" title="Delete" data-delete="${index}">🗑️</button>
+function dmSwitchTab(tab) {
+  document.querySelectorAll('[data-dm-tab]').forEach(b => b.classList.toggle('active', b.dataset.dmTab === tab));
+  document.querySelectorAll('.dm-panel').forEach(p => p.classList.add('hidden'));
+  const panel = document.getElementById('dmPanel-' + tab);
+  if (panel) panel.classList.remove('hidden');
+  if (tab === 'share') dmPopulateShare();
+}
+
+// ── Restaurant Profile ──────────────────────────────────────
+const _dmDays = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+
+function dmPopulateProfile() {
+  const p = _dmData.profile;
+  qs('#dmRestaurantName').value = p.restaurantName || '';
+  qs('#dmTagline').value        = p.tagline        || '';
+  qs('#dmLogoUrl').value        = p.logoUrl        || '';
+  qs('#dmCoverUrl').value       = p.coverUrl       || '';
+  dmRenderHoursTable(p.hours || {});
+  qs('#dmSaveProfileBtn').onclick = dmSaveProfile;
+}
+
+function dmRenderHoursTable(hours) {
+  qs('#dmHoursTable').innerHTML = _dmDays.map(day => {
+    const h   = hours[day] || { open: true, openTime: '09:00', closeTime: '21:00' };
+    const cap = day.charAt(0).toUpperCase() + day.slice(1);
+    return `<div class="dm-hours-row" data-day="${day}">
+      <label class="dm-hours-day">
+        <input type="checkbox" class="dm-hours-open" ${h.open ? 'checked' : ''} /> ${cap}
+      </label>
+      <div class="dm-hours-times${h.open ? '' : ' hidden'}">
+        <input type="time" class="dm-hours-from" value="${h.openTime  || '09:00'}" />
+        <span>–</span>
+        <input type="time" class="dm-hours-to"   value="${h.closeTime || '21:00'}" />
+      </div>
+      <span class="dm-hours-closed${h.open ? ' hidden' : ''}">Closed</span>
     </div>`;
+  }).join('');
 
-  card.querySelector(`[data-edit="${index}"]`).onclick = (e) => {
-    e.stopPropagation();
-    openEditMenuItemModal(index, item);
+  qs('#dmHoursTable').querySelectorAll('.dm-hours-open').forEach(cb => {
+    cb.onchange = () => {
+      const row = cb.closest('.dm-hours-row');
+      row.querySelector('.dm-hours-times').classList.toggle('hidden', !cb.checked);
+      row.querySelector('.dm-hours-closed').classList.toggle('hidden',  cb.checked);
+    };
+  });
+}
+
+async function dmSaveProfile() {
+  const btn = qs('#dmSaveProfileBtn');
+  btn.disabled = true;
+  const hours = {};
+  document.querySelectorAll('.dm-hours-row').forEach(row => {
+    hours[row.dataset.day] = {
+      open:      row.querySelector('.dm-hours-open').checked,
+      openTime:  row.querySelector('.dm-hours-from').value  || '09:00',
+      closeTime: row.querySelector('.dm-hours-to').value    || '21:00',
+    };
+  });
+  const profile = {
+    restaurantName: qs('#dmRestaurantName').value.trim(),
+    tagline:        qs('#dmTagline').value.trim(),
+    logoUrl:        qs('#dmLogoUrl').value.trim(),
+    coverUrl:       qs('#dmCoverUrl').value.trim(),
+    hours,
   };
-  card.querySelector(`[data-delete="${index}"]`).onclick = (e) => {
-    e.stopPropagation();
-    deleteMenuItem(index);
+  try {
+    await updateDoc(doc(db, 'businesses', bizId), { menuProfile: profile });
+    _dmData.profile = profile;
+    showToast('Restaurant profile saved!');
+  } catch (err) {
+    showToast('Failed to save profile.', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Categories ──────────────────────────────────────────────
+function dmRenderCategories() {
+  const list = qs('#dmCategoriesList');
+  qs('#dmAddCatBtn').onclick = () => dmOpenCatModal(null);
+  if (!_dmData.categories.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📂</div><p>No categories yet. Add your first one!</p></div>';
+    return;
+  }
+  list.innerHTML = _dmData.categories.map(cat => `
+    <div class="dm-cat-row">
+      <span class="dm-cat-icon">${esc(cat.icon || '📂')}</span>
+      <span class="dm-cat-name">${esc(cat.name)}</span>
+      <label style="margin-left:auto;display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;">
+        <input type="checkbox" class="dm-cat-enabled" data-catid="${esc(cat.id)}" ${cat.enabled !== false ? 'checked' : ''} /> Active
+      </label>
+      <button class="btn-icon" onclick="window._dmEditCat('${esc(cat.id)}')">✏️</button>
+      <button class="btn-icon danger" onclick="window._dmDeleteCat('${esc(cat.id)}')">🗑️</button>
+    </div>`).join('');
+
+  list.querySelectorAll('.dm-cat-enabled').forEach(cb => {
+    cb.onchange = async () => {
+      const cat = _dmData.categories.find(c => c.id === cb.dataset.catid);
+      if (cat) { cat.enabled = cb.checked; await _dmSaveCategories(); }
+    };
+  });
+}
+
+function dmOpenCatModal(catId) {
+  const cat = catId ? _dmData.categories.find(c => c.id === catId) : null;
+  qs('#dmCatModalTitle').textContent = cat ? 'Edit Category' : 'Add Category';
+  qs('#dmCatId').value   = catId || '';
+  qs('#dmCatName').value = cat?.name || '';
+  qs('#dmCatIcon').value = cat?.icon || '';
+  qs('#dmCatModal').classList.remove('hidden');
+  qs('#dmSaveCatBtn').onclick = dmSaveCat;
+}
+
+async function dmSaveCat() {
+  const id   = qs('#dmCatId').value;
+  const name = qs('#dmCatName').value.trim();
+  const icon = qs('#dmCatIcon').value.trim() || '📂';
+  if (!name) { showToast('Category name is required.', 'error'); return; }
+  if (id) {
+    const cat = _dmData.categories.find(c => c.id === id);
+    if (cat) { cat.name = name; cat.icon = icon; }
+  } else {
+    _dmData.categories.push({ id: 'cat_' + Date.now(), name, icon, enabled: true });
+  }
+  await _dmSaveCategories();
+  qs('#dmCatModal').classList.add('hidden');
+  dmRenderCategories();
+  dmBuildCatFilter();
+  showToast(id ? 'Category updated!' : 'Category added!');
+}
+
+async function _dmSaveCategories() {
+  await updateDoc(doc(db, 'businesses', bizId), { menuCategories: _dmData.categories });
+}
+
+window._dmEditCat = (catId) => dmOpenCatModal(catId);
+window._dmDeleteCat = async (catId) => {
+  if (!confirm('Delete this category? Items will become uncategorized.')) return;
+  _dmData.categories = _dmData.categories.filter(c => c.id !== catId);
+  await _dmSaveCategories();
+  dmRenderCategories();
+  dmBuildCatFilter();
+  showToast('Category deleted.');
+};
+
+// ── Items ───────────────────────────────────────────────────
+function dmBuildCatFilter() {
+  const row  = qs('#dmCatFilter');
+  const cats = _dmData.categories.filter(c => c.enabled !== false);
+  row.innerHTML = `<button class="dm-cat-pill${_dmActiveCat === 'all' ? ' active' : ''}" onclick="window._dmSetCat('all')">All</button>` +
+    cats.map(c => `<button class="dm-cat-pill${_dmActiveCat === c.id ? ' active' : ''}" onclick="window._dmSetCat('${esc(c.id)}')">${esc(c.icon)} ${esc(c.name)}</button>`).join('');
+}
+
+window._dmSetCat = (catId) => { _dmActiveCat = catId; dmBuildCatFilter(); dmRenderItems(); };
+
+function dmRenderItems() {
+  const grid = qs('#dmItemsGrid');
+  qs('#dmAddItemBtn').onclick = () => dmOpenItemModal(null);
+  dmBuildCatFilter();
+
+  const items = _dmActiveCat === 'all'
+    ? _dmData.items
+    : _dmData.items.filter(it => it.categoryId === _dmActiveCat);
+
+  if (!items.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="empty-state-icon">🍽️</div><p>No items${_dmActiveCat !== 'all' ? ' in this category' : ''}. Add your first!</p></div>`;
+    return;
+  }
+
+  grid.innerHTML = '';
+  items.forEach(item => {
+    const catName = _dmData.categories.find(c => c.id === item.categoryId)?.name || '';
+    const card    = document.createElement('div');
+    card.className = 'menu-item-card' + (item.available === false ? ' dm-unavailable' : '');
+    card.innerHTML = `
+      ${item.imageUrl
+        ? `<div class="dm-item-img" style="background-image:url('${esc(item.imageUrl)}')"></div>`
+        : `<div class="menu-item-emoji">${esc(item.emoji || '🍽️')}</div>`}
+      <div class="menu-item-name">${esc(item.name || '')}</div>
+      ${catName ? `<div style="font-size:0.72rem;color:var(--muted);">${esc(catName)}</div>` : ''}
+      <div class="menu-item-price">${fmtCurrency(item.price)}</div>
+      ${item.description ? `<div class="menu-item-desc">${esc(item.description)}</div>` : ''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
+        ${item.isSpecial   ? '<span class="dm-badge dm-badge-special">⭐ Special</span>'  : ''}
+        ${item.spicyLevel  ? `<span class="dm-badge dm-badge-spicy">${'🌶️'.repeat(item.spicyLevel)}</span>` : ''}
+        ${item.available === false ? '<span class="dm-badge dm-badge-off">Unavailable</span>' : ''}
+      </div>
+      <div class="menu-item-actions">
+        <button class="btn-icon" onclick="window._dmEditItem('${esc(item.id)}')">✏️</button>
+        <button class="btn-icon danger" onclick="window._dmDeleteItem('${esc(item.id)}')">🗑️</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+function dmOpenItemModal(itemId) {
+  const item = itemId ? _dmData.items.find(it => it.id === itemId) : null;
+  qs('#dmItemModalTitle').textContent = item ? 'Edit Menu Item' : 'Add Menu Item';
+  qs('#dmItemId').value        = itemId || '';
+  qs('#dmItemName').value      = item?.name        || '';
+  qs('#dmItemEmoji').value     = item?.emoji       || '';
+  qs('#dmItemPrice').value     = item?.price != null ? item.price : '';
+  qs('#dmItemDesc').value      = item?.description || '';
+  qs('#dmItemImageUrl').value  = item?.imageUrl    || '';
+  qs('#dmItemSpicy').value     = item?.spicyLevel  || 0;
+  qs('#dmItemSpecial').checked   = item?.isSpecial  || false;
+  qs('#dmItemAvailable').checked = item?.available !== false;
+
+  const catSel = qs('#dmItemCategory');
+  catSel.innerHTML = '<option value="">— No category —</option>' +
+    _dmData.categories.map(c => `<option value="${esc(c.id)}"${item?.categoryId === c.id ? ' selected' : ''}>${esc(c.icon)} ${esc(c.name)}</option>`).join('');
+
+  qs('#dmItemModal').classList.remove('hidden');
+  qs('#dmSaveItemBtn').onclick = dmSaveItem;
+}
+
+async function dmSaveItem() {
+  const id    = qs('#dmItemId').value;
+  const name  = qs('#dmItemName').value.trim();
+  const price = parseFloat(qs('#dmItemPrice').value);
+  if (!name)                        { showToast('Item name is required.', 'error'); return; }
+  if (isNaN(price) || price < 0)   { showToast('Enter a valid price.', 'error');   return; }
+
+  const newItem = {
+    id:          id || 'item_' + Date.now(),
+    name,
+    emoji:       qs('#dmItemEmoji').value.trim()    || '🍽️',
+    price,
+    description: qs('#dmItemDesc').value.trim(),
+    imageUrl:    qs('#dmItemImageUrl').value.trim(),
+    categoryId:  qs('#dmItemCategory').value,
+    spicyLevel:  parseInt(qs('#dmItemSpicy').value) || 0,
+    isSpecial:   qs('#dmItemSpecial').checked,
+    available:   qs('#dmItemAvailable').checked,
   };
 
-  return card;
-}
-
-function openAddMenuItemModal() {
-  qs('#menuItemModalTitle').textContent = 'Add Menu Item';
-  qs('#menuItemIndex').value = '-1';
-  qs('#menuItemName').value  = '';
-  qs('#menuItemEmoji').value = '';
-  qs('#menuItemPrice').value = '';
-  qs('#menuItemDesc').value  = '';
-  qs('#menuItemModal').classList.remove('hidden');
-  qs('#saveMenuItemBtn').onclick = saveMenuItem;
-}
-
-function openEditMenuItemModal(index, item) {
-  qs('#menuItemModalTitle').textContent = 'Edit Menu Item';
-  qs('#menuItemIndex').value = index;
-  qs('#menuItemName').value  = item.name || '';
-  qs('#menuItemEmoji').value = item.emoji || '';
-  qs('#menuItemPrice').value = item.price != null ? item.price : '';
-  qs('#menuItemDesc').value  = item.description || '';
-  qs('#menuItemModal').classList.remove('hidden');
-  qs('#saveMenuItemBtn').onclick = saveMenuItem;
-}
-
-async function saveMenuItem() {
-  const index = parseInt(qs('#menuItemIndex').value, 10);
-  const name  = qs('#menuItemName').value.trim();
-  const emoji = qs('#menuItemEmoji').value.trim();
-  const price = parseFloat(qs('#menuItemPrice').value);
-  const desc  = qs('#menuItemDesc').value.trim();
-
-  if (!name) { showToast('Item name is required.', 'error'); return; }
-  if (isNaN(price) || price < 0) { showToast('Enter a valid price.', 'error'); return; }
-
-  const newItem = { name, emoji: emoji || '🍴', price, description: desc };
+  if (id) {
+    const idx = _dmData.items.findIndex(it => it.id === id);
+    if (idx !== -1) _dmData.items[idx] = newItem; else _dmData.items.push(newItem);
+  } else {
+    _dmData.items.push(newItem);
+  }
 
   try {
-    const bizRef  = doc(db, 'businesses', bizId);
-    const bizSnap = await getDoc(bizRef);
-    const items   = Array.isArray(bizSnap.data()?.menuItems) ? [...bizSnap.data().menuItems] : [];
-
-    if (index === -1) {
-      items.push(newItem);
-    } else {
-      items[index] = newItem;
-    }
-
-    await updateDoc(bizRef, { menuItems: items });
-    qs('#menuItemModal').classList.add('hidden');
-    showToast(index === -1 ? 'Item added!' : 'Item updated!');
-    loadMenu();
-
+    await updateDoc(doc(db, 'businesses', bizId), { menuItems: _dmData.items });
+    qs('#dmItemModal').classList.add('hidden');
+    showToast(id ? 'Item updated!' : 'Item added!');
+    dmRenderItems();
   } catch (err) {
-    console.error('saveMenuItem error:', err);
     showToast('Failed to save item.', 'error');
   }
 }
 
-async function deleteMenuItem(index) {
+window._dmEditItem   = (itemId) => dmOpenItemModal(itemId);
+window._dmDeleteItem = async (itemId) => {
   if (!confirm('Delete this menu item?')) return;
-
+  _dmData.items = _dmData.items.filter(it => it.id !== itemId);
   try {
-    const bizRef  = doc(db, 'businesses', bizId);
-    const bizSnap = await getDoc(bizRef);
-    const items   = Array.isArray(bizSnap.data()?.menuItems) ? [...bizSnap.data().menuItems] : [];
-    items.splice(index, 1);
-    await updateDoc(bizRef, { menuItems: items });
+    await updateDoc(doc(db, 'businesses', bizId), { menuItems: _dmData.items });
     showToast('Item deleted.');
-    loadMenu();
+    dmRenderItems();
   } catch (err) {
-    console.error('deleteMenuItem error:', err);
     showToast('Failed to delete item.', 'error');
   }
+};
+
+// ── Settings ────────────────────────────────────────────────
+function dmPopulateSettings() {
+  const s = _dmData.settings;
+  qs('#dmTaxRate').value        = s.taxRate  != null ? s.taxRate  : 8.5;
+  qs('#dmCurrency').value       = s.currency || 'USD';
+  qs('#dmAcceptCash').checked   = s.acceptCash  !== false;
+  qs('#dmAcceptCard').checked   = s.acceptCard  !== false;
+  qs('#dmTipOptions').value     = Array.isArray(s.tipOptions) ? s.tipOptions.join(', ') : '15, 18, 20, 25';
+  qs('#dmAllowPickup').checked  = s.allowPickup   !== false;
+  qs('#dmAllowDineIn').checked  = s.allowDineIn   !== false;
+  qs('#dmAllowDelivery').checked = s.allowDelivery || false;
+  qs('#dmSaveSettingsBtn').onclick = dmSaveSettings;
 }
+
+async function dmSaveSettings() {
+  const btn = qs('#dmSaveSettingsBtn');
+  btn.disabled = true;
+  const settings = {
+    taxRate:       parseFloat(qs('#dmTaxRate').value)  || 0,
+    currency:      qs('#dmCurrency').value             || 'USD',
+    acceptCash:    qs('#dmAcceptCash').checked,
+    acceptCard:    qs('#dmAcceptCard').checked,
+    tipOptions:    qs('#dmTipOptions').value.split(',').map(v => parseInt(v.trim())).filter(n => !isNaN(n)),
+    allowPickup:   qs('#dmAllowPickup').checked,
+    allowDineIn:   qs('#dmAllowDineIn').checked,
+    allowDelivery: qs('#dmAllowDelivery').checked,
+  };
+  try {
+    await updateDoc(doc(db, 'businesses', bizId), { menuSettings: settings });
+    _dmData.settings = settings;
+    showToast('Settings saved!');
+  } catch (err) {
+    showToast('Failed to save settings.', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Share ────────────────────────────────────────────────────
+function dmPopulateShare() {
+  const origin     = location.origin;
+  const menuUrl    = origin + '/menu?id=' + bizId;
+  const kitchenUrl = origin + '/kitchen?slug=' + (bizSlug || bizId);
+  const orderUrl   = origin + '/order?biz=' + (bizSlug || bizId);
+  const mu = qs('#dmMenuUrl');    if (mu) mu.value = menuUrl;
+  const ku = qs('#dmKitchenUrl'); if (ku) ku.value = kitchenUrl;
+  const ou = qs('#dmOrderUrl');   if (ou) ou.value = orderUrl;
+  const qr = qs('#dmQrCode');
+  if (qr) qr.innerHTML = `<img src="https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(menuUrl)}" alt="QR Code" width="200" height="200" loading="lazy" />`;
+}
+
+window._dmCopyUrl = (inputId) => {
+  const input = qs('#' + inputId);
+  if (!input) return;
+  navigator.clipboard.writeText(input.value).then(() => showToast('Copied!')).catch(() => {
+    input.select();
+    document.execCommand('copy');
+    showToast('Copied!');
+  });
+};
 
 // ── Documents ────────────────────────────────────────────────
 async function loadDocuments() {

@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Menu — EP Local Pro AI</title>
+  <link rel="stylesheet" href="/css/main.css" />
+  <style>
+    /* ── Reset / Base ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f8fafc;
+      color: #1e293b;
+      min-height: 100vh;
+    }
+    .hidden { display: none !important; }
+
+    /* ── Loading ─────────────────────────────────────────── */
+    #menu-loading {
+      position: fixed; inset: 0;
+      background: #0f172a;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 16px; z-index: 999; color: #fff;
+    }
+    .menu-spinner {
+      width: 36px; height: 36px;
+      border: 3px solid rgba(255,255,255,0.2);
+      border-top-color: #818cf8;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error ───────────────────────────────────────────── */
+    #menu-error {
+      display: none;
+      padding: 48px 24px;
+      text-align: center;
+    }
+    #menu-error h2 { font-size: 1.4rem; margin-bottom: 8px; }
+    #menu-error p  { color: #64748b; }
+
+    /* ── Restaurant Header ───────────────────────────────── */
+    #menu-cover {
+      width: 100%;
+      height: 200px;
+      background: #0f172a;
+      background-size: cover;
+      background-position: center;
+      position: relative;
+    }
+    #menu-cover::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.7));
+    }
+    #menu-header {
+      background: #fff;
+      padding: 16px 20px 14px;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    #menu-logo {
+      width: 60px; height: 60px;
+      border-radius: 12px;
+      background: #f1f5f9;
+      object-fit: cover;
+      flex-shrink: 0;
+      display: none;
+    }
+    #menu-logo.visible { display: block; }
+    #menu-logo-emoji { font-size: 2.4rem; }
+    .menu-biz-name   { font-size: 1.2rem; font-weight: 800; color: #0f172a; }
+    .menu-tagline    { font-size: 0.82rem; color: #64748b; margin-top: 2px; }
+    .menu-hours-badge {
+      display: inline-block;
+      margin-top: 5px;
+      padding: 2px 10px;
+      border-radius: 10px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+    .menu-hours-badge.open   { background: #dcfce7; color: #15803d; }
+    .menu-hours-badge.closed { background: #fee2e2; color: #991b1b; }
+
+    /* ── Category sticky nav ─────────────────────────────── */
+    #cat-nav {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      gap: 4px;
+      padding: 10px 16px;
+      overflow-x: auto;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+    }
+    #cat-nav::-webkit-scrollbar { display: none; }
+    .cat-pill {
+      flex-shrink: 0;
+      padding: 6px 14px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 18px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #64748b;
+      background: #fff;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .cat-pill:hover  { background: #f1f5f9; color: #0f172a; }
+    .cat-pill.active { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+
+    /* ── Main content ────────────────────────────────────── */
+    #menu-main { max-width: 900px; margin: 0 auto; padding: 0 16px 120px; }
+
+    /* ── Category section ────────────────────────────────── */
+    .cat-section { padding-top: 32px; }
+    .cat-section-title {
+      font-size: 1.1rem; font-weight: 800; color: #0f172a;
+      margin-bottom: 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    /* ── Menu items grid ─────────────────────────────────── */
+    .items-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    @media (max-width: 540px) {
+      .items-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    }
+    @media (max-width: 360px) {
+      .items-grid { grid-template-columns: 1fr; }
+    }
+
+    .menu-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: box-shadow 0.15s, transform 0.1s;
+      position: relative;
+    }
+    .menu-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); transform: translateY(-2px); }
+    .menu-card.unavail { opacity: 0.5; cursor: not-allowed; }
+
+    .menu-card-img {
+      width: 100%;
+      height: 140px;
+      object-fit: cover;
+      display: block;
+      background: #f1f5f9;
+    }
+    .menu-card-emoji {
+      height: 80px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.6rem;
+      background: #f8fafc;
+    }
+    .menu-card-body { padding: 12px; }
+    .menu-card-name { font-size: 0.9rem; font-weight: 700; color: #0f172a; line-height: 1.3; }
+    .menu-card-desc { font-size: 0.75rem; color: #64748b; margin-top: 4px; line-height: 1.4;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .menu-card-row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+    .menu-card-price { font-size: 1rem; font-weight: 800; color: #4f46e5; }
+    .menu-add-btn {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: #4f46e5; color: #fff;
+      border: none; font-size: 1.2rem; line-height: 1;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    .menu-add-btn:hover { background: #4338ca; }
+    .menu-add-btn:disabled { background: #94a3b8; cursor: not-allowed; }
+    .menu-card-badges { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 5px; }
+    .menu-badge { font-size: 0.65rem; padding: 2px 6px; border-radius: 8px; font-weight: 700; }
+    .mb-special { background: #fef3c7; color: #92400e; }
+    .mb-spicy   { background: #fee2e2; color: #991b1b; }
+    .mb-off     { background: #f1f5f9; color: #94a3b8; }
+
+    /* ── Specials banner ─────────────────────────────────── */
+    #specials-section { padding-top: 24px; }
+    .specials-title {
+      font-size: 1rem; font-weight: 800;
+      display: flex; align-items: center; gap: 6px;
+      color: #92400e; margin-bottom: 12px;
+    }
+
+    /* ── Cart FAB ────────────────────────────────────────── */
+    #cart-fab {
+      position: fixed;
+      bottom: 24px; right: 20px;
+      background: #4f46e5; color: #fff;
+      border: none; border-radius: 28px;
+      padding: 14px 22px;
+      font-size: 0.95rem; font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(79,70,229,0.5);
+      display: flex; align-items: center; gap: 10px;
+      z-index: 90;
+      transform: translateY(0);
+      transition: transform 0.2s, opacity 0.2s, box-shadow 0.15s;
+    }
+    #cart-fab:hover { box-shadow: 0 6px 24px rgba(79,70,229,0.6); }
+    #cart-fab.hidden { transform: translateY(80px); opacity: 0; pointer-events: none; }
+    #cart-fab-count {
+      background: #fff; color: #4f46e5;
+      border-radius: 50%; width: 22px; height: 22px;
+      font-size: 0.75rem; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ── Cart sidebar ────────────────────────────────────── */
+    #cart-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 200;
+      display: none;
+    }
+    #cart-backdrop.open { display: block; }
+    #cart-panel {
+      position: fixed;
+      top: 0; right: 0;
+      width: min(400px, 100vw);
+      height: 100dvh;
+      background: #fff;
+      z-index: 201;
+      display: flex; flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+      box-shadow: -4px 0 24px rgba(0,0,0,0.12);
+    }
+    #cart-panel.open { transform: translateX(0); }
+
+    .cart-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .cart-title { font-size: 1.1rem; font-weight: 800; }
+    .cart-close {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: #f1f5f9; border: none; font-size: 1rem;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+
+    .cart-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+
+    /* Cart items */
+    .cart-empty { text-align: center; padding: 40px 0; color: #94a3b8; }
+    .cart-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .cart-item:last-child { border-bottom: none; }
+    .cart-item-emoji { font-size: 1.6rem; flex-shrink: 0; }
+    .cart-item-info  { flex: 1; min-width: 0; }
+    .cart-item-name  { font-size: 0.88rem; font-weight: 600; color: #0f172a; }
+    .cart-item-price { font-size: 0.8rem; color: #64748b; margin-top: 2px; }
+    .cart-qty-wrap   { display: flex; align-items: center; gap: 6px; }
+    .cart-qty-btn {
+      width: 24px; height: 24px; border-radius: 50%;
+      border: 1.5px solid #e2e8f0; background: #fff;
+      font-size: 0.9rem; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background 0.1s;
+    }
+    .cart-qty-btn:hover { background: #f1f5f9; }
+    .cart-qty-num { font-size: 0.85rem; font-weight: 700; min-width: 20px; text-align: center; }
+
+    /* Totals */
+    .cart-totals { margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 14px; }
+    .cart-total-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: #64748b; margin-bottom: 6px; }
+    .cart-total-row.grand { font-size: 1rem; font-weight: 800; color: #0f172a; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 6px; }
+
+    /* Tip selector */
+    .tip-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+    .tip-btn {
+      flex: 1; min-width: 48px;
+      padding: 6px 4px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 0.78rem; font-weight: 600;
+      background: #fff; color: #64748b;
+      cursor: pointer; text-align: center;
+      transition: background 0.1s;
+    }
+    .tip-btn.active { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+    .tip-label { font-size: 0.78rem; color: #64748b; margin-top: 10px; margin-bottom: 4px; }
+
+    /* Order type */
+    .ot-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .ot-btn {
+      flex: 1;
+      padding: 10px 6px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 0.8rem; font-weight: 600;
+      background: #fff; color: #64748b;
+      cursor: pointer; text-align: center;
+      transition: background 0.1s, border-color 0.1s;
+    }
+    .ot-btn.active { border-color: #4f46e5; color: #4f46e5; background: #eef2ff; }
+    .ot-label { font-size: 0.78rem; color: #64748b; margin-top: 14px; margin-bottom: 4px; }
+
+    /* Notes */
+    .cart-notes {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      resize: vertical;
+      font-family: inherit;
+    }
+    .cart-notes:focus { outline: none; border-color: #4f46e5; }
+
+    /* Table number */
+    #table-row { margin-top: 8px; display: none; }
+    #table-row input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-family: inherit;
+    }
+    #table-row.visible { display: block; }
+
+    /* Place order button */
+    .cart-footer { padding: 16px 20px; border-top: 1px solid #e2e8f0; }
+    #place-order-btn {
+      width: 100%;
+      padding: 14px;
+      background: #4f46e5; color: #fff;
+      border: none; border-radius: 10px;
+      font-size: 1rem; font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #place-order-btn:hover    { background: #4338ca; }
+    #place-order-btn:disabled { background: #94a3b8; cursor: not-allowed; }
+
+    /* ── Confirmation screen ─────────────────────────────── */
+    #confirm-screen {
+      position: fixed; inset: 0;
+      background: #fff;
+      z-index: 300;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center;
+      padding: 32px 24px;
+      display: none;
+    }
+    #confirm-screen.show { display: flex; }
+    .confirm-icon  { font-size: 4rem; margin-bottom: 16px; }
+    .confirm-title { font-size: 1.6rem; font-weight: 800; color: #0f172a; margin-bottom: 8px; }
+    .confirm-sub   { font-size: 0.9rem; color: #64748b; max-width: 320px; margin: 0 auto 20px; }
+    .confirm-code  {
+      font-size: 2.4rem; font-weight: 900; color: #4f46e5;
+      letter-spacing: 0.1em;
+      background: #eef2ff; padding: 10px 24px; border-radius: 12px;
+      margin-bottom: 20px;
+    }
+    .confirm-status {
+      font-size: 0.85rem; color: #64748b;
+      border: 1px solid #e2e8f0; padding: 8px 20px; border-radius: 8px;
+      margin-bottom: 20px; min-width: 220px;
+    }
+    .confirm-new-order {
+      padding: 12px 28px;
+      background: #4f46e5; color: #fff;
+      border: none; border-radius: 8px;
+      font-size: 0.9rem; font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* ── Footer ──────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 16px;
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+    footer a { color: #64748b; text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="menu-loading">
+  <div class="menu-spinner"></div>
+  <span>Loading menu…</span>
+</div>
+
+<!-- Error -->
+<div id="menu-error">
+  <h2>😕 Menu not found</h2>
+  <p>We couldn't find this menu. Please check the link and try again.</p>
+</div>
+
+<!-- Cover image -->
+<div id="menu-cover" class="hidden"></div>
+
+<!-- Restaurant header -->
+<header id="menu-header" class="hidden">
+  <img id="menu-logo" src="" alt="Logo" />
+  <span id="menu-logo-emoji">🍽️</span>
+  <div>
+    <div class="menu-biz-name" id="menu-biz-name">Restaurant</div>
+    <div class="menu-tagline"  id="menu-tagline"></div>
+    <span class="menu-hours-badge" id="menu-hours-badge"></span>
+  </div>
+</header>
+
+<!-- Category sticky nav -->
+<nav id="cat-nav" class="hidden"></nav>
+
+<!-- Menu items -->
+<main id="menu-main" class="hidden">
+  <!-- Specials (injected by JS) -->
+  <div id="specials-section" class="hidden"></div>
+  <!-- Category sections (injected by JS) -->
+  <div id="menu-sections"></div>
+</main>
+
+<!-- Cart FAB -->
+<button id="cart-fab" class="hidden" aria-label="View cart">
+  🛒 View Cart
+  <span id="cart-fab-count">0</span>
+</button>
+
+<!-- Cart sidebar -->
+<div id="cart-backdrop"></div>
+<aside id="cart-panel" role="dialog" aria-label="Your cart">
+  <div class="cart-header">
+    <span class="cart-title">🛒 Your Order</span>
+    <button class="cart-close" id="cart-close-btn" aria-label="Close cart">✕</button>
+  </div>
+  <div class="cart-body" id="cart-body">
+    <div class="cart-empty">Your cart is empty</div>
+  </div>
+  <div class="cart-footer">
+    <button id="place-order-btn" disabled>Place Order →</button>
+  </div>
+</aside>
+
+<!-- Confirmation / order tracking -->
+<div id="confirm-screen">
+  <div class="confirm-icon">🎉</div>
+  <div class="confirm-title">Order Received!</div>
+  <p class="confirm-sub">Show this code to pick up your order</p>
+  <div class="confirm-code" id="confirm-code">#0000</div>
+  <div class="confirm-status" id="confirm-status">Status: New order</div>
+  <button class="confirm-new-order" id="new-order-btn">Start New Order</button>
+</div>
+
+<footer>Powered by <a href="https://eplocalproai.com" target="_blank" rel="noopener">EP Local Pro AI</a></footer>
+
+<script type="module" src="/js/menu.js"></script>
+</body>
+</html>
