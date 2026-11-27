@@ -1025,15 +1025,10 @@
       <div class="section-card-header" style="margin-bottom:20px;">
         <h2>📸 Job Photos</h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn-action" onclick="window._adminSharePortfolio()">🔗 Portfolio</button>
+          <button class="btn-action success" onclick="window._adminTogglePhotoUpload()">📤 Upload</button>
           <button class="btn-action" onclick="window._adminLoadAllPhotos()">🔄 Refresh</button>
         </div>
-      </div>
-
-      <!-- Business filter -->
-      <div style="margin-bottom:16px;">
-        <input id="adminPhotoSearch" type="text" placeholder="🔍 Filter by business name or email…"
-          style="width:100%;max-width:360px;padding:9px 14px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:0.88rem;color:#1e293b;outline:none;box-sizing:border-box;"
-          oninput="window._adminFilterPhotosByBiz(this.value)" />
       </div>
 
       <!-- Stats -->
@@ -1042,6 +1037,55 @@
         <div class="stat-card" style="flex:1;min-width:100px;"><div class="stat-label">BEFORE</div><div class="stat-value" id="adminPhotoStatBefore">—</div></div>
         <div class="stat-card" style="flex:1;min-width:100px;"><div class="stat-label">AFTER</div><div class="stat-value" id="adminPhotoStatAfter">—</div></div>
         <div class="stat-card" style="flex:1;min-width:100px;"><div class="stat-label">IN PROGRESS</div><div class="stat-value" id="adminPhotoStatProgress">—</div></div>
+      </div>
+
+      <!-- Upload form -->
+      <div id="adminPhotoUploadForm" class="section-card" style="display:none;margin-bottom:20px;">
+        <h3 style="font-size:0.95rem;font-weight:700;margin-bottom:14px;">📤 Upload Job Photos</h3>
+        <div id="adminPhotoDropZone"
+          style="border:2px dashed #c7d2fe;border-radius:12px;padding:28px;text-align:center;cursor:pointer;background:#f8fafc;margin-bottom:14px;transition:all .2s;"
+          onclick="document.getElementById('adminPhotoFileInput').click()"
+          ondragover="event.preventDefault();this.style.borderColor='#4f46e5';this.style.background='#eef2ff';"
+          ondragleave="this.style.borderColor='#c7d2fe';this.style.background='#f8fafc';"
+          ondrop="window._adminPhotoOnDrop(event)">
+          <div style="font-size:2rem;margin-bottom:6px;">🖼️</div>
+          <div style="font-size:0.88rem;font-weight:600;color:#4f46e5;">Click or drag photos here</div>
+          <div style="font-size:0.75rem;color:#94a3b8;margin-top:4px;">JPG, PNG, HEIC — multiple allowed</div>
+        </div>
+        <input id="adminPhotoFileInput" type="file" accept="image/*" multiple style="display:none;" onchange="window._adminPhotoFilesSelected(this.files)" />
+        <div id="adminPhotoFilePreviews" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div>
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#374151;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Label *</label>
+            <select id="adminPhotoLabel" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.88rem;color:#1e293b;">
+              <option value="before">🟠 Before</option>
+              <option value="after">🟢 After</option>
+              <option value="progress">🔵 In Progress</option>
+              <option value="completed">🟣 Completed</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#374151;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Job / Doc # (optional)</label>
+            <input id="adminPhotoJobRef" type="text" placeholder="e.g. EST-8164 or Bathroom Remodel"
+              style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.88rem;color:#1e293b;outline:none;box-sizing:border-box;" />
+          </div>
+          <div style="grid-column:1/-1;">
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#374151;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Caption (optional)</label>
+            <input id="adminPhotoCaption" type="text" placeholder="Describe the work done…"
+              style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.88rem;color:#1e293b;outline:none;box-sizing:border-box;" />
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button id="adminPhotoUploadBtn" onclick="window._adminUploadJobPhotos()"
+            style="flex:1;padding:11px;background:#4f46e5;color:#fff;border:none;border-radius:9px;font-size:0.9rem;font-weight:700;cursor:pointer;">
+            📤 Upload Photos
+          </button>
+          <button onclick="window._adminTogglePhotoUpload()"
+            style="padding:11px 18px;background:#f1f5f9;color:#64748b;border:none;border-radius:9px;font-size:0.9rem;font-weight:600;cursor:pointer;">
+            Cancel
+          </button>
+        </div>
+        <div id="adminPhotoUploadProgress" style="display:none;margin-top:12px;"></div>
       </div>
 
       <!-- Filter bar -->
@@ -1055,7 +1099,7 @@
 
       <!-- Gallery -->
       <div id="adminPhotoGallery">
-        <div class="empty-state"><div class="empty-state-icon">📷</div><p>Click Refresh to load photos.</p></div>
+        <div class="empty-state"><div class="empty-state-icon">📷</div><p>No photos yet. Upload your first job photos above.</p></div>
       </div>
 
       <!-- Lightbox -->
