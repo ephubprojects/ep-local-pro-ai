@@ -1301,14 +1301,6 @@ async function _loadWtPackConfig() {
   }
 }
 
-function toggleWtPackConfig() {
-  const body  = document.getElementById('wtPackConfigBody');
-  const arrow = document.getElementById('wtPackConfigArrow');
-  if (!body) return;
-  const open = body.style.display !== 'none';
-  body.style.display = open ? 'none' : 'block';
-  if (arrow) arrow.textContent = open ? '▼' : '▲';
-}
 
 window._adminSaveWtPackPrices = async function() {
   const p250  = parseFloat(document.getElementById('wtPack250Price')?.value)  || 5;
@@ -1367,21 +1359,19 @@ function renderLocalBizTable(list) {
       <td>${badgeHTML(u.plan || 'trial')}</td>
       <td>${escHTML(fmtDate(u.createdAt))}</td>
       <td>
-        <label class="addon-toggle" title="Market Rate Calculator add-on">
-          <input type="checkbox" ${mrOn ? 'checked' : ''} onchange="window._adminToggleMarketRate('${escAttr(u.id)}', ${mrOn})"/>
-          <span class="toggle-track"></span>
-          <span class="toggle-label">📊 Market Rate</span>
-        </label>
-        <div style="margin-top:8px;">
-          <div style="font-size:0.72rem;font-weight:700;color:#64748b;margin-bottom:4px;">📻 WT Plan</div>
-          <select style="font-size:0.78rem;border:1.5px solid #e2e8f0;border-radius:6px;padding:3px 7px;background:#f8fafc;cursor:pointer;" onchange="window._adminSetWtPlan('${escAttr(u.id)}', this.value)">
-            <option value="starter" ${wtPlan === 'starter' ? 'selected' : ''}>EP HUB Live Premium · $49.99</option>
-            <option value="pro"     ${wtPlan === 'pro'     ? 'selected' : ''}>EP HUB LIVE STREAM · $279.99</option>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;">
+          <label class="addon-toggle" title="Market Rate Calculator add-on" style="flex-shrink:0;">
+            <input type="checkbox" ${mrOn ? 'checked' : ''} onchange="window._adminToggleMarketRate('${escAttr(u.id)}', ${mrOn})"/>
+            <span class="toggle-track"></span>
+            <span class="toggle-label" style="font-size:0.7rem;">📊 MktRate</span>
+          </label>
+          <span style="color:#e2e8f0;font-size:0.8rem;">|</span>
+          <select style="font-size:0.72rem;border:1.5px solid #c7d2fe;border-radius:6px;padding:3px 6px;background:#f8fafc;cursor:pointer;color:#4f46e5;font-weight:700;max-width:170px;" onchange="window._adminSetWtPlan('${escAttr(u.id)}', this.value)">
+            <option value="starter" ${wtPlan === 'starter' ? 'selected' : ''}>⭐ Live Premium · $49.99</option>
+            <option value="pro"     ${wtPlan === 'pro'     ? 'selected' : ''}>🚀 Live Stream · $279.99</option>
           </select>
-          <button style="margin-left:5px;font-size:0.72rem;padding:3px 9px;border:1.5px solid #e2e8f0;border-radius:6px;cursor:pointer;background:#f8fafc;font-weight:700;" onclick="window._adminAddWtMsgs('${escAttr(u.id)}','${escAttr(u.companyName || u.email || 'Business')}')">+Msgs</button>
-        </div>
-        <div style="margin-top:6px;font-size:0.72rem;color:#64748b;">
-          🎥 ${wtPlan === 'pro' ? 'EP HUB LIVE STREAM · 200 attendees' : 'EP HUB Live Premium · 100 attendees'}
+          <button style="font-size:0.7rem;padding:3px 8px;border:1.5px solid #c7d2fe;border-radius:6px;cursor:pointer;background:#eef2ff;color:#4f46e5;font-weight:700;white-space:nowrap;" onclick="window._adminAddWtMsgs('${escAttr(u.id)}','${escAttr(u.companyName || u.email || 'Business')}')">+Msgs</button>
+          <span style="font-size:0.7rem;color:#64748b;white-space:nowrap;">🎥 ${wtPlan === 'pro' ? '200' : '100'} att.</span>
         </div>
       </td>
       <td><button class="btn-action danger" onclick="window._adminCancelUser('${escAttr(u.id)}','${escAttr(((u.firstName||'')+' '+(u.lastName||'')).trim()||u.email||'this user')}')">Cancel</button></td>
