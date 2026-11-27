@@ -277,9 +277,11 @@ function subscribeMessages() {
         // Track who last spoke (for the 🔊 indicator in contacts)
         empLastSpeakerId = data.from;
 
-        // Employees auto-select the sender for a direct reply.
-        // Owner stays in their current broadcast/direct mode — don't override their selection.
-        if (identity?.from !== 'owner') {
+        // Auto-select the sender as reply target — but only for direct messages.
+        // A broadcast (no `to` field) must not override the current target, or an
+        // employee's reply would be re-routed to the last broadcaster instead of the
+        // person they were already talking to. Owner never auto-switches target.
+        if (identity?.from !== 'owner' && data.to) {
           empSelectedTarget = data.from;
           empContactsOpen   = true;
           document.getElementById('wtContacts')?.classList.add('open');
@@ -290,13 +292,9 @@ function subscribeMessages() {
 
         notifyIncoming(name);
         if (data.audioUrl) {
-          wtDebug(`MSG from ${name} · url=YES · ${data.mimeType || '?'}`);
           enqueueAudio(name, data.audioUrl, null);
         } else if (data.audioB64) {
-          wtDebug(`MSG from ${name} · b64=YES · ${data.mimeType || '?'}`);
           enqueueAudio(name, null, { b64: data.audioB64, type: data.mimeType || 'audio/mp4' });
-        } else {
-          wtDebug(`MSG from ${name} · NO audio data`);
         }
       }
     });
@@ -310,14 +308,6 @@ function subscribeMessages() {
 function enqueueAudio(fromName, audioUrl, b64Data) {
   audioQueue.push({ fromName, audioUrl, b64Data });
   if (!audioPlaying) drainAudioQueue();
-}
-
-function wtDebug(msg) {
-  console.log('[WT]', msg);
-  if ($pttHint && !isRecording) {
-    $pttHint.textContent = msg;
-    setTimeout(() => { if (!isRecording) updatePttHint(); }, 6000);
-  }
 }
 
 async function drainAudioQueue() {
@@ -343,23 +333,29 @@ async function drainAudioQueue() {
     }
     if (!src) throw new Error('no audio source');
 
-    wtDebug(`Loading: ${src.includes('firebasestorage') ? 'firebase WAV' : src.slice(0,30)}`);
-
     $wtRxAudio.onended = null;
     $wtRxAudio.onerror = null;
     $wtRxAudio.src = src;
+    $wtRxAudio.load();
 
     await new Promise((resolve, reject) => {
-      $wtRxAudio.onended = () => { wtDebug('✓ played OK'); resolve(); };
+      // 25s safety valve: recording is capped at 20s, so if onended hasn't fired
+      // by then the element is stuck (iOS background suspension, etc.) — force advance.
+      const timeout = setTimeout(resolve, 25_000);
+      $wtRxAudio.onended = () => { clearTimeout(timeout); resolve(); };
       $wtRxAudio.onerror = () => {
+        clearTimeout(timeout);
         const code = $wtRxAudio.error?.code ?? '?';
         const msg  = ['','aborted','network','decode','unsupported'][code] || code;
         reject(new Error(`MediaError: ${msg}`));
       };
-      $wtRxAudio.play().catch(err => reject(new Error(`play blocked: ${err.name}`)));
+      $wtRxAudio.play().catch(err => {
+        clearTimeout(timeout);
+        reject(new Error(`play blocked: ${err.name}`));
+      });
     });
   } catch (err) {
-    wtDebug(`⚠️ ${err.message}`);
+    console.error('[WT] playback error:', err);
   } finally {
     if (blobUrl) URL.revokeObjectURL(blobUrl);
     $audioInd?.classList.add('hidden');

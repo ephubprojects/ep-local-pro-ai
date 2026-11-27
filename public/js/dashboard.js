@@ -2632,16 +2632,16 @@ async function drainWtAudioQueue() {
     if (!url) { if (audioInd) audioInd.classList.add('hidden'); drainWtAudioQueue(); return; }
 
     const player = new Audio(url);
-    player.onended = () => {
+    const cleanup = () => {
+      clearTimeout(safetyTimer);
       if (isObjectUrl) URL.revokeObjectURL(url);
       if (audioInd) audioInd.classList.add('hidden');
       drainWtAudioQueue();
     };
-    player.onerror = () => {
-      if (isObjectUrl) URL.revokeObjectURL(url);
-      if (audioInd) audioInd.classList.add('hidden');
-      drainWtAudioQueue();
-    };
+    // 25s safety: if onended never fires (tab throttled, etc.) force queue advance
+    const safetyTimer = setTimeout(cleanup, 25_000);
+    player.onended = cleanup;
+    player.onerror = cleanup;
     await player.play();
   } catch (err) {
     console.error('drainWtAudioQueue error:', err);
