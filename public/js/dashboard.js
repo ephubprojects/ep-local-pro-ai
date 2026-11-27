@@ -4244,10 +4244,12 @@ window._cancelGmbRequest = async function() {
 
 // ── Job Photo Documentation ───────────────────────────────────
 
-let _allPhotos      = [];
-let _filteredPhotos = [];
-let _lightboxIndex  = 0;
-let _pendingFiles   = [];
+let _allPhotos         = [];
+let _filteredPhotos    = [];
+let _lightboxIndex     = 0;
+let _pendingFiles      = [];
+let _photoSearchQ      = '';
+let _photoDisplayCount = 24;
 
 const PHOTO_LABEL_STYLE = {
   before:    { bg: '#fef3c7', color: '#92400e', dot: '🟠' },
@@ -4291,9 +4293,35 @@ window._filterPhotos = function(filter) {
   document.querySelectorAll('[data-photo-filter]').forEach(b => {
     b.classList.toggle('active', b.dataset.photoFilter === filter);
   });
-  _filteredPhotos = filter === 'all' ? [..._allPhotos] : _allPhotos.filter(p => p.label === filter);
-  _renderPhotoGallery();
+  _photoDisplayCount = 24;
+  _applyPhotoFilters(filter);
 };
+
+window._searchPhotos = function(q) {
+  _photoSearchQ = q.trim().toLowerCase();
+  _photoDisplayCount = 24;
+  _applyPhotoFilters(null);
+};
+
+function _applyPhotoFilters(labelOverride) {
+  const active = document.querySelector('[data-photo-filter].active');
+  const label = labelOverride !== null ? labelOverride : (active?.dataset.photoFilter || 'all');
+  if (labelOverride !== null) {
+    document.querySelectorAll('[data-photo-filter]').forEach(b => {
+      b.classList.toggle('active', b.dataset.photoFilter === label);
+    });
+  }
+  let photos = label === 'all' ? [..._allPhotos] : _allPhotos.filter(p => p.label === label);
+  if (_photoSearchQ) {
+    photos = photos.filter(p =>
+      (p.jobRef       || '').toLowerCase().includes(_photoSearchQ) ||
+      (p.customerName || '').toLowerCase().includes(_photoSearchQ) ||
+      (p.caption      || '').toLowerCase().includes(_photoSearchQ)
+    );
+  }
+  _filteredPhotos = photos;
+  _renderPhotoGallery();
+}
 
 function _renderPhotoGallery() {
   const gallery = document.getElementById('photoGallery');
@@ -4302,50 +4330,56 @@ function _renderPhotoGallery() {
     gallery.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📷</div><p>No photos in this category yet.</p></div>`;
     return;
   }
-
-  // Group by jobRef for before/after pairs
-  const groups = {};
-  const noRef  = [];
-  _filteredPhotos.forEach(p => {
+  const visible = _filteredPhotos.slice(0, _photoDisplayCount);
+  const hasMore = _filteredPhotos.length > _photoDisplayCount;
+  const groups = {}, noRef = [];
+  visible.forEach(p => {
     if (p.jobRef) { (groups[p.jobRef] = groups[p.jobRef] || []).push(p); }
     else noRef.push(p);
   });
-
   let html = '';
-
-  // Render grouped (by jobRef) first
   Object.entries(groups).forEach(([jobRef, photos]) => {
     html += `<div style="margin-bottom:24px;">
       <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #f1f5f9;">
         📋 ${escHTML(jobRef)}
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;">
-        ${photos.map((p, gi) => _photoCard(p, _filteredPhotos.indexOf(p))).join('')}
+        ${photos.map(p => _photoCard(p, _filteredPhotos.indexOf(p))).join('')}
       </div>
     </div>`;
   });
-
-  // Render ungrouped
   if (noRef.length) {
     html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;">
       ${noRef.map(p => _photoCard(p, _filteredPhotos.indexOf(p))).join('')}
     </div>`;
   }
-
+  if (hasMore) {
+    html += `<div style="text-align:center;margin-top:20px;">
+      <button onclick="window._loadMorePhotos()" style="padding:10px 28px;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:9px;font-size:0.88rem;font-weight:600;color:#374151;cursor:pointer;">
+        Load More (${_filteredPhotos.length - _photoDisplayCount} remaining)
+      </button>
+    </div>`;
+  }
   gallery.innerHTML = html;
 }
+
+window._loadMorePhotos = function() {
+  _photoDisplayCount += 24;
+  _renderPhotoGallery();
+};
 
 function _photoCard(p, idx) {
   const s = PHOTO_LABEL_STYLE[p.label] || PHOTO_LABEL_STYLE.before;
   const date = p.uploadedAt?.toDate?.()?.toLocaleDateString() || '';
   return `<div style="border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;background:#fff;cursor:pointer;transition:box-shadow .2s;" onclick="window._openLightbox(${idx})">
     <div style="position:relative;padding-top:75%;background:#f1f5f9;">
-      <img src="${escHTML(p.photoUrl)}" alt="${escHTML(p.caption||'')}"
+      <img src="${escHTML(p.thumbUrl || p.photoUrl)}" alt="${escHTML(p.caption||'')}"
         style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" loading="lazy" />
       <span style="position:absolute;top:8px;left:8px;padding:3px 9px;border-radius:20px;font-size:0.7rem;font-weight:700;background:${s.bg};color:${s.color};">${s.dot} ${p.label.charAt(0).toUpperCase()+p.label.slice(1)}</span>
     </div>
     <div style="padding:9px 12px;">
       ${p.caption ? `<div style="font-size:0.8rem;font-weight:600;color:#1e293b;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHTML(p.caption)}</div>` : ''}
+      ${p.customerName ? `<div style="font-size:0.72rem;color:#64748b;margin-bottom:2px;">👤 ${escHTML(p.customerName)}</div>` : ''}
       <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
         <span style="font-size:0.7rem;color:#94a3b8;">${date}</span>
         <button onclick="event.stopPropagation();window._deleteJobPhoto('${escHTML(p.id)}','${escHTML(p.storagePath||'')}')"
@@ -4366,7 +4400,7 @@ window._openLightbox = function(idx) {
 function _lightboxShow() {
   const p = _filteredPhotos[_lightboxIndex];
   if (!p) return;
-  document.getElementById('lightboxImg').src = p.photoUrl;
+  document.getElementById('lightboxImg').src = p.photoUrl || p.thumbUrl;
   const s = PHOTO_LABEL_STYLE[p.label] || PHOTO_LABEL_STYLE.before;
   const cap = [s.dot + ' ' + (p.label.charAt(0).toUpperCase()+p.label.slice(1)), p.caption, p.jobRef ? '📋 ' + p.jobRef : ''].filter(Boolean).join('  ·  ');
   document.getElementById('lightboxCaption').textContent = cap;
@@ -4415,27 +4449,37 @@ window._photoFilesSelected = function(files) {
 
 window._uploadJobPhotos = async function() {
   if (!_pendingFiles.length) { showToast('Select at least one photo first.', 'error'); return; }
-  const btn      = document.getElementById('photoUploadBtn');
-  const progress = document.getElementById('photoUploadProgress');
-  const label    = document.getElementById('photoLabel')?.value    || 'before';
-  const jobRef   = document.getElementById('photoJobRef')?.value.trim()   || '';
-  const caption  = document.getElementById('photoCaption')?.value.trim()  || '';
-
+  const btn          = document.getElementById('photoUploadBtn');
+  const progress     = document.getElementById('photoUploadProgress');
+  const label        = document.getElementById('photoLabel')?.value        || 'before';
+  const jobRef       = document.getElementById('photoJobRef')?.value.trim()       || '';
+  const caption      = document.getElementById('photoCaption')?.value.trim()      || '';
+  const customerName = document.getElementById('photoCustomer')?.value.trim()     || '';
   if (btn) { btn.disabled = true; btn.textContent = 'Uploading…'; }
   if (progress) { progress.style.display = ''; progress.innerHTML = ''; }
-
   let done = 0;
   for (const file of _pendingFiles) {
     try {
-      const blob  = await resizeLogo(file, 1600, 1200);
-      const fname = `${Date.now()}_${Math.random().toString(36).slice(2)}.webp`;
-      const path  = `job_photos/${currentUser.uid}/${fname}`;
-      const snap  = await uploadBytes(storageRef(storage, path), blob, { contentType: 'image/webp' });
-      const url   = await getDownloadURL(snap.ref);
+      const [thumbBlob, fullBlob] = await Promise.all([
+        resizeLogo(file, 400, 300),
+        resizeLogo(file, 1200, 900)
+      ]);
+      const fname     = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      const thumbPath = `job_photos/${currentUser.uid}/thumbs/${fname}.webp`;
+      const fullPath  = `job_photos/${currentUser.uid}/full/${fname}.webp`;
+      const [thumbSnap, fullSnap] = await Promise.all([
+        uploadBytes(storageRef(storage, thumbPath), thumbBlob, { contentType: 'image/webp' }),
+        uploadBytes(storageRef(storage, fullPath),  fullBlob,  { contentType: 'image/webp' })
+      ]);
+      const [thumbUrl, photoUrl] = await Promise.all([
+        getDownloadURL(thumbSnap.ref),
+        getDownloadURL(fullSnap.ref)
+      ]);
       await addDoc(collection(db, 'job_photos'), {
         uid: currentUser.uid, businessId: bizId,
-        photoUrl: url, storagePath: path,
-        label, jobRef, caption,
+        thumbUrl, photoUrl,
+        storagePaths: [thumbPath, fullPath],
+        label, jobRef, caption, customerName,
         uploadedAt: serverTimestamp()
       });
       done++;
@@ -4445,13 +4489,12 @@ window._uploadJobPhotos = async function() {
       if (progress) progress.innerHTML += `<div style="font-size:0.82rem;color:#dc2626;">⚠️ Failed: ${e.message}</div>`;
     }
   }
-
   if (btn) { btn.disabled = false; btn.textContent = '📤 Upload Photos'; }
   _pendingFiles = [];
-  document.getElementById('photoFileInput').value = '';
+  ['photoFileInput','photoJobRef','photoCaption','photoCustomer'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
   document.getElementById('photoFilePreviews').innerHTML = '';
-  document.getElementById('photoJobRef').value  = '';
-  document.getElementById('photoCaption').value = '';
   if (done > 0) {
     showToast(`${done} photo${done > 1 ? 's' : ''} uploaded!`, 'success');
     window._togglePhotoUpload();
@@ -4462,9 +4505,11 @@ window._uploadJobPhotos = async function() {
 window._deleteJobPhoto = async function(photoId, storagePath) {
   if (!confirm('Delete this photo permanently?')) return;
   try {
+    const snap = _allPhotos.find(p => p.id === photoId);
     await deleteDoc(doc(db, 'job_photos', photoId));
-    if (storagePath) {
-      try { await deleteObject(storageRef(storage, storagePath)); } catch(_) {}
+    const paths = snap?.storagePaths || (storagePath ? [storagePath] : []);
+    for (const path of paths) {
+      try { await deleteObject(storageRef(storage, path)); } catch(_) {}
     }
     _allPhotos = _allPhotos.filter(p => p.id !== photoId);
     _filteredPhotos = _filteredPhotos.filter(p => p.id !== photoId);

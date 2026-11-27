@@ -162,6 +162,28 @@ function resizeCatIcon(file) {
   });
 }
 
+function _resizePhoto(file, maxW, maxH, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = e => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        const ratio = Math.min(maxW / w, maxH / h, 1);
+        w = Math.round(w * ratio); h = Math.round(h * ratio);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/webp', quality);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function setCatIcon(dataUrl) {
   catIconDataUrl = dataUrl || '';
   const imgEl = document.getElementById('catIconImg');
@@ -2919,11 +2941,13 @@ window._adminAddCalendar = async function() {
 // JOB PHOTOS (admin — own photos only, same as user dashboard)
 // ============================================================
 
-let _adminAllPhotos      = [];
-let _adminFilteredPhotos = [];
-let _adminLightboxIndex  = 0;
-let _adminPhotoLabelFilter = 'all';
-let _adminPendingFiles   = [];
+let _adminAllPhotos         = [];
+let _adminFilteredPhotos    = [];
+let _adminLightboxIndex     = 0;
+let _adminPhotoLabelFilter  = 'all';
+let _adminPhotoSearchQ      = '';
+let _adminPhotoDisplayCount = 24;
+let _adminPendingFiles      = [];
 
 const _PHOTO_LABEL_STYLE = {
   before:    { bg: '#fef3c7', color: '#92400e', dot: '🟠' },
@@ -2945,7 +2969,7 @@ window._adminLoadAllPhotos = async function() {
     ));
     _adminAllPhotos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     _adminUpdatePhotoStats();
-    _adminFilterPhotos(_adminPhotoLabelFilter);
+    _adminApplyPhotoFilters();
   } catch(e) {
     console.error('_adminLoadAllPhotos:', e);
     gallery.innerHTML = `<div class="empty-state"><p>⚠️ Could not load photos.</p></div>`;
@@ -2964,12 +2988,31 @@ function _adminUpdatePhotoStats() {
 
 window._adminFilterPhotos = function(filter) {
   _adminPhotoLabelFilter = filter;
+  _adminPhotoDisplayCount = 24;
   document.querySelectorAll('[data-admin-photo-filter]').forEach(b => {
     b.classList.toggle('active', b.dataset.adminPhotoFilter === filter);
   });
-  _adminFilteredPhotos = filter === 'all' ? [..._adminAllPhotos] : _adminAllPhotos.filter(p => p.label === filter);
-  _adminRenderPhotoGallery();
+  _adminApplyPhotoFilters();
 };
+
+window._adminSearchPhotos = function(q) {
+  _adminPhotoSearchQ = q.trim().toLowerCase();
+  _adminPhotoDisplayCount = 24;
+  _adminApplyPhotoFilters();
+};
+
+function _adminApplyPhotoFilters() {
+  let photos = _adminPhotoLabelFilter === 'all' ? [..._adminAllPhotos] : _adminAllPhotos.filter(p => p.label === _adminPhotoLabelFilter);
+  if (_adminPhotoSearchQ) {
+    photos = photos.filter(p =>
+      (p.jobRef        || '').toLowerCase().includes(_adminPhotoSearchQ) ||
+      (p.customerName  || '').toLowerCase().includes(_adminPhotoSearchQ) ||
+      (p.caption       || '').toLowerCase().includes(_adminPhotoSearchQ)
+    );
+  }
+  _adminFilteredPhotos = photos;
+  _adminRenderPhotoGallery();
+}
 
 function _adminRenderPhotoGallery() {
   const gallery = document.getElementById('adminPhotoGallery');
@@ -2978,8 +3021,10 @@ function _adminRenderPhotoGallery() {
     gallery.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📷</div><p>No photos in this category yet.</p></div>`;
     return;
   }
+  const visible = _adminFilteredPhotos.slice(0, _adminPhotoDisplayCount);
+  const hasMore = _adminFilteredPhotos.length > _adminPhotoDisplayCount;
   const groups = {}, noRef = [];
-  _adminFilteredPhotos.forEach(p => {
+  visible.forEach(p => {
     if (p.jobRef) { (groups[p.jobRef] = groups[p.jobRef] || []).push(p); }
     else noRef.push(p);
   });
@@ -2997,20 +3042,33 @@ function _adminRenderPhotoGallery() {
       ${noRef.map(p => _adminPhotoCard(p, _adminFilteredPhotos.indexOf(p))).join('')}
     </div>`;
   }
+  if (hasMore) {
+    html += `<div style="text-align:center;margin-top:20px;">
+      <button onclick="window._adminLoadMorePhotos()" style="padding:10px 28px;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:9px;font-size:0.88rem;font-weight:600;color:#374151;cursor:pointer;">
+        Load More (${_adminFilteredPhotos.length - _adminPhotoDisplayCount} remaining)
+      </button>
+    </div>`;
+  }
   gallery.innerHTML = html;
 }
+
+window._adminLoadMorePhotos = function() {
+  _adminPhotoDisplayCount += 24;
+  _adminRenderPhotoGallery();
+};
 
 function _adminPhotoCard(p, idx) {
   const s = _PHOTO_LABEL_STYLE[p.label] || _PHOTO_LABEL_STYLE.before;
   const date = p.uploadedAt?.toDate?.()?.toLocaleDateString() || '';
   return `<div style="border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;background:#fff;cursor:pointer;transition:box-shadow .2s;" onclick="window._adminOpenLightbox(${idx})">
     <div style="position:relative;padding-top:75%;background:#f1f5f9;">
-      <img src="${escHTML(p.photoUrl)}" alt="${escHTML(p.caption||'')}"
+      <img src="${escHTML(p.thumbUrl || p.photoUrl)}" alt="${escHTML(p.caption||'')}"
         style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" loading="lazy" />
       <span style="position:absolute;top:8px;left:8px;padding:3px 9px;border-radius:20px;font-size:0.7rem;font-weight:700;background:${s.bg};color:${s.color};">${s.dot} ${p.label.charAt(0).toUpperCase()+p.label.slice(1)}</span>
     </div>
     <div style="padding:9px 12px;">
       ${p.caption ? `<div style="font-size:0.8rem;font-weight:600;color:#1e293b;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHTML(p.caption)}</div>` : ''}
+      ${p.customerName ? `<div style="font-size:0.72rem;color:#64748b;margin-bottom:2px;">👤 ${escHTML(p.customerName)}</div>` : ''}
       <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
         <span style="font-size:0.7rem;color:#94a3b8;">${date}</span>
         <button onclick="event.stopPropagation();window._adminDeletePhoto('${escHTML(p.id)}','${escHTML(p.storagePath||'')}')"
@@ -3057,38 +3115,54 @@ window._adminPhotoFilesSelected = function(files) {
 
 window._adminUploadJobPhotos = async function() {
   if (!_adminPendingFiles.length) { showToast('Select at least one photo first.', 'error'); return; }
-  const btn      = document.getElementById('adminPhotoUploadBtn');
-  const progress = document.getElementById('adminPhotoUploadProgress');
-  const label    = document.getElementById('adminPhotoLabel')?.value   || 'before';
-  const jobRef   = document.getElementById('adminPhotoJobRef')?.value.trim()  || '';
-  const caption  = document.getElementById('adminPhotoCaption')?.value.trim() || '';
+  const btn          = document.getElementById('adminPhotoUploadBtn');
+  const progress     = document.getElementById('adminPhotoUploadProgress');
+  const label        = document.getElementById('adminPhotoLabel')?.value        || 'before';
+  const jobRef       = document.getElementById('adminPhotoJobRef')?.value.trim()       || '';
+  const caption      = document.getElementById('adminPhotoCaption')?.value.trim()      || '';
+  const customerName = document.getElementById('adminPhotoCustomer')?.value.trim()     || '';
   if (btn) { btn.disabled = true; btn.textContent = 'Uploading…'; }
   if (progress) { progress.style.display = ''; progress.innerHTML = ''; }
   let done = 0;
   for (const file of _adminPendingFiles) {
     try {
-      const fname = `${Date.now()}_${Math.random().toString(36).slice(2)}.webp`;
-      const path  = `job_photos/${currentUser.uid}/${fname}`;
-      const snap  = await uploadBytes(storageRef(storage, path), file, { contentType: file.type });
-      const url   = await getDownloadURL(snap.ref);
+      const [thumbBlob, fullBlob] = await Promise.all([
+        _resizePhoto(file, 400, 300, 0.80),
+        _resizePhoto(file, 1200, 900, 0.85)
+      ]);
+      const fname     = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      const thumbPath = `job_photos/${currentUser.uid}/thumbs/${fname}.webp`;
+      const fullPath  = `job_photos/${currentUser.uid}/full/${fname}.webp`;
+      const [thumbSnap, fullSnap] = await Promise.all([
+        uploadBytes(storageRef(storage, thumbPath), thumbBlob, { contentType: 'image/webp' }),
+        uploadBytes(storageRef(storage, fullPath),  fullBlob,  { contentType: 'image/webp' })
+      ]);
+      const [thumbUrl, photoUrl] = await Promise.all([
+        getDownloadURL(thumbSnap.ref),
+        getDownloadURL(fullSnap.ref)
+      ]);
       await addDoc(collection(db, 'job_photos'), {
         uid: currentUser.uid, businessId: currentUser.uid,
-        photoUrl: url, storagePath: path,
-        label, jobRef, caption,
+        thumbUrl, photoUrl,
+        storagePaths: [thumbPath, fullPath],
+        label, jobRef, caption, customerName,
         uploadedAt: serverTimestamp()
       });
       done++;
-      if (progress) progress.innerHTML = `✅ ${done} / ${_adminPendingFiles.length} uploaded`;
+      if (progress) progress.innerHTML = `<div style="font-size:0.82rem;color:#15803d;">✅ Uploaded ${done} of ${_adminPendingFiles.length}</div>`;
     } catch(e) {
-      if (progress) progress.innerHTML += `<br>❌ ${file.name}: ${e.message}`;
+      if (progress) progress.innerHTML += `<div style="font-size:0.82rem;color:#dc2626;">⚠️ ${e.message}</div>`;
     }
   }
   if (btn) { btn.disabled = false; btn.textContent = '📤 Upload Photos'; }
   _adminPendingFiles = [];
   const previews = document.getElementById('adminPhotoFilePreviews');
   if (previews) previews.innerHTML = '';
+  ['adminPhotoJobRef','adminPhotoCaption','adminPhotoCustomer'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
   window._adminLoadAllPhotos();
-  setTimeout(() => window._adminTogglePhotoUpload(), 1000);
+  if (done > 0) setTimeout(() => window._adminTogglePhotoUpload(), 800);
 };
 
 window._adminOpenLightbox = function(idx) {
@@ -3102,7 +3176,7 @@ window._adminOpenLightbox = function(idx) {
 function _adminLightboxShow() {
   const p = _adminFilteredPhotos[_adminLightboxIndex];
   if (!p) return;
-  document.getElementById('adminLightboxImg').src = p.photoUrl;
+  document.getElementById('adminLightboxImg').src = p.photoUrl || p.thumbUrl;
   const s = _PHOTO_LABEL_STYLE[p.label] || _PHOTO_LABEL_STYLE.before;
   const cap = [s.dot + ' ' + (p.label.charAt(0).toUpperCase()+p.label.slice(1)), p.caption, p.jobRef ? '📋 ' + p.jobRef : ''].filter(Boolean).join('  ·  ');
   document.getElementById('adminLightboxCaption').textContent = cap;
@@ -3123,12 +3197,14 @@ document.addEventListener('click', e => {
 window._adminDeletePhoto = async function(photoId, storagePath) {
   if (!confirm('Delete this photo permanently?')) return;
   try {
+    const snap = _adminAllPhotos.find(p => p.id === photoId);
     await deleteDoc(doc(db, 'job_photos', photoId));
-    if (storagePath) {
-      try { await deleteObject(storageRef(storage, storagePath)); } catch(_) {}
+    const paths = snap?.storagePaths || (storagePath ? [storagePath] : []);
+    for (const path of paths) {
+      try { await deleteObject(storageRef(storage, path)); } catch(_) {}
     }
     _adminAllPhotos = _adminAllPhotos.filter(p => p.id !== photoId);
-    _adminFilterPhotos(_adminPhotoLabelFilter);
+    _adminApplyPhotoFilters();
     showToast('Photo deleted', 'success');
   } catch(e) {
     showToast('Could not delete photo', 'error');
