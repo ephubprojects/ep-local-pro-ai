@@ -309,35 +309,32 @@ async function drainAudioQueue() {
   if ($audioFrom) $audioFrom.textContent = fromName;
   $audioInd?.classList.remove('hidden');
 
+  // Use HTMLAudioElement instead of WebAudio API.
+  // iOS Safari suspends AudioContext nodes created outside a user gesture and
+  // the suspended src.start() never fires onended — the queue deadlocks.
+  // HTMLMediaElement.play() is unlocked for the session by the silent clip
+  // played in onActivate and reliably works from async callbacks on iOS.
   try {
-    // Build ArrayBuffer from base64 or URL
-    let arrayBuf;
-    if (b64Data?.b64) {
-      arrayBuf = Uint8Array.from(atob(b64Data.b64), c => c.charCodeAt(0)).buffer;
-    } else if (audioUrl) {
-      arrayBuf = await (await fetch(audioUrl)).arrayBuffer();
-    }
-    if (!arrayBuf) { $audioInd?.classList.add('hidden'); drainAudioQueue(); return; }
+    let playUrl  = audioUrl;
+    let isBlobUrl = false;
 
-    // Reuse the shared AudioContext created during the PTT activate gesture.
-    // iOS Safari will only run a context that was unlocked by a real user gesture;
-    // creating a new context here (async, no gesture) would stay suspended forever.
-    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
-      sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (b64Data?.b64) {
+      const bytes = Uint8Array.from(atob(b64Data.b64), c => c.charCodeAt(0));
+      playUrl   = URL.createObjectURL(new Blob([bytes], { type: b64Data.type || 'audio/wav' }));
+      isBlobUrl = true;
     }
-    if (sharedAudioCtx.state !== 'running') {
-      await sharedAudioCtx.resume();
-    }
-    // .slice(0) passes a copy so decodeAudioData doesn't detach the original buffer
-    const decoded = await sharedAudioCtx.decodeAudioData(arrayBuf.slice(0));
-    const src = sharedAudioCtx.createBufferSource();
-    src.buffer = decoded;
-    src.connect(sharedAudioCtx.destination);
-    src.onended = () => {
+
+    if (!playUrl) { $audioInd?.classList.add('hidden'); drainAudioQueue(); return; }
+
+    const audio = new Audio(playUrl);
+    const done  = () => {
+      if (isBlobUrl) URL.revokeObjectURL(playUrl);
       $audioInd?.classList.add('hidden');
       drainAudioQueue();
     };
-    src.start();
+    audio.onended = done;
+    audio.onerror = () => { console.error('audio element error'); done(); };
+    await audio.play();
   } catch (err) {
     console.error('playAudio error:', err);
     $audioInd?.classList.add('hidden');
