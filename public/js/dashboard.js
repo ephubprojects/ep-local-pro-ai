@@ -2091,8 +2091,8 @@ async function toggleEmployeeWt(empId, currentActive) {
 let wtMsgUnsub    = null;
 let wtUnread      = 0;
 let wtPanelOpen    = false;
-let wtHistoryLoaded = false;
-const wtPlayedSet  = new Set();
+const wtPlayedSet    = new Set();
+const WT_LOAD_MS     = Date.now(); // page-load timestamp for filtering historical messages
 
 // MediaRecorder state (owner PTT)
 let wtMediaStream  = null;
@@ -2431,14 +2431,18 @@ function subscribeWtMessages() {
       if (wtPlayedSet.has(msgId)) return;
       wtPlayedSet.add(msgId);
 
+      // Skip historical messages (sent before this dashboard session loaded)
+      const msgMs = data.createdAt?.toMillis?.() ?? Date.now();
+      if (msgMs < WT_LOAD_MS - 5000) return;
+
       // Skip messages not directed to owner (employee-to-employee private chats)
       if (data.to) {
         const toList = Array.isArray(data.to) ? data.to : [data.to];
         if (!toList.includes('owner')) return;
       }
 
-      // Play audio + badge only for new real-time messages (not history)
-      if (wtHistoryLoaded && data.from !== 'owner') {
+      // Play audio for new messages from staff (not the owner's own messages)
+      if (data.from !== 'owner') {
         const name = data.fromName || 'Staff';
 
         // Auto-select the employee who just spoke and open the dropdown
@@ -2472,7 +2476,6 @@ function subscribeWtMessages() {
         }
       }
     });
-    wtHistoryLoaded = true;
   }, err => console.error('wt_messages snapshot error:', err));
 }
 
@@ -2577,6 +2580,10 @@ async function onOwnerRecordingStop() {
     await addDoc(collection(db, 'wt_messages'), payload);
     wtIncrDashUsage(limitCheck.monthKey, limitCheck.isNewMonth).catch(() => {});
     wtSendPush(ownerName, payload.to ?? null);
+    const sentTo = wtSelectedTargets.size === 0
+      ? 'all staff'
+      : [...wtSelectedTargets].map(c => wtEmployeeList.find(e => e.empCode === c)?.name || c).join(', ');
+    showToast(`✓ Sent to ${sentTo}`, 'success');
   } catch (err) {
     console.error('sendWtAudio error:', err);
     showToast('Failed to send voice message.', 'error');

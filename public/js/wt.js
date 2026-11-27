@@ -25,7 +25,10 @@ let _bizOwnerId  = null; // WT plan check
 // ── State ────────────────────────────────────────────────────
 const playedSet   = new Set();
 let heartbeat     = null;
-let historyLoaded = false;
+// Timestamp when the page loaded — messages older than this are historical and skipped.
+// Replaces the historyLoaded flag which had a race condition when the initial snapshot
+// was slow (new messages sent during load got added to playedSet but never played).
+const PAGE_LOAD_MS = Date.now();
 
 // MediaRecorder
 let mediaStream  = null;
@@ -244,13 +247,19 @@ function subscribeMessages() {
       if (playedSet.has(msgId)) return;
       playedSet.add(msgId);
 
+      // Skip historical messages sent before this page session loaded.
+      // A 5-second buffer handles server timestamp skew; null createdAt (pending write)
+      // defaults to now so it always plays.
+      const msgMs = data.createdAt?.toMillis?.() ?? Date.now();
+      if (msgMs < PAGE_LOAD_MS - 5000) return;
+
       // Skip messages not addressed to this employee (supports string or array `to`)
       if (data.to) {
         const toList = Array.isArray(data.to) ? data.to : [data.to];
         if (!toList.includes(identity?.from)) return;
       }
 
-      if (historyLoaded && data.from !== identity?.from) {
+      if (data.from !== identity?.from) {
         const name = data.fromName || (data.from === 'owner' ? 'Boss' : 'Staff');
 
         // Track who last spoke (for the 🔊 indicator in contacts)
@@ -275,7 +284,6 @@ function subscribeMessages() {
         }
       }
     });
-    historyLoaded = true;
   }, err => {
     console.error('wt_messages snapshot error:', err);
     $pttHint.textContent = '⚠️ Connection error — please refresh the page';
