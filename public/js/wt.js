@@ -330,30 +330,33 @@ async function drainAudioQueue() {
 
   let blobUrl = null;
   try {
+    // Build the src — blob URL for b64, direct URL for Firebase Storage.
+    // <audio> element loads cross-origin URLs without CORS restrictions,
+    // so we skip fetch() and play the storage URL directly — fewer failure points.
+    let src = null;
     if (b64Data?.b64) {
       const bytes = Uint8Array.from(atob(b64Data.b64), c => c.charCodeAt(0));
       blobUrl = URL.createObjectURL(new Blob([bytes], { type: b64Data.type || 'audio/wav' }));
+      src = blobUrl;
     } else if (audioUrl) {
-      // Fetch → check Content-Type → create typed blob URL
-      const resp = await fetch(audioUrl);
-      if (!resp.ok) throw new Error(`fetch ${resp.status}`);
-      const blob = await resp.blob();
-      wtDebug(`Playing: ${blob.type || 'unknown'} ${(blob.size/1024).toFixed(1)}KB`);
-      blobUrl = URL.createObjectURL(blob);
+      src = audioUrl;
     }
-    if (!blobUrl) throw new Error('no audio source');
+    if (!src) throw new Error('no audio source');
+
+    wtDebug(`Loading: ${src.includes('firebasestorage') ? 'firebase WAV' : src.slice(0,30)}`);
 
     $wtRxAudio.onended = null;
     $wtRxAudio.onerror = null;
-    $wtRxAudio.src = blobUrl;
+    $wtRxAudio.src = src;
 
     await new Promise((resolve, reject) => {
-      $wtRxAudio.onended = resolve;
+      $wtRxAudio.onended = () => { wtDebug('✓ played OK'); resolve(); };
       $wtRxAudio.onerror = () => {
         const code = $wtRxAudio.error?.code ?? '?';
-        reject(new Error(`MediaError ${code}`));
+        const msg  = ['','aborted','network','decode','unsupported'][code] || code;
+        reject(new Error(`MediaError: ${msg}`));
       };
-      $wtRxAudio.play().catch(err => reject(new Error(`play: ${err.name}`)));
+      $wtRxAudio.play().catch(err => reject(new Error(`play blocked: ${err.name}`)));
     });
   } catch (err) {
     wtDebug(`⚠️ ${err.message}`);
