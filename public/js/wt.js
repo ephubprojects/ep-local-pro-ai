@@ -423,6 +423,25 @@ function wirePtt() {
 function startRec(e) {
   e.preventDefault();
   if (isRecording || !mediaStream) return;
+
+  // iOS Safari interrupts the mic stream when audio plays back (audio session conflict).
+  // If the stream was killed, re-request from this user gesture synchronously.
+  const tracks = mediaStream.getTracks();
+  if (!mediaStream.active || tracks.some(t => t.readyState !== 'live')) {
+    $pttHint.textContent = 'Reactivating mic… hold again to talk';
+    // getUserMedia MUST be initiated synchronously from the user gesture on iOS.
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      .then(stream => {
+        mediaStream.getTracks().forEach(t => t.stop());
+        mediaStream = stream;
+        updatePttHint();
+      })
+      .catch(() => {
+        $pttHint.textContent = '⚠️ Mic unavailable — tap 🔒 in browser bar and allow mic';
+      });
+    return; // user holds again after re-activation
+  }
+
   isRecording = true;
   audioChunks = [];
   $pttBtn.classList.add('recording');
@@ -453,7 +472,8 @@ function stopRec(e) {
 async function onRecordingStop() {
   recorder = null;
   if (!audioChunks.length) {
-    $pttHint.textContent = 'Hold to talk · Release to send';
+    $pttHint.textContent = '⚠️ No audio — hold button and speak, then release';
+    setTimeout(updatePttHint, 3000);
     return;
   }
 
@@ -465,7 +485,8 @@ async function onRecordingStop() {
   audioChunks = [];
 
   if (blob.size < 500) {
-    $pttHint.textContent = 'Hold to talk · Release to send';
+    $pttHint.textContent = '⚠️ No audio captured — try holding again';
+    setTimeout(updatePttHint, 3000);
     return;
   }
 
