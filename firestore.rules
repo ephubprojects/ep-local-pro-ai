@@ -146,6 +146,43 @@ service cloud.firestore {
       allow update: if isAdmin() || (isAuth() && resource.data.uid == request.auth.uid);
     }
 
+    // ── EP HUB Channels ──────────────────────────────────────────────────
+    // channel.js is unauthenticated — it reads to validate orgToken, and
+    // updates only the presence fields (orgOnline, orgLastSeen).
+    match /hub_channels/{channelId} {
+      allow read: if true;
+      allow create: if isAuth();
+      allow update: if isAdmin()
+        || (isAuth() && resource.data.ownerId == request.auth.uid)
+        || request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['orgOnline', 'orgLastSeen']);
+      allow delete: if isAdmin() || (isAuth() && resource.data.ownerId == request.auth.uid);
+    }
+
+    // ── EP HUB Channel members ────────────────────────────────────────────
+    // channel.js reads to validate member code; updates only presence fields.
+    match /hub_members/{memberId} {
+      allow read: if true;
+      allow create: if isAuth();
+      allow update: if isAdmin()
+        || (isAuth() && resource.data.ownerId == request.auth.uid)
+        || request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['hubOnline', 'hubLastSeen']);
+      allow delete: if isAdmin() || (isAuth() && resource.data.ownerId == request.auth.uid);
+    }
+
+    // ── EP HUB Channel voice messages ────────────────────────────────────
+    match /hub_messages/{msgId} {
+      allow read, create, update: if true;  // channel page is unauthenticated
+      allow delete: if isAdmin();
+    }
+
+    // ── EP HUB Channel push subscriptions ────────────────────────────────
+    // channel.js reads subs to send push + writes its own sub — all without auth.
+    match /hub_push_subs/{subId} {
+      allow read, write: if true;
+    }
+
     // ── Google My Business setup requests ────────────────────────────────
     match /gmb_requests/{reqId} {
       allow read: if isAdmin() || (isAuth() && resource.data.uid == request.auth.uid);

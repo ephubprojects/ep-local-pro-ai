@@ -249,9 +249,10 @@ function showSection(name) {
     'gmb':         'Google My Business',
     'profile':     'Business Profile',
     'ai-settings': 'AI Settings',
-    'team':        'Team',
-    'account':     'Account',
-    'market-rate': 'Market Rate Calculator'
+    'team':         'Team',
+    'hub-channels': 'EP HUB Channels',
+    'account':      'Account',
+    'market-rate':  'Market Rate Calculator'
   };
   qs('#pageTitle').textContent = titles[name] || 'Dashboard';
 
@@ -267,8 +268,9 @@ function showSection(name) {
   if (name === 'gmb')        { window._loadGmbSection(); }
   if (name === 'profile')     { loadProfile(); }
   if (name === 'ai-settings') { loadAiSettings(); }
-  if (name === 'team')        { loadTeam(); }
-  if (name === 'account')     { loadAccount(); }
+  if (name === 'team')         { loadTeam(); }
+  if (name === 'hub-channels') { loadHubChannels(); }
+  if (name === 'account')      { loadAccount(); }
   if (name === 'market-rate') { _mrRenderHistoryDash(); }
 }
 
@@ -5156,3 +5158,285 @@ window._updateMyLeadStatus = async function(leadId, status) {
     showToast('Could not update status', 'error');
   }
 };
+
+// ════════════════════════════════════════════════════════════
+//  EP HUB CHANNELS
+// ════════════════════════════════════════════════════════════
+
+let _hubSelectedChannelId = null;
+
+function _genHubCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i = 0; i < 8; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+async function loadHubChannels() {
+  qs('#hubChCreateBtn').onclick = createHubChannel;
+
+  if (!currentUser) return;
+
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'hub_channels'),
+      where('ownerId', '==', currentUser.uid)
+    ));
+
+    const selectCard   = qs('#hubChSelectCard');
+    const orgLinkCard  = qs('#hubOrgLinkCard');
+    const addUserCard  = qs('#hubAddUserCard');
+    const usersCard    = qs('#hubUsersTableCard');
+    const sel          = qs('#hubChSelect');
+
+    if (snap.empty) {
+      selectCard.classList.add('hidden');
+      orgLinkCard.classList.add('hidden');
+      addUserCard.classList.add('hidden');
+      usersCard.classList.add('hidden');
+      _hubSelectedChannelId = null;
+      return;
+    }
+
+    sel.innerHTML = '';
+    snap.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value       = d.id;
+      opt.textContent = d.data().name || 'Unnamed Channel';
+      if (d.id === _hubSelectedChannelId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+
+    if (!_hubSelectedChannelId) _hubSelectedChannelId = snap.docs[0].id;
+    sel.value = _hubSelectedChannelId;
+
+    sel.onchange = () => {
+      _hubSelectedChannelId = sel.value;
+      _loadHubChannelDetails();
+    };
+
+    qs('#hubChDeleteBtn').onclick = deleteHubChannel;
+
+    selectCard.classList.remove('hidden');
+    orgLinkCard.classList.remove('hidden');
+    addUserCard.classList.remove('hidden');
+    usersCard.classList.remove('hidden');
+
+    qs('#hubAddUserBtn').onclick = addHubUser;
+
+    _loadHubChannelDetails();
+
+  } catch (err) {
+    console.error('loadHubChannels error:', err);
+    showToast('Failed to load channels.', 'error');
+  }
+}
+
+async function _loadHubChannelDetails() {
+  if (!_hubSelectedChannelId) return;
+  try {
+    const channelSnap = await getDoc(doc(db, 'hub_channels', _hubSelectedChannelId));
+    if (!channelSnap.exists()) return;
+    const data = channelSnap.data();
+
+    const orgLink = `https://ep-local-pro-ai.netlify.app/channel?c=${_hubSelectedChannelId}&o=${data.orgToken}`;
+    qs('#hubOrgLinkText').textContent = orgLink;
+    qs('#hubCopyOrgLinkBtn').onclick = () => {
+      navigator.clipboard.writeText(orgLink).then(() => {
+        const btn = qs('#hubCopyOrgLinkBtn');
+        btn.textContent = '✓ Copied';
+        setTimeout(() => { btn.textContent = 'Copy'; }, 1800);
+      });
+    };
+
+    _loadHubUsers();
+  } catch (err) {
+    console.error('_loadHubChannelDetails error:', err);
+  }
+}
+
+async function _loadHubUsers() {
+  if (!_hubSelectedChannelId) return;
+  const tbody = qs('#hubUsersTableBody');
+  tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><p>Loading…</p></div></td></tr>`;
+
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'hub_members'),
+      where('channelId', '==', _hubSelectedChannelId)
+    ));
+
+    qs('#hubUserCount').textContent = `${snap.size} user${snap.size !== 1 ? 's' : ''}`;
+
+    if (snap.empty) {
+      tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon">👥</div><p>No users yet. Add your first user above.</p></div></td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = '';
+    snap.forEach(d => {
+      const m      = d.data();
+      const active = m.active !== false;
+      const link   = `https://ep-local-pro-ai.netlify.app/channel?c=${_hubSelectedChannelId}&m=${m.code}`;
+      const tr     = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="font-weight:600;">${m.name || '—'}</td>
+        <td>${m.role || '—'}</td>
+        <td><span class="emp-code-badge">${m.code}</span></td>
+        <td class="emp-link-cell">
+          <span style="font-size:0.75rem;color:var(--indigo);font-family:monospace;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${link}</span>
+          <button class="btn-action" data-link="${link}">Copy</button>
+        </td>
+        <td>
+          <button class="btn-wt-toggle ${active ? 'active' : 'off'}"
+            data-memberid="${d.id}" data-active="${active}"
+            title="${active ? 'Click to remove access' : 'Click to restore access'}">
+            ${active ? '📡 On' : '🔇 Off'}
+          </button>
+        </td>
+        <td>
+          <button class="btn-action danger" data-memberid="${d.id}" style="color:var(--red,#ef4444);border-color:#fca5a5;">Delete</button>
+        </td>`;
+
+      tr.querySelector('[data-link]').onclick = function() {
+        navigator.clipboard.writeText(this.dataset.link).then(() => {
+          this.textContent = '✓ Copied';
+          setTimeout(() => { this.textContent = 'Copy'; }, 1800);
+        });
+      };
+
+      tr.querySelector('.btn-wt-toggle').onclick = function() {
+        toggleHubUser(this.dataset.memberid, this.dataset.active === 'true');
+      };
+
+      tr.querySelector('.btn-action.danger').onclick = function() {
+        deleteHubUser(this.dataset.memberid);
+      };
+
+      tbody.appendChild(tr);
+    });
+
+  } catch (err) {
+    console.error('_loadHubUsers error:', err);
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><p>Failed to load users.</p></div></td></tr>`;
+  }
+}
+
+async function createHubChannel() {
+  const name    = qs('#hubChName').value.trim();
+  const orgName = qs('#hubChOrgName').value.trim();
+  if (!name)    { showToast('Channel name is required.', 'error'); return; }
+  if (!orgName) { showToast('Your name (organizer) is required.', 'error'); return; }
+  if (!currentUser) { showToast('Not logged in.', 'error'); return; }
+
+  const btn = qs('#hubChCreateBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Creating…';
+
+  try {
+    const orgToken = _genHubCode() + _genHubCode();
+    const ref = await addDoc(collection(db, 'hub_channels'), {
+      name,
+      orgName,
+      ownerId:   currentUser.uid,
+      orgToken,
+      createdAt: serverTimestamp()
+    });
+    _hubSelectedChannelId = ref.id;
+    qs('#hubChName').value    = '';
+    qs('#hubChOrgName').value = '';
+    showToast(`Channel "${name}" created!`);
+    loadHubChannels();
+  } catch (err) {
+    console.error('createHubChannel error:', err);
+    showToast('Failed to create channel.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '＋ Create Channel';
+  }
+}
+
+async function addHubUser() {
+  const name = qs('#hubUserName').value.trim();
+  const role = qs('#hubUserRole').value.trim();
+  if (!name) { showToast('User name is required.', 'error'); return; }
+  if (!role) { showToast('Role is required.', 'error'); return; }
+  if (!_hubSelectedChannelId) { showToast('Select a channel first.', 'error'); return; }
+
+  const btn = qs('#hubAddUserBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Adding…';
+
+  try {
+    const code = _genHubCode();
+    await addDoc(collection(db, 'hub_members'), {
+      channelId: _hubSelectedChannelId,
+      ownerId:   currentUser.uid,
+      name,
+      role,
+      code,
+      active:    true,
+      createdAt: serverTimestamp()
+    });
+    qs('#hubUserName').value = '';
+    qs('#hubUserRole').value = '';
+    showToast(`${name} added!`);
+    _loadHubUsers();
+  } catch (err) {
+    console.error('addHubUser error:', err);
+    showToast('Failed to add user.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '＋ Add User';
+  }
+}
+
+async function deleteHubUser(memberId) {
+  if (!confirm('Remove this user from the channel?')) return;
+  try {
+    await deleteDoc(doc(db, 'hub_members', memberId));
+    showToast('User removed.');
+    _loadHubUsers();
+  } catch (err) {
+    console.error('deleteHubUser error:', err);
+    showToast('Failed to remove user.', 'error');
+  }
+}
+
+async function toggleHubUser(memberId, currentActive) {
+  const newActive = !currentActive;
+  if (!confirm(`${newActive ? 'Restore' : 'Remove'} channel access for this user?`)) return;
+  try {
+    await updateDoc(doc(db, 'hub_members', memberId), { active: newActive });
+    showToast(newActive ? 'Access restored.' : 'Access removed.');
+    _loadHubUsers();
+  } catch (err) {
+    console.error('toggleHubUser error:', err);
+    showToast('Failed to update access.', 'error');
+  }
+}
+
+async function deleteHubChannel() {
+  if (!_hubSelectedChannelId) return;
+  const sel  = qs('#hubChSelect');
+  const name = sel.options[sel.selectedIndex]?.textContent || 'this channel';
+  if (!confirm(`Delete "${name}" and all its users? This cannot be undone.`)) return;
+
+  try {
+    // Delete all members first
+    const membersSnap = await getDocs(query(
+      collection(db, 'hub_members'),
+      where('channelId', '==', _hubSelectedChannelId)
+    ));
+    const delMemberPromises = membersSnap.docs.map(d => deleteDoc(doc(db, 'hub_members', d.id)));
+    await Promise.all(delMemberPromises);
+
+    await deleteDoc(doc(db, 'hub_channels', _hubSelectedChannelId));
+    _hubSelectedChannelId = null;
+    showToast(`Channel deleted.`);
+    loadHubChannels();
+  } catch (err) {
+    console.error('deleteHubChannel error:', err);
+    showToast('Failed to delete channel.', 'error');
+  }
+}

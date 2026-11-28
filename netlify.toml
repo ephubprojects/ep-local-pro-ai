@@ -57,6 +57,12 @@
   to     = "/wt.html"
   status = 200
 
+# ── EP HUB Channel ─────────────────────────────────────
+[[redirects]]
+  from   = "/channel"
+  to     = "/channel.html"
+  status = 200
+
 # ── Auth ──────────────────────────────────────────────
 [[redirects]]
   from   = "/login"
