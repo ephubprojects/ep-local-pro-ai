@@ -7,6 +7,16 @@ service firebase.storage {
       allow read, write: if true;
     }
 
+    // EP HUB Channel audio — unauthenticated (channel pages have no login)
+    match /hub_audio/{channelId}/{fileName} {
+      allow read, write: if true;
+    }
+
+    // EP HUB Channel images (flyers, invitations) — unauthenticated
+    match /hub_images/{channelId}/{fileName} {
+      allow read, write: if true;
+    }
+
     // Logos & icons are public assets shown to unauthenticated customers
     match /businesses/{bizId}/logo {
       allow read: if true;
