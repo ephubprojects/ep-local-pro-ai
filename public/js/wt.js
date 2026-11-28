@@ -40,6 +40,9 @@ let recTimer     = null;
 // Audio playback queue
 let audioQueue   = [];
 let audioPlaying = false;
+// Holds the resolve() of the current drainAudioQueue Promise so recording
+// can cleanly terminate active playback without waiting 25 seconds.
+let _resolveRxAudio = null;
 
 // PTT hold state — used so stream recovery can auto-start recording
 // if the user is still pressing the button when getUserMedia resolves.
@@ -316,7 +319,9 @@ function enqueueAudio(fromName, audioUrl, b64Data) {
 }
 
 async function drainAudioQueue() {
-  if (!audioQueue.length) { audioPlaying = false; return; }
+  // Don't start new playback while recording — PTT takes audio session priority.
+  // onRecordingStop calls drainAudioQueue() to resume after sending.
+  if (isRecording || !audioQueue.length) { audioPlaying = false; return; }
   audioPlaying = true;
   const { fromName, audioUrl, b64Data } = audioQueue.shift();
 
@@ -335,26 +340,28 @@ async function drainAudioQueue() {
     }
     if (!src) throw new Error('no audio source');
 
-    // Reuse the persistent element (unlocked during onActivate) for iOS autoplay.
-    // Do NOT call load() — assigning src already runs the load algorithm and setting
-    // src twice fires two MEDIA_ERR_ABORTED events that can confuse play().
-    // A single src assignment fires one code-1 abort (ignored below); play() then
-    // starts cleanly once enough data is buffered.
     $wtRxAudio.onended = null;
     $wtRxAudio.onerror = null;
     $wtRxAudio.src = src;
 
     await new Promise((resolve, reject) => {
-      const timeout = setTimeout(resolve, 25_000);
-      $wtRxAudio.onended = () => { clearTimeout(timeout); resolve(); };
+      const timeout = setTimeout(() => { _resolveRxAudio = null; resolve(); }, 25_000);
+      _resolveRxAudio = resolve;
+      $wtRxAudio.onended = () => {
+        _resolveRxAudio = null;
+        clearTimeout(timeout);
+        resolve();
+      };
       $wtRxAudio.onerror = () => {
         const code = $wtRxAudio.error?.code ?? 0;
         if (code === 1) return; // MEDIA_ERR_ABORTED from src change — new load continues
+        _resolveRxAudio = null;
         clearTimeout(timeout);
         const msg = ['','aborted','network','decode','unsupported'][code] || code;
         reject(new Error(`MediaError: ${msg}`));
       };
       $wtRxAudio.play().catch(err => {
+        _resolveRxAudio = null;
         clearTimeout(timeout);
         reject(new Error(`play blocked: ${err.name}`));
       });
@@ -362,6 +369,7 @@ async function drainAudioQueue() {
   } catch (err) {
     console.error('[WT] playback error:', err);
   } finally {
+    _resolveRxAudio = null;
     if (blobUrl) URL.revokeObjectURL(blobUrl);
     $audioInd?.classList.add('hidden');
     drainAudioQueue();
@@ -455,6 +463,17 @@ function startRec(e) {
 }
 
 function beginRecording() {
+  // Pause any active incoming audio before recording.
+  // On iOS, concurrent $wtRxAudio playback switches the audio session to
+  // Playback mode which mutes the microphone — terminate it cleanly here.
+  if (_resolveRxAudio) {
+    $wtRxAudio.pause();
+    const res = _resolveRxAudio;
+    _resolveRxAudio = null;
+    res();
+  }
+  audioPlaying = false;
+
   isRecording = true;
   audioChunks = [];
   $pttBtn.classList.add('recording');
@@ -534,6 +553,7 @@ async function onRecordingStop() {
     wtIncrementUsage(limitCheck.monthKey, limitCheck.isNewMonth).catch(() => {});
     sendWtPush(identity.name, payload.to ?? null);
     updatePttHint();
+    if (!audioPlaying) drainAudioQueue();
 
   } catch (err) {
     console.error('sendAudio error:', err);
