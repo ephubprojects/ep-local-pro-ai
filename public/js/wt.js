@@ -41,6 +41,11 @@ let recTimer     = null;
 let audioQueue   = [];
 let audioPlaying = false;
 
+// PTT hold state — used so stream recovery can auto-start recording
+// if the user is still pressing the button when getUserMedia resolves.
+let pttHeld        = false;
+let micRequesting  = false;
+
 // Single persistent <audio> element for incoming message playback.
 // iOS Safari user-activation (play() inside a user gesture) is per-element —
 // a new Audio() created from async code won't inherit the gesture unlock.
@@ -422,26 +427,41 @@ function wirePtt() {
 
 function startRec(e) {
   e.preventDefault();
-  if (isRecording || !mediaStream) return;
+  if (isRecording || micRequesting || !mediaStream) return;
+  pttHeld = true;
 
-  // iOS Safari interrupts the mic stream when audio plays back (audio session conflict).
-  // If the stream was killed, re-request from this user gesture synchronously.
+  // iOS Safari switches the audio session from "PlayAndRecord" to "Playback"
+  // when $wtRxAudio plays, ending the mic tracks. Detect this and re-request
+  // the stream synchronously from this user gesture (the only iOS-safe moment).
+  // If the user keeps holding while getUserMedia resolves, recording starts
+  // automatically — no double-press needed.
   const tracks = mediaStream.getTracks();
   if (!mediaStream.active || tracks.some(t => t.readyState !== 'live')) {
-    $pttHint.textContent = 'Reactivating mic… hold again to talk';
-    // getUserMedia MUST be initiated synchronously from the user gesture on iOS.
+    micRequesting = true;
+    $pttHint.textContent = 'Mic reactivating…';
     navigator.mediaDevices.getUserMedia({ audio: true, video: false })
       .then(stream => {
+        micRequesting = false;
         mediaStream.getTracks().forEach(t => t.stop());
         mediaStream = stream;
-        updatePttHint();
+        if (pttHeld && !isRecording) {
+          beginRecording(); // still holding → start immediately
+        } else {
+          updatePttHint();  // released → next hold records normally
+        }
       })
       .catch(() => {
+        micRequesting = false;
+        pttHeld = false;
         $pttHint.textContent = '⚠️ Mic unavailable — tap 🔒 in browser bar and allow mic';
       });
-    return; // user holds again after re-activation
+    return;
   }
 
+  beginRecording();
+}
+
+function beginRecording() {
   isRecording = true;
   audioChunks = [];
   $pttBtn.classList.add('recording');
@@ -461,6 +481,7 @@ function startRec(e) {
 
 function stopRec(e) {
   if (e) e.preventDefault();
+  pttHeld = false;
   if (!isRecording) return;
   clearTimeout(recTimer);
   isRecording = false;
