@@ -319,10 +319,14 @@ async function drainAudioQueue() {
   $audioInd?.classList.remove('hidden');
 
   let blobUrl = null;
+  // Fresh element per message — starts at NETWORK_EMPTY so load() never fires
+  // MEDIA_ERR_ABORTED. Kept in DOM during playback so iOS never GC's it;
+  // removed after. The page-level audio activation from onActivate's silent play
+  // on $wtRxAudio means iOS 13+ allows play() on new elements without a gesture.
+  const el = document.createElement('audio');
+  document.body.appendChild(el);
+
   try {
-    // Build the src — blob URL for b64, direct URL for Firebase Storage.
-    // <audio> element loads cross-origin URLs without CORS restrictions,
-    // so we skip fetch() and play the storage URL directly — fewer failure points.
     let src = null;
     if (b64Data?.b64) {
       const bytes = Uint8Array.from(atob(b64Data.b64), c => c.charCodeAt(0));
@@ -333,27 +337,18 @@ async function drainAudioQueue() {
     }
     if (!src) throw new Error('no audio source');
 
-    $wtRxAudio.onended = null;
-    $wtRxAudio.onerror = null;
-    $wtRxAudio.src = src;
-    $wtRxAudio.load();
+    el.src = src;
 
     await new Promise((resolve, reject) => {
-      // 25s safety valve: recording is capped at 20s, so if onended hasn't fired
-      // by then the element is stuck (iOS background suspension, etc.) — force advance.
       const timeout = setTimeout(resolve, 25_000);
-      $wtRxAudio.onended = () => { clearTimeout(timeout); resolve(); };
-      $wtRxAudio.onerror = () => {
-        const code = $wtRxAudio.error?.code ?? 0;
-        // Code 1 (MEDIA_ERR_ABORTED) fires when load() is called on a reused element —
-        // the onActivate unlock step sets src first, so every subsequent load() triggers
-        // this. The new src continues loading normally; just wait for onended.
-        if (code === 1) return;
+      el.onended = () => { clearTimeout(timeout); resolve(); };
+      el.onerror = () => {
         clearTimeout(timeout);
-        const msg = ['','aborted','network','decode','unsupported'][code] || code;
+        const code = el.error?.code ?? '?';
+        const msg  = ['','aborted','network','decode','unsupported'][code] || code;
         reject(new Error(`MediaError: ${msg}`));
       };
-      $wtRxAudio.play().catch(err => {
+      el.play().catch(err => {
         clearTimeout(timeout);
         reject(new Error(`play blocked: ${err.name}`));
       });
@@ -362,6 +357,8 @@ async function drainAudioQueue() {
     console.error('[WT] playback error:', err);
   } finally {
     if (blobUrl) URL.revokeObjectURL(blobUrl);
+    el.src = '';
+    el.remove();
     $audioInd?.classList.add('hidden');
     drainAudioQueue();
   }

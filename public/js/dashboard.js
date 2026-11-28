@@ -2105,16 +2105,6 @@ let wtRecTimer     = null;
 let wtAudioQueue   = [];
 let wtAudioPlaying = false;
 
-// Persistent audio element for incoming employee messages.
-// new Audio() objects not in the DOM can be GC'd before onended fires —
-// keeping the element in the DOM guarantees the browser holds the reference.
-const $wtPanelAudio = (() => {
-  const el = document.createElement('audio');
-  el.preload = 'none';
-  document.body.appendChild(el);
-  return el;
-})();
-
 // Push notifications
 let wtSwRegistration = null;
 const WT_VAPID_PUBLIC_KEY = 'BImnaD28aQfG8YdR9_PjwdlPLIfiGk4vfBfbmzo2uDOF21EEgDruZVxBUlupf2ObNL3zP5ATrlEgZDFRlhsEFxY';
@@ -2634,6 +2624,11 @@ async function drainWtAudioQueue() {
   if (audioInd)  audioInd.classList.remove('hidden');
 
   let blobUrl = null;
+  // Fresh element per message — no previous src means no MEDIA_ERR_ABORTED on load(),
+  // and keeping it in the DOM prevents Chrome from GC'ing it before onended fires.
+  const el = document.createElement('audio');
+  document.body.appendChild(el);
+
   try {
     let src = audioUrl;
     if (!src && b64Data?.b64) {
@@ -2644,27 +2639,18 @@ async function drainWtAudioQueue() {
     if (!src) throw new Error('no audio source');
 
     console.log('[WT-DASH] Playing from', fromName, src.slice(0, 60));
-
-    // Use the persistent DOM-attached element so Chrome never GC's it before onended fires
-    $wtPanelAudio.onended = null;
-    $wtPanelAudio.onerror = null;
-    $wtPanelAudio.src = src;
-    $wtPanelAudio.load();
+    el.src = src;
 
     await new Promise((resolve, reject) => {
       const timeout = setTimeout(resolve, 25_000);
-      $wtPanelAudio.onended = () => { clearTimeout(timeout); console.log('[WT-DASH] ✓ played OK'); resolve(); };
-      $wtPanelAudio.onerror = () => {
-        const code = $wtPanelAudio.error?.code ?? 0;
-        // Code 1 (MEDIA_ERR_ABORTED) fires when load() is called on a reused element —
-        // it means the previous resource was aborted, not that the new one failed.
-        // The new src continues loading normally; just wait for onended.
-        if (code === 1) return;
+      el.onended = () => { clearTimeout(timeout); console.log('[WT-DASH] ✓ played OK'); resolve(); };
+      el.onerror = () => {
         clearTimeout(timeout);
-        const msg = ['','aborted','network','decode','unsupported'][code] || code;
+        const code = el.error?.code ?? '?';
+        const msg  = ['','aborted','network','decode','unsupported'][code] || code;
         reject(new Error(`MediaError: ${msg}`));
       };
-      $wtPanelAudio.play().catch(err => {
+      el.play().catch(err => {
         clearTimeout(timeout);
         reject(new Error(`play blocked: ${err.name}`));
       });
@@ -2673,6 +2659,8 @@ async function drainWtAudioQueue() {
     console.error('[WT-DASH] playback error:', err.message);
   } finally {
     if (blobUrl) URL.revokeObjectURL(blobUrl);
+    el.src = '';
+    el.remove();
     if (audioInd) audioInd.classList.add('hidden');
     drainWtAudioQueue();
   }
