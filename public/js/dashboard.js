@@ -2610,6 +2610,7 @@ function wtGetSupportedMimeType() {
 // ── Audio playback queue (owner side) ────────────────────────
 function enqueueWtAudio(fromName, audioUrl, b64Data) {
   wtAudioQueue.push({ fromName, audioUrl, b64Data });
+  console.log('[WT-DASH] enqueue from', fromName, '| queue:', wtAudioQueue.length, '| playing:', wtAudioPlaying);
   if (!wtAudioPlaying) drainWtAudioQueue();
 }
 
@@ -2642,23 +2643,33 @@ async function drainWtAudioQueue() {
     el.src = src;
 
     await new Promise((resolve, reject) => {
-      const timeout = setTimeout(resolve, 25_000);
+      const timeout = setTimeout(() => { console.warn('[WT-DASH] ⏱ 25s timeout — onended never fired'); resolve(); }, 25_000);
       el.onended = () => { clearTimeout(timeout); console.log('[WT-DASH] ✓ played OK'); resolve(); };
       el.onerror = () => {
+        const code = el.error?.code ?? 0;
+        if (code === 1) {
+          console.log('[WT-DASH] code-1 abort ignored, load continues');
+          return; // MEDIA_ERR_ABORTED from src assignment — load algorithm continues
+        }
         clearTimeout(timeout);
-        const code = el.error?.code ?? '?';
-        const msg  = ['','aborted','network','decode','unsupported'][code] || code;
+        const msg = ['','aborted','network','decode','unsupported'][code] || code;
+        console.error('[WT-DASH] onerror code', code, msg);
         reject(new Error(`MediaError: ${msg}`));
       };
-      el.play().catch(err => {
-        clearTimeout(timeout);
-        reject(new Error(`play blocked: ${err.name}`));
-      });
+      el.play()
+        .then(() => console.log('[WT-DASH] play() started OK'))
+        .catch(err => {
+          clearTimeout(timeout);
+          console.error('[WT-DASH] play() blocked:', err.name, err.message);
+          reject(new Error(`play blocked: ${err.name}`));
+        });
     });
   } catch (err) {
     console.error('[WT-DASH] playback error:', err.message);
   } finally {
     if (blobUrl) URL.revokeObjectURL(blobUrl);
+    el.onended = null;
+    el.onerror = null;
     el.src = '';
     el.remove();
     if (audioInd) audioInd.classList.add('hidden');
