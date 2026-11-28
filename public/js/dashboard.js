@@ -2428,6 +2428,9 @@ function subscribeWtMessages() {
       const msgId = change.doc.id;
       const data  = change.doc.data();
 
+      // RAW: fires before every filter — shows what Firestore is actually delivering
+      console.log('[WT-RAW]', data.from, '→', data.to ?? 'broadcast', '| audio:', !!data.audioUrl, '| alreadyPlayed:', wtPlayedSet.has(msgId));
+
       if (wtPlayedSet.has(msgId)) return;
       wtPlayedSet.add(msgId);
 

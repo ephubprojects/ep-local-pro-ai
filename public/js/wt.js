@@ -429,36 +429,29 @@ function startRec(e) {
   e.preventDefault();
   if (isRecording || micRequesting || !mediaStream) return;
   pttHeld = true;
+  micRequesting = true;
 
-  // iOS Safari switches the audio session from "PlayAndRecord" to "Playback"
-  // when $wtRxAudio plays, ending the mic tracks. Detect this and re-request
-  // the stream synchronously from this user gesture (the only iOS-safe moment).
-  // If the user keeps holding while getUserMedia resolves, recording starts
-  // automatically — no double-press needed.
-  const tracks = mediaStream.getTracks();
-  if (!mediaStream.active || tracks.some(t => t.readyState !== 'live')) {
-    micRequesting = true;
-    $pttHint.textContent = 'Mic reactivating…';
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-      .then(stream => {
-        micRequesting = false;
-        mediaStream.getTracks().forEach(t => t.stop());
-        mediaStream = stream;
-        if (pttHeld && !isRecording) {
-          beginRecording(); // still holding → start immediately
-        } else {
-          updatePttHint();  // released → next hold records normally
-        }
-      })
-      .catch(() => {
-        micRequesting = false;
-        pttHeld = false;
-        $pttHint.textContent = '⚠️ Mic unavailable — tap 🔒 in browser bar and allow mic';
-      });
-    return;
-  }
-
-  beginRecording();
+  // Always re-request getUserMedia on each PTT press. iOS Safari silently
+  // degrades or mutes the mic stream after $wtRxAudio plays (audio session
+  // switches from PlayAndRecord to Playback). A fresh stream every time
+  // guarantees we capture real audio — overhead is negligible since
+  // permission is already granted.
+  navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    .then(stream => {
+      micRequesting = false;
+      mediaStream.getTracks().forEach(t => t.stop());
+      mediaStream = stream;
+      if (pttHeld && !isRecording) {
+        beginRecording();
+      } else {
+        updatePttHint();
+      }
+    })
+    .catch(() => {
+      micRequesting = false;
+      pttHeld = false;
+      $pttHint.textContent = '⚠️ Mic unavailable — allow mic access and try again';
+    });
 }
 
 function beginRecording() {
