@@ -344,9 +344,13 @@ async function drainAudioQueue() {
       const timeout = setTimeout(resolve, 25_000);
       $wtRxAudio.onended = () => { clearTimeout(timeout); resolve(); };
       $wtRxAudio.onerror = () => {
+        const code = $wtRxAudio.error?.code ?? 0;
+        // Code 1 (MEDIA_ERR_ABORTED) fires when load() is called on a reused element —
+        // the onActivate unlock step sets src first, so every subsequent load() triggers
+        // this. The new src continues loading normally; just wait for onended.
+        if (code === 1) return;
         clearTimeout(timeout);
-        const code = $wtRxAudio.error?.code ?? '?';
-        const msg  = ['','aborted','network','decode','unsupported'][code] || code;
+        const msg = ['','aborted','network','decode','unsupported'][code] || code;
         reject(new Error(`MediaError: ${msg}`));
       };
       $wtRxAudio.play().catch(err => {

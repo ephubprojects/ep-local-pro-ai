@@ -2612,7 +2612,8 @@ async function onOwnerRecordingStop() {
 }
 
 function wtGetSupportedMimeType() {
-  const types = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+  // webm/opus must come first — audio/mp4 fails in decodeAudioData even though Chrome can record it
+  const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
   return types.find(t => MediaRecorder.isTypeSupported(t)) || '';
 }
 
@@ -2654,9 +2655,13 @@ async function drainWtAudioQueue() {
       const timeout = setTimeout(resolve, 25_000);
       $wtPanelAudio.onended = () => { clearTimeout(timeout); console.log('[WT-DASH] ✓ played OK'); resolve(); };
       $wtPanelAudio.onerror = () => {
+        const code = $wtPanelAudio.error?.code ?? 0;
+        // Code 1 (MEDIA_ERR_ABORTED) fires when load() is called on a reused element —
+        // it means the previous resource was aborted, not that the new one failed.
+        // The new src continues loading normally; just wait for onended.
+        if (code === 1) return;
         clearTimeout(timeout);
-        const code = $wtPanelAudio.error?.code ?? '?';
-        const msg  = ['','aborted','network','decode','unsupported'][code] || code;
+        const msg = ['','aborted','network','decode','unsupported'][code] || code;
         reject(new Error(`MediaError: ${msg}`));
       };
       $wtPanelAudio.play().catch(err => {
@@ -2675,10 +2680,13 @@ async function drainWtAudioQueue() {
 
 async function wtEncodeToWav(blob) {
   const arrayBuf = await blob.arrayBuffer();
-  // OfflineAudioContext is never suspended (unlike AudioContext which Chrome may
-  // suspend when created outside a user gesture), so decodeAudioData always runs.
+  // OfflineAudioContext: purely computational, never touches the audio output stack.
+  // Using AudioContext here would trigger Chrome's autoplay-policy reset on close,
+  // blocking subsequent $wtPanelAudio.play() calls with NotAllowedError.
   const offCtx = new OfflineAudioContext(1, 1, 44100);
   const decoded = await offCtx.decodeAudioData(arrayBuf);
+  console.log('[WT] decoded sampleRate:', decoded.sampleRate, 'length:', decoded.length);
+  if (!decoded || decoded.length === 0) throw new Error('decoded audio empty');
   const targetSr = 16000;
   const srcData  = decoded.getChannelData(0);
   const ratio    = decoded.sampleRate / targetSr;
