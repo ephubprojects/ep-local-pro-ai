@@ -444,24 +444,25 @@ async function drainAudioQueue() {
       });
 
     } else if (audioUrl) {
-      // Fetch the full audio file and decode through AudioContext.
-      // This avoids premature cutoff caused by missing/wrong duration metadata
-      // in browser-recorded WebM blobs when streamed via <audio src>.
-      const resp = await fetch(audioUrl);
-      const ab   = await resp.arrayBuffer();
-      const buf  = await ctx.decodeAudioData(ab);
+      // URL path — reuse persistent $chRxAudio (pre-unlocked in onActivate).
+      // Fresh elements created outside a user gesture are blocked by iOS autoplay.
+      $chRxAudio.onended = null;
+      $chRxAudio.onerror = null;
+      $chRxAudio.src = audioUrl;
 
       await new Promise(resolve => {
         const timeout = setTimeout(() => { _resolveRxAudio = null; resolve(); }, 60_000);
         _resolveRxAudio = resolve;
-        rxAudioSource = ctx.createBufferSource();
-        rxAudioSource.buffer = buf;
-        rxAudioSource.connect(ctx.destination);
-        rxAudioSource.onended = () => {
+        $chRxAudio.onended = () => {
           if (!_resolveRxAudio) return;
-          _resolveRxAudio = null; clearTimeout(timeout); rxAudioSource = null; resolve();
+          _resolveRxAudio = null; clearTimeout(timeout); resolve();
         };
-        rxAudioSource.start();
+        $chRxAudio.onerror = () => {
+          const code = $chRxAudio.error?.code ?? 0;
+          if (code === 1) return; // MEDIA_ERR_ABORTED from src change — load continues
+          clearTimeout(timeout); _resolveRxAudio = null; resolve();
+        };
+        $chRxAudio.play().catch(() => { clearTimeout(timeout); _resolveRxAudio = null; resolve(); });
       });
     }
   } catch (err) {
