@@ -444,26 +444,55 @@ async function drainAudioQueue() {
       });
 
     } else if (audioUrl) {
-      // URL path — reuse persistent $chRxAudio (pre-unlocked in onActivate).
-      // Fresh elements created outside a user gesture are blocked by iOS autoplay.
-      $chRxAudio.onended = null;
-      $chRxAudio.onerror = null;
-      $chRxAudio.src = audioUrl;
+      // Try proxy → fetch → decodeAudioData first.
+      // The proxy fetches from Firebase Storage server-side (no CORS) and returns
+      // the full file. decodeAudioData reads actual audio data, so Chrome-recorded
+      // WebM blobs with missing duration metadata play completely instead of cutting off.
+      let decoded = false;
+      try {
+        const proxyUrl = `/.netlify/functions/audio-proxy?url=${encodeURIComponent(audioUrl)}`;
+        const resp = await fetch(proxyUrl);
+        if (resp.ok) {
+          const ab  = await resp.arrayBuffer();
+          const buf = await ctx.decodeAudioData(ab);
 
-      await new Promise(resolve => {
-        const timeout = setTimeout(() => { _resolveRxAudio = null; resolve(); }, 60_000);
-        _resolveRxAudio = resolve;
-        $chRxAudio.onended = () => {
-          if (!_resolveRxAudio) return;
-          _resolveRxAudio = null; clearTimeout(timeout); resolve();
-        };
-        $chRxAudio.onerror = () => {
-          const code = $chRxAudio.error?.code ?? 0;
-          if (code === 1) return; // MEDIA_ERR_ABORTED from src change — load continues
-          clearTimeout(timeout); _resolveRxAudio = null; resolve();
-        };
-        $chRxAudio.play().catch(() => { clearTimeout(timeout); _resolveRxAudio = null; resolve(); });
-      });
+          await new Promise(resolve => {
+            const timeout = setTimeout(() => { _resolveRxAudio = null; resolve(); }, 60_000);
+            _resolveRxAudio = resolve;
+            rxAudioSource = ctx.createBufferSource();
+            rxAudioSource.buffer = buf;
+            rxAudioSource.connect(ctx.destination);
+            rxAudioSource.onended = () => {
+              if (!_resolveRxAudio) return;
+              _resolveRxAudio = null; clearTimeout(timeout); rxAudioSource = null; resolve();
+            };
+            rxAudioSource.start();
+          });
+          decoded = true;
+        }
+      } catch (_) { /* fall through to <audio> */ }
+
+      if (!decoded) {
+        // Fallback: stream directly via pre-unlocked <audio> element.
+        $chRxAudio.onended = null;
+        $chRxAudio.onerror = null;
+        $chRxAudio.src = audioUrl;
+
+        await new Promise(resolve => {
+          const timeout = setTimeout(() => { _resolveRxAudio = null; resolve(); }, 60_000);
+          _resolveRxAudio = resolve;
+          $chRxAudio.onended = () => {
+            if (!_resolveRxAudio) return;
+            _resolveRxAudio = null; clearTimeout(timeout); resolve();
+          };
+          $chRxAudio.onerror = () => {
+            const code = $chRxAudio.error?.code ?? 0;
+            if (code === 1) return;
+            clearTimeout(timeout); _resolveRxAudio = null; resolve();
+          };
+          $chRxAudio.play().catch(() => { clearTimeout(timeout); _resolveRxAudio = null; resolve(); });
+        });
+      }
     }
   } catch (err) {
     console.error('[CH] playback error:', err);

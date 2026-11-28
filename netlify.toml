@@ -33,6 +33,9 @@
 [functions."market-rate"]
   timeout = 25
 
+[functions."audio-proxy"]
+  timeout = 20
+
 # ── Admin ─────────────────────────────────────────────
 [[redirects]]
   from   = "/admin"
