@@ -49,17 +49,19 @@ let _resolveRxAudio = null;
 let pttHeld        = false;
 let micRequesting  = false;
 
-// Single persistent <audio> element for incoming message playback.
-// iOS Safari user-activation (play() inside a user gesture) is per-element —
-// a new Audio() created from async code won't inherit the gesture unlock.
-// We create this element once at load, play a silent clip on it inside
-// onActivate (a real user gesture), then reuse it for every incoming message.
-const $wtRxAudio = (() => {
-  const el = document.createElement('audio');
-  el.preload = 'none';
-  document.body.appendChild(el);
-  return el;
-})();
+// Web Audio API context for incoming message playback.
+// AudioContext on iOS uses AVAudioSessionCategoryPlayAndRecord, which keeps
+// the microphone accessible even while audio is playing — unlike <audio>,
+// which switches the session to Playback-only and silently mutes the mic.
+let rxAudioCtx    = null;
+let rxAudioSource = null; // active AudioBufferSourceNode
+
+function getRxAudioCtx() {
+  if (!rxAudioCtx || rxAudioCtx.state === 'closed') {
+    rxAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return rxAudioCtx;
+}
 
 // Push notifications
 let swRegistration = null;
@@ -319,8 +321,6 @@ function enqueueAudio(fromName, audioUrl, b64Data) {
 }
 
 async function drainAudioQueue() {
-  // Don't start new playback while recording — PTT takes audio session priority.
-  // onRecordingStop calls drainAudioQueue() to resume after sending.
   if (isRecording || !audioQueue.length) { audioPlaying = false; return; }
   audioPlaying = true;
   const { fromName, audioUrl, b64Data } = audioQueue.shift();
@@ -328,49 +328,43 @@ async function drainAudioQueue() {
   if ($audioFrom) $audioFrom.textContent = fromName;
   $audioInd?.classList.remove('hidden');
 
-  let blobUrl = null;
   try {
-    let src = null;
+    let arrayBuffer = null;
     if (b64Data?.b64) {
       const bytes = Uint8Array.from(atob(b64Data.b64), c => c.charCodeAt(0));
-      blobUrl = URL.createObjectURL(new Blob([bytes], { type: b64Data.type || 'audio/wav' }));
-      src = blobUrl;
+      arrayBuffer = bytes.buffer;
     } else if (audioUrl) {
-      src = audioUrl;
+      const resp = await fetch(audioUrl);
+      arrayBuffer = await resp.arrayBuffer();
     }
-    if (!src) throw new Error('no audio source');
+    if (!arrayBuffer) throw new Error('no audio source');
 
-    $wtRxAudio.onended = null;
-    $wtRxAudio.onerror = null;
-    $wtRxAudio.src = src;
+    const ctx = getRxAudioCtx();
+    if (ctx.state === 'suspended') await ctx.resume();
 
-    await new Promise((resolve, reject) => {
+    const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+
+    await new Promise(resolve => {
       const timeout = setTimeout(() => { _resolveRxAudio = null; resolve(); }, 25_000);
       _resolveRxAudio = resolve;
-      $wtRxAudio.onended = () => {
+
+      rxAudioSource = ctx.createBufferSource();
+      rxAudioSource.buffer = audioBuffer;
+      rxAudioSource.connect(ctx.destination);
+      rxAudioSource.onended = () => {
+        if (!_resolveRxAudio) return; // already resolved externally
         _resolveRxAudio = null;
         clearTimeout(timeout);
+        rxAudioSource = null;
         resolve();
       };
-      $wtRxAudio.onerror = () => {
-        const code = $wtRxAudio.error?.code ?? 0;
-        if (code === 1) return; // MEDIA_ERR_ABORTED from src change — new load continues
-        _resolveRxAudio = null;
-        clearTimeout(timeout);
-        const msg = ['','aborted','network','decode','unsupported'][code] || code;
-        reject(new Error(`MediaError: ${msg}`));
-      };
-      $wtRxAudio.play().catch(err => {
-        _resolveRxAudio = null;
-        clearTimeout(timeout);
-        reject(new Error(`play blocked: ${err.name}`));
-      });
+      rxAudioSource.start();
     });
   } catch (err) {
     console.error('[WT] playback error:', err);
   } finally {
     _resolveRxAudio = null;
-    if (blobUrl) URL.revokeObjectURL(blobUrl);
+    rxAudioSource   = null;
     $audioInd?.classList.add('hidden');
     drainAudioQueue();
   }
@@ -398,13 +392,9 @@ function wirePtt() {
     $pttBtn.querySelector('.wt-ptt-label').textContent = 'Hold to Talk';
     $pttHint.textContent = '🎤 Allow microphone in the popup…';
 
-    // Unlock the persistent receiver element inside this user gesture.
-    // iOS Safari user-activation is per-element — playing anything on $wtRxAudio
-    // here marks it as gesture-unlocked so later async play() calls work.
-    try {
-      $wtRxAudio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
-      $wtRxAudio.play().catch(() => {});
-    } catch (_) {}
+    // Unlock AudioContext inside this user gesture — iOS suspends it until
+    // resume() is called from a touch/click handler.
+    try { getRxAudioCtx().resume().catch(() => {}); } catch (_) {}
 
     // getUserMedia MUST be called via .then() inside a user-gesture handler —
     // do NOT convert to async/await; iOS Safari requires the call stack to remain
@@ -439,54 +429,41 @@ function startRec(e) {
   pttHeld = true;
   micRequesting = true;
 
-  // Pause active incoming audio BEFORE calling getUserMedia.
-  // On iOS, calling getUserMedia while $wtRxAudio is playing returns a stream
-  // with a silenced mic — the AVAudioSession stays in Playback mode and blocks
-  // recording. Pausing first (then waiting 200ms) lets iOS exit Playback mode
-  // so the fresh stream actually captures real audio.
-  $wtRxAudio.pause();
-  let hadActivePlayback = false;
+  // Stop active AudioContext playback so it doesn't play over the recording.
+  // AudioContext uses PlayAndRecord on iOS so the mic is never blocked —
+  // no delay or session-mode juggling needed.
   if (_resolveRxAudio) {
     const res = _resolveRxAudio;
     _resolveRxAudio = null;
-    res();
+    if (rxAudioSource) { try { rxAudioSource.stop(); } catch (_) {} rxAudioSource = null; }
     audioPlaying = false;
-    hadActivePlayback = true;
+    res();
   }
 
-  const doGetUserMedia = () => {
-    if (!pttHeld) { micRequesting = false; return; }
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-      .then(stream => {
-        micRequesting = false;
-        mediaStream.getTracks().forEach(t => t.stop());
-        mediaStream = stream;
-        if (pttHeld && !isRecording) beginRecording();
-        else updatePttHint();
-      })
-      .catch(() => {
-        micRequesting = false;
-        pttHeld = false;
-        $pttHint.textContent = '⚠️ Mic unavailable — allow mic access and try again';
-      });
-  };
-
-  // Only delay when we actually had audio playing — avoids lag on a cold press
-  if (hadActivePlayback) setTimeout(doGetUserMedia, 200);
-  else doGetUserMedia();
+  navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    .then(stream => {
+      micRequesting = false;
+      mediaStream.getTracks().forEach(t => t.stop());
+      mediaStream = stream;
+      if (pttHeld && !isRecording) beginRecording();
+      else updatePttHint();
+    })
+    .catch(() => {
+      micRequesting = false;
+      pttHeld = false;
+      $pttHint.textContent = '⚠️ Mic unavailable — allow mic access and try again';
+    });
 }
 
 function beginRecording() {
-  // Pause any active incoming audio before recording.
-  // On iOS, concurrent $wtRxAudio playback switches the audio session to
-  // Playback mode which mutes the microphone — terminate it cleanly here.
+  // Belt-and-suspenders: stop any audio that arrived after startRec ran
   if (_resolveRxAudio) {
-    $wtRxAudio.pause();
     const res = _resolveRxAudio;
     _resolveRxAudio = null;
+    if (rxAudioSource) { try { rxAudioSource.stop(); } catch (_) {} rxAudioSource = null; }
+    audioPlaying = false;
     res();
   }
-  audioPlaying = false;
 
   isRecording = true;
   audioChunks = [];
@@ -815,9 +792,7 @@ document.addEventListener('visibilitychange', () => {
       identity?.from === 'owner' ? markOwnerOnline : markEmpOnline,
       30_000
     );
-    // On iOS, audio may be interrupted when the app backgrounds.
-    // Calling play() here (while the page is regaining focus) re-activates
-    // $wtRxAudio so the next incoming message plays without user interaction.
-    $wtRxAudio.play().catch(() => {});
+    // Resume AudioContext if iOS suspended it while the app was backgrounded.
+    if (rxAudioCtx && rxAudioCtx.state === 'suspended') rxAudioCtx.resume().catch(() => {});
   }
 });
