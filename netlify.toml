@@ -36,6 +36,9 @@
 [functions."audio-proxy"]
   timeout = 20
 
+[functions."hub-flyer-scheduler"]
+  schedule = "*/5 * * * *"
+
 # ── Admin ─────────────────────────────────────────────
 [[redirects]]
   from   = "/admin"

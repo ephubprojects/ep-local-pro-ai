@@ -1230,6 +1230,32 @@
         <p class="form-hint" style="margin-top:10px;">Share each user's Channel Link with them. Toggle Access off to remove them instantly.</p>
       </div>
 
+      <!-- Scheduled Flyers -->
+      <div class="section-card hidden" id="hubFlyerCard">
+        <div class="section-card-header">
+          <h2>📅 Schedule a Flyer</h2>
+        </div>
+        <p class="form-hint" style="margin:0 0 14px;">Upload a flyer and choose when it should automatically appear in the channel for all users.</p>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Flyer Image</label>
+            <input type="file" id="hubFlyerImg" accept="image/*" style="padding:6px;border:1px dashed var(--border,#e2e8f0);border-radius:8px;width:100%;box-sizing:border-box;cursor:pointer;background:#fafafa;">
+          </div>
+          <div class="form-group">
+            <label for="hubFlyerCaption">Label (optional)</label>
+            <input type="text" id="hubFlyerCaption" placeholder="e.g. Saturday Meeting, Team Update" />
+          </div>
+        </div>
+        <div class="form-group" style="max-width:300px;">
+          <label for="hubFlyerTime">Post Date &amp; Time</label>
+          <input type="datetime-local" id="hubFlyerTime" style="padding:8px 12px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:0.9rem;width:100%;box-sizing:border-box;" />
+        </div>
+        <button class="btn-primary" id="hubFlyerSaveBtn">📅 Schedule Flyer</button>
+
+        <!-- Pending flyers list -->
+        <div id="hubFlyerList" style="margin-top:20px;"></div>
+      </div>
+
     </div><!-- /hub-channels -->
 
   </div><!-- /.dash-content -->

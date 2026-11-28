@@ -313,6 +313,12 @@ function appendFeedMsg(fromLabel, type, data, isMine) {
     img.loading = 'lazy';
     img.addEventListener('click', () => window.open(data.imageUrl, '_blank'));
     div.appendChild(img);
+    if (data.caption) {
+      const cap = document.createElement('div');
+      cap.style.cssText = 'margin-top:5px;font-size:12px;opacity:0.85;';
+      cap.textContent = data.caption;
+      div.appendChild(cap);
+    }
   } else if (type === 'link') {
     const a = document.createElement('a');
     a.className = 'ch-link';

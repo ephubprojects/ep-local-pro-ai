@@ -5194,6 +5194,7 @@ async function loadHubChannels() {
       orgLinkCard.classList.add('hidden');
       addUserCard.classList.add('hidden');
       usersCard.classList.add('hidden');
+      qs('#hubFlyerCard')?.classList.add('hidden');
       _hubSelectedChannelId = null;
       return;
     }
@@ -5249,7 +5250,10 @@ async function _loadHubChannelDetails() {
       });
     };
 
+    qs('#hubFlyerCard')?.classList.remove('hidden');
+    qs('#hubFlyerSaveBtn').onclick = scheduleHubFlyer;
     _loadHubUsers();
+    loadHubFlyers();
   } catch (err) {
     console.error('_loadHubChannelDetails error:', err);
   }
@@ -5438,5 +5442,114 @@ async function deleteHubChannel() {
   } catch (err) {
     console.error('deleteHubChannel error:', err);
     showToast('Failed to delete channel.', 'error');
+  }
+}
+
+// ── Hub Scheduled Flyers ──────────────────────────────────────
+
+async function loadHubFlyers() {
+  if (!_hubSelectedChannelId) return;
+  const list = qs('#hubFlyerList');
+  if (!list) return;
+  list.innerHTML = '';
+
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'hub_scheduled_flyers'),
+      where('channelId', '==', _hubSelectedChannelId),
+      where('sent', '==', false)
+    ));
+
+    if (snap.empty) {
+      list.innerHTML = '<p style="font-size:0.85rem;color:#94a3b8;margin:0;">No scheduled flyers yet.</p>';
+      return;
+    }
+
+    const title = document.createElement('p');
+    title.style.cssText = 'font-weight:600;font-size:0.85rem;margin:0 0 10px;color:#374151;';
+    title.textContent = 'Pending Flyers';
+    list.appendChild(title);
+
+    snap.forEach(d => {
+      const f   = d.data();
+      const dt  = f.scheduledAt?.toDate ? f.scheduledAt.toDate() : new Date(f.scheduledAt);
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:10px;align-items:center;padding:8px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;background:#fafafa;';
+      row.innerHTML = `
+        <img src="${f.imageUrl}" alt="Flyer" style="width:52px;height:52px;object-fit:cover;border-radius:6px;flex-shrink:0;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:0.85rem;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${f.caption || 'No label'}</div>
+          <div style="font-size:0.78rem;color:#64748b;">📅 ${dt.toLocaleString()}</div>
+        </div>
+        <button class="btn-action danger" style="color:#ef4444;border-color:#fca5a5;flex-shrink:0;font-size:0.78rem;padding:4px 10px;" data-id="${d.id}">Remove</button>`;
+      row.querySelector('button').onclick = () => deleteHubFlyer(d.id);
+      list.appendChild(row);
+    });
+  } catch (err) {
+    console.error('loadHubFlyers error:', err);
+  }
+}
+
+async function scheduleHubFlyer() {
+  const fileInput = qs('#hubFlyerImg');
+  const file      = fileInput?.files?.[0];
+  const caption   = (qs('#hubFlyerCaption')?.value || '').trim();
+  const timeVal   = qs('#hubFlyerTime')?.value;
+
+  if (!file)    { showToast('Please select a flyer image.', 'error'); return; }
+  if (!timeVal) { showToast('Please choose a date and time.', 'error'); return; }
+
+  const scheduledAt = new Date(timeVal);
+  if (scheduledAt <= new Date()) { showToast('Scheduled time must be in the future.', 'error'); return; }
+  if (!_hubSelectedChannelId)   { showToast('Select a channel first.', 'error'); return; }
+
+  const btn = qs('#hubFlyerSaveBtn');
+  btn.disabled = true;
+  btn.textContent = 'Uploading…';
+
+  try {
+    const channelSnap = await getDoc(doc(db, 'hub_channels', _hubSelectedChannelId));
+    const orgName = channelSnap.data()?.orgName || 'Organizer';
+
+    const ext  = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const iRef = storageRef(storage, `hub_images/${_hubSelectedChannelId}/flyer_${Date.now()}.${ext}`);
+    const snap = await uploadBytes(iRef, file, { contentType: file.type || 'image/jpeg' });
+    const imageUrl = await getDownloadURL(snap.ref);
+
+    await addDoc(collection(db, 'hub_scheduled_flyers'), {
+      channelId:   _hubSelectedChannelId,
+      ownerId:     currentUser.uid,
+      fromName:    orgName,
+      imageUrl,
+      storagePath: snap.ref.fullPath,
+      caption,
+      scheduledAt,
+      sent:        false,
+      createdAt:   serverTimestamp()
+    });
+
+    showToast(`Flyer scheduled for ${scheduledAt.toLocaleString()}!`);
+    fileInput.value = '';
+    if (qs('#hubFlyerCaption')) qs('#hubFlyerCaption').value = '';
+    if (qs('#hubFlyerTime'))    qs('#hubFlyerTime').value    = '';
+    loadHubFlyers();
+  } catch (err) {
+    console.error('scheduleHubFlyer error:', err);
+    showToast('Failed to schedule flyer.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📅 Schedule Flyer';
+  }
+}
+
+async function deleteHubFlyer(flyerId) {
+  if (!confirm('Remove this scheduled flyer?')) return;
+  try {
+    await deleteDoc(doc(db, 'hub_scheduled_flyers', flyerId));
+    showToast('Flyer removed.');
+    loadHubFlyers();
+  } catch (err) {
+    console.error('deleteHubFlyer error:', err);
+    showToast('Failed to remove flyer.', 'error');
   }
 }

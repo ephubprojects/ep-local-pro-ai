@@ -183,6 +183,18 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // ── EP HUB Scheduled Flyers ──────────────────────────────────────────────
+    match /hub_scheduled_flyers/{flyerId} {
+      allow read: if isAdmin() || (isAuth() && resource.data.ownerId == request.auth.uid);
+      allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
+      allow delete: if isAdmin() || (isAuth() && resource.data.ownerId == request.auth.uid);
+      // Scheduler (unauthenticated) marks sent=true + sentAt only
+      allow update: if isAdmin()
+        || (isAuth() && resource.data.ownerId == request.auth.uid)
+        || request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['sent', 'sentAt']);
+    }
+
     // ── Google My Business setup requests ────────────────────────────────
     match /gmb_requests/{reqId} {
       allow read: if isAdmin() || (isAuth() && resource.data.uid == request.auth.uid);
