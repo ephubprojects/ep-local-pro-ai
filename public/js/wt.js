@@ -319,13 +319,6 @@ async function drainAudioQueue() {
   $audioInd?.classList.remove('hidden');
 
   let blobUrl = null;
-  // Fresh element per message — starts at NETWORK_EMPTY so load() never fires
-  // MEDIA_ERR_ABORTED. Kept in DOM during playback so iOS never GC's it;
-  // removed after. The page-level audio activation from onActivate's silent play
-  // on $wtRxAudio means iOS 13+ allows play() on new elements without a gesture.
-  const el = document.createElement('audio');
-  document.body.appendChild(el);
-
   try {
     let src = null;
     if (b64Data?.b64) {
@@ -337,18 +330,26 @@ async function drainAudioQueue() {
     }
     if (!src) throw new Error('no audio source');
 
-    el.src = src;
+    // Reuse the persistent element (unlocked during onActivate) for iOS autoplay.
+    // Do NOT call load() — assigning src already runs the load algorithm and setting
+    // src twice fires two MEDIA_ERR_ABORTED events that can confuse play().
+    // A single src assignment fires one code-1 abort (ignored below); play() then
+    // starts cleanly once enough data is buffered.
+    $wtRxAudio.onended = null;
+    $wtRxAudio.onerror = null;
+    $wtRxAudio.src = src;
 
     await new Promise((resolve, reject) => {
       const timeout = setTimeout(resolve, 25_000);
-      el.onended = () => { clearTimeout(timeout); resolve(); };
-      el.onerror = () => {
+      $wtRxAudio.onended = () => { clearTimeout(timeout); resolve(); };
+      $wtRxAudio.onerror = () => {
+        const code = $wtRxAudio.error?.code ?? 0;
+        if (code === 1) return; // MEDIA_ERR_ABORTED from src change — new load continues
         clearTimeout(timeout);
-        const code = el.error?.code ?? '?';
-        const msg  = ['','aborted','network','decode','unsupported'][code] || code;
+        const msg = ['','aborted','network','decode','unsupported'][code] || code;
         reject(new Error(`MediaError: ${msg}`));
       };
-      el.play().catch(err => {
+      $wtRxAudio.play().catch(err => {
         clearTimeout(timeout);
         reject(new Error(`play blocked: ${err.name}`));
       });
@@ -357,8 +358,6 @@ async function drainAudioQueue() {
     console.error('[WT] playback error:', err);
   } finally {
     if (blobUrl) URL.revokeObjectURL(blobUrl);
-    el.src = '';
-    el.remove();
     $audioInd?.classList.add('hidden');
     drainAudioQueue();
   }
