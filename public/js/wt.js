@@ -49,18 +49,31 @@ let _resolveRxAudio = null;
 let pttHeld        = false;
 let micRequesting  = false;
 
-// Web Audio API context for incoming message playback.
-// AudioContext on iOS uses AVAudioSessionCategoryPlayAndRecord, which keeps
-// the microphone accessible even while audio is playing — unlike <audio>,
-// which switches the session to Playback-only and silently mutes the mic.
+// AudioContext — created once in onActivate to claim PlayAndRecord mode on iOS.
+// Even when <audio> temporarily switches iOS to Playback while playing a URL,
+// the AudioContext's presence means iOS reverts to PlayAndRecord the moment
+// the <audio> element is fully abandoned (src='', load()), so the mic is
+// accessible again before getUserMedia is called.
 let rxAudioCtx    = null;
-let rxAudioSource = null; // active AudioBufferSourceNode
+let rxAudioSource = null; // active AudioBufferSourceNode (base64 path)
+let rxAudioEl     = null; // active <audio> element (URL path)
 
 function getRxAudioCtx() {
   if (!rxAudioCtx || rxAudioCtx.state === 'closed') {
     rxAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
   return rxAudioCtx;
+}
+
+function stopRxAudio() {
+  if (rxAudioSource) { try { rxAudioSource.stop(); } catch (_) {} rxAudioSource = null; }
+  if (rxAudioEl) {
+    rxAudioEl.pause();
+    rxAudioEl.src  = '';
+    rxAudioEl.load(); // fully abandon — iOS releases the Playback session lock
+    rxAudioEl.remove();
+    rxAudioEl = null;
+  }
 }
 
 // Push notifications
@@ -329,42 +342,57 @@ async function drainAudioQueue() {
   $audioInd?.classList.remove('hidden');
 
   try {
-    let arrayBuffer = null;
-    if (b64Data?.b64) {
-      const bytes = Uint8Array.from(atob(b64Data.b64), c => c.charCodeAt(0));
-      arrayBuffer = bytes.buffer;
-    } else if (audioUrl) {
-      const resp = await fetch(audioUrl);
-      arrayBuffer = await resp.arrayBuffer();
-    }
-    if (!arrayBuffer) throw new Error('no audio source');
-
     const ctx = getRxAudioCtx();
     if (ctx.state === 'suspended') await ctx.resume();
 
-    const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+    if (b64Data?.b64) {
+      // Base64 path — decode directly through AudioContext (no CORS needed).
+      // AudioContext stays in PlayAndRecord mode so the mic is never blocked.
+      const bytes = Uint8Array.from(atob(b64Data.b64), c => c.charCodeAt(0));
+      const buf   = await ctx.decodeAudioData(bytes.buffer);
 
-    await new Promise(resolve => {
-      const timeout = setTimeout(() => { _resolveRxAudio = null; resolve(); }, 25_000);
-      _resolveRxAudio = resolve;
+      await new Promise(resolve => {
+        const timeout = setTimeout(() => { _resolveRxAudio = null; resolve(); }, 25_000);
+        _resolveRxAudio = resolve;
+        rxAudioSource = ctx.createBufferSource();
+        rxAudioSource.buffer = buf;
+        rxAudioSource.connect(ctx.destination);
+        rxAudioSource.onended = () => {
+          if (!_resolveRxAudio) return;
+          _resolveRxAudio = null; clearTimeout(timeout); rxAudioSource = null; resolve();
+        };
+        rxAudioSource.start();
+      });
 
-      rxAudioSource = ctx.createBufferSource();
-      rxAudioSource.buffer = audioBuffer;
-      rxAudioSource.connect(ctx.destination);
-      rxAudioSource.onended = () => {
-        if (!_resolveRxAudio) return; // already resolved externally
-        _resolveRxAudio = null;
-        clearTimeout(timeout);
-        rxAudioSource = null;
-        resolve();
-      };
-      rxAudioSource.start();
-    });
+    } else if (audioUrl) {
+      // URL path — use <audio> element (fetch needs CORS; <audio>.src does not).
+      // AudioContext above acts as an iOS session anchor: once the <audio> is
+      // fully abandoned (src='', load()), iOS reverts to PlayAndRecord so the
+      // next getUserMedia call gets a live microphone.
+      rxAudioEl = document.createElement('audio');
+      document.body.appendChild(rxAudioEl);
+      rxAudioEl.src = audioUrl;
+
+      await new Promise(resolve => {
+        const timeout = setTimeout(() => { _resolveRxAudio = null; resolve(); }, 25_000);
+        _resolveRxAudio = resolve;
+        rxAudioEl.onended = () => {
+          if (!_resolveRxAudio) return;
+          _resolveRxAudio = null; clearTimeout(timeout); resolve();
+        };
+        rxAudioEl.onerror = () => {
+          const code = rxAudioEl?.error?.code ?? 0;
+          if (code === 1) return; // MEDIA_ERR_ABORTED from src change — load continues
+          clearTimeout(timeout); _resolveRxAudio = null; resolve();
+        };
+        rxAudioEl.play().catch(() => { clearTimeout(timeout); _resolveRxAudio = null; resolve(); });
+      });
+    }
   } catch (err) {
     console.error('[WT] playback error:', err);
   } finally {
     _resolveRxAudio = null;
-    rxAudioSource   = null;
+    stopRxAudio();
     $audioInd?.classList.add('hidden');
     drainAudioQueue();
   }
@@ -429,13 +457,13 @@ function startRec(e) {
   pttHeld = true;
   micRequesting = true;
 
-  // Stop active AudioContext playback so it doesn't play over the recording.
-  // AudioContext uses PlayAndRecord on iOS so the mic is never blocked —
-  // no delay or session-mode juggling needed.
+  // Stop active playback before requesting mic. For URL audio this fully
+  // abandons the <audio> element (src='', load()), which signals iOS to release
+  // the Playback session so getUserMedia gets a live mic.
   if (_resolveRxAudio) {
     const res = _resolveRxAudio;
     _resolveRxAudio = null;
-    if (rxAudioSource) { try { rxAudioSource.stop(); } catch (_) {} rxAudioSource = null; }
+    stopRxAudio();
     audioPlaying = false;
     res();
   }
@@ -456,11 +484,11 @@ function startRec(e) {
 }
 
 function beginRecording() {
-  // Belt-and-suspenders: stop any audio that arrived after startRec ran
+  // Belt-and-suspenders: stop any audio that arrived between startRec and now
   if (_resolveRxAudio) {
     const res = _resolveRxAudio;
     _resolveRxAudio = null;
-    if (rxAudioSource) { try { rxAudioSource.stop(); } catch (_) {} rxAudioSource = null; }
+    stopRxAudio();
     audioPlaying = false;
     res();
   }
