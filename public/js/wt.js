@@ -439,27 +439,41 @@ function startRec(e) {
   pttHeld = true;
   micRequesting = true;
 
-  // Always re-request getUserMedia on each PTT press. iOS Safari silently
-  // degrades or mutes the mic stream after $wtRxAudio plays (audio session
-  // switches from PlayAndRecord to Playback). A fresh stream every time
-  // guarantees we capture real audio — overhead is negligible since
-  // permission is already granted.
-  navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-    .then(stream => {
-      micRequesting = false;
-      mediaStream.getTracks().forEach(t => t.stop());
-      mediaStream = stream;
-      if (pttHeld && !isRecording) {
-        beginRecording();
-      } else {
-        updatePttHint();
-      }
-    })
-    .catch(() => {
-      micRequesting = false;
-      pttHeld = false;
-      $pttHint.textContent = '⚠️ Mic unavailable — allow mic access and try again';
-    });
+  // Pause active incoming audio BEFORE calling getUserMedia.
+  // On iOS, calling getUserMedia while $wtRxAudio is playing returns a stream
+  // with a silenced mic — the AVAudioSession stays in Playback mode and blocks
+  // recording. Pausing first (then waiting 200ms) lets iOS exit Playback mode
+  // so the fresh stream actually captures real audio.
+  $wtRxAudio.pause();
+  let hadActivePlayback = false;
+  if (_resolveRxAudio) {
+    const res = _resolveRxAudio;
+    _resolveRxAudio = null;
+    res();
+    audioPlaying = false;
+    hadActivePlayback = true;
+  }
+
+  const doGetUserMedia = () => {
+    if (!pttHeld) { micRequesting = false; return; }
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      .then(stream => {
+        micRequesting = false;
+        mediaStream.getTracks().forEach(t => t.stop());
+        mediaStream = stream;
+        if (pttHeld && !isRecording) beginRecording();
+        else updatePttHint();
+      })
+      .catch(() => {
+        micRequesting = false;
+        pttHeld = false;
+        $pttHint.textContent = '⚠️ Mic unavailable — allow mic access and try again';
+      });
+  };
+
+  // Only delay when we actually had audio playing — avoids lag on a cold press
+  if (hadActivePlayback) setTimeout(doGetUserMedia, 200);
+  else doGetUserMedia();
 }
 
 function beginRecording() {
