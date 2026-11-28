@@ -49,14 +49,23 @@ let _resolveRxAudio = null;
 let pttHeld        = false;
 let micRequesting  = false;
 
-// AudioContext — created once in onActivate to claim PlayAndRecord mode on iOS.
-// Even when <audio> temporarily switches iOS to Playback while playing a URL,
-// the AudioContext's presence means iOS reverts to PlayAndRecord the moment
-// the <audio> element is fully abandoned (src='', load()), so the mic is
-// accessible again before getUserMedia is called.
+// Persistent <audio> element for URL-based playback.
+// MUST be pre-unlocked by a silent play() inside onActivate (a real user gesture)
+// so iOS Safari allows async play() calls on it later. Fresh elements created
+// outside a gesture are always blocked by iOS autoplay policy.
+const $wtRxAudio = (() => {
+  const el = document.createElement('audio');
+  el.preload = 'none';
+  document.body.appendChild(el);
+  return el;
+})();
+
+// AudioContext — unlocked in onActivate alongside $wtRxAudio.
+// Its presence keeps iOS in PlayAndRecord mode: once $wtRxAudio is fully
+// abandoned (src='', load()), iOS exits Playback and reverts to PlayAndRecord
+// so the next getUserMedia call gets a live mic.
 let rxAudioCtx    = null;
 let rxAudioSource = null; // active AudioBufferSourceNode (base64 path)
-let rxAudioEl     = null; // active <audio> element (URL path)
 
 function getRxAudioCtx() {
   if (!rxAudioCtx || rxAudioCtx.state === 'closed') {
@@ -67,13 +76,12 @@ function getRxAudioCtx() {
 
 function stopRxAudio() {
   if (rxAudioSource) { try { rxAudioSource.stop(); } catch (_) {} rxAudioSource = null; }
-  if (rxAudioEl) {
-    rxAudioEl.pause();
-    rxAudioEl.src  = '';
-    rxAudioEl.load(); // fully abandon — iOS releases the Playback session lock
-    rxAudioEl.remove();
-    rxAudioEl = null;
-  }
+  // Fully abandon $wtRxAudio so iOS exits Playback mode
+  $wtRxAudio.pause();
+  $wtRxAudio.onended = null;
+  $wtRxAudio.onerror = null;
+  $wtRxAudio.src  = '';
+  $wtRxAudio.load();
 }
 
 // Push notifications
@@ -365,27 +373,26 @@ async function drainAudioQueue() {
       });
 
     } else if (audioUrl) {
-      // URL path — use <audio> element (fetch needs CORS; <audio>.src does not).
-      // AudioContext above acts as an iOS session anchor: once the <audio> is
-      // fully abandoned (src='', load()), iOS reverts to PlayAndRecord so the
-      // next getUserMedia call gets a live microphone.
-      rxAudioEl = document.createElement('audio');
-      document.body.appendChild(rxAudioEl);
-      rxAudioEl.src = audioUrl;
+      // URL path — reuse persistent $wtRxAudio (pre-unlocked in onActivate).
+      // Fresh elements created outside a user gesture are blocked by iOS autoplay.
+      // <audio>.src bypasses CORS restrictions that block fetch().
+      $wtRxAudio.onended = null;
+      $wtRxAudio.onerror = null;
+      $wtRxAudio.src = audioUrl;
 
       await new Promise(resolve => {
         const timeout = setTimeout(() => { _resolveRxAudio = null; resolve(); }, 25_000);
         _resolveRxAudio = resolve;
-        rxAudioEl.onended = () => {
+        $wtRxAudio.onended = () => {
           if (!_resolveRxAudio) return;
           _resolveRxAudio = null; clearTimeout(timeout); resolve();
         };
-        rxAudioEl.onerror = () => {
-          const code = rxAudioEl?.error?.code ?? 0;
+        $wtRxAudio.onerror = () => {
+          const code = $wtRxAudio.error?.code ?? 0;
           if (code === 1) return; // MEDIA_ERR_ABORTED from src change — load continues
           clearTimeout(timeout); _resolveRxAudio = null; resolve();
         };
-        rxAudioEl.play().catch(() => { clearTimeout(timeout); _resolveRxAudio = null; resolve(); });
+        $wtRxAudio.play().catch(() => { clearTimeout(timeout); _resolveRxAudio = null; resolve(); });
       });
     }
   } catch (err) {
@@ -420,8 +427,13 @@ function wirePtt() {
     $pttBtn.querySelector('.wt-ptt-label').textContent = 'Hold to Talk';
     $pttHint.textContent = '🎤 Allow microphone in the popup…';
 
-    // Unlock AudioContext inside this user gesture — iOS suspends it until
-    // resume() is called from a touch/click handler.
+    // Unlock both audio systems inside this user gesture.
+    // $wtRxAudio needs a real play() to be allowed async calls later on iOS.
+    // AudioContext.resume() claims PlayAndRecord mode so the mic stays usable.
+    try {
+      $wtRxAudio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+      $wtRxAudio.play().catch(() => {});
+    } catch (_) {}
     try { getRxAudioCtx().resume().catch(() => {}); } catch (_) {}
 
     // getUserMedia MUST be called via .then() inside a user-gesture handler —
@@ -820,7 +832,8 @@ document.addEventListener('visibilitychange', () => {
       identity?.from === 'owner' ? markOwnerOnline : markEmpOnline,
       30_000
     );
-    // Resume AudioContext if iOS suspended it while the app was backgrounded.
+    // Re-activate both audio systems after returning from background.
+    $wtRxAudio.play().catch(() => {});
     if (rxAudioCtx && rxAudioCtx.state === 'suspended') rxAudioCtx.resume().catch(() => {});
   }
 });
