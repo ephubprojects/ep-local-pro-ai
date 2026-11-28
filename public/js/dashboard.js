@@ -2095,13 +2095,11 @@ const wtPlayedSet    = new Set();
 const WT_LOAD_MS     = Date.now(); // page-load timestamp for filtering historical messages
 
 // MediaRecorder state (owner PTT)
-let wtMediaStream   = null;
-let wtRecorder      = null;
-let wtAudioChunks   = [];
-let wtIsRecording   = false;
-let wtRecTimer      = null;
-let wtPttHeld       = false;
-let wtMicRequesting = false;
+let wtMediaStream  = null;
+let wtRecorder     = null;
+let wtAudioChunks  = [];
+let wtIsRecording  = false;
+let wtRecTimer     = null;
 
 // Audio playback queue (owner side)
 let wtAudioQueue   = [];
@@ -2488,29 +2486,20 @@ function subscribeWtMessages() {
 // ── Owner PTT ────────────────────────────────────────────────
 function startOwnerRecording(e) {
   e.preventDefault();
-  if (wtIsRecording || wtMicRequesting || !wtMediaStream) return;
-  wtPttHeld = true;
-  wtMicRequesting = true;
+  if (wtIsRecording || !wtMediaStream) return;
 
-  // Re-request getUserMedia on every press — Chrome silently ends stream tracks
-  // after inactivity, causing MediaRecorder.start() to throw and leave
-  // wtIsRecording stuck at true, blocking all subsequent presses.
-  navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-    .then(stream => {
-      wtMicRequesting = false;
-      wtMediaStream.getTracks().forEach(t => t.stop());
-      wtMediaStream = stream;
-      if (wtPttHeld && !wtIsRecording) beginOwnerRecording();
-    })
-    .catch(() => {
-      wtMicRequesting = false;
-      wtPttHeld = false;
-      const statusEl = qs('#wtOwnerStatus');
-      if (statusEl) statusEl.textContent = '⚠️ Mic unavailable — allow mic access and try again';
-    });
-}
+  // If the mic track died (permission revoked, device change), tell the owner
+  // to re-activate instead of silently failing.
+  const tracks = wtMediaStream.getAudioTracks();
+  if (!tracks.length || tracks[0].readyState === 'ended') {
+    const ptt = qs('#wtOwnerPtt');
+    ptt?.classList.add('wt-owner-activate');
+    if (ptt) ptt.querySelector('.wt-ptt-text').textContent = 'Activate Radio';
+    qs('#wtOwnerStatus').textContent = '⚠️ Mic disconnected — click Activate Radio to reconnect';
+    wtMediaStream = null;
+    return;
+  }
 
-function beginOwnerRecording() {
   wtIsRecording = true;
   wtAudioChunks = [];
   qs('#wtOwnerPtt').classList.add('recording');
@@ -2529,7 +2518,7 @@ function beginOwnerRecording() {
   } catch (err) {
     console.error('[WT] recorder.start failed:', err);
     wtIsRecording = false;
-    wtRecorder = null;
+    wtRecorder    = null;
     qs('#wtOwnerPtt')?.classList.remove('recording');
     qs('#wtOwnerStatus').textContent = '⚠️ Recording failed — try again';
     return;
@@ -2539,7 +2528,6 @@ function beginOwnerRecording() {
 
 function stopOwnerRecording(e) {
   if (e) e.preventDefault();
-  wtPttHeld = false;
   if (!wtIsRecording) return;
   clearTimeout(wtRecTimer);
   wtIsRecording = false;
