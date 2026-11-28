@@ -2095,11 +2095,13 @@ const wtPlayedSet    = new Set();
 const WT_LOAD_MS     = Date.now(); // page-load timestamp for filtering historical messages
 
 // MediaRecorder state (owner PTT)
-let wtMediaStream  = null;
-let wtRecorder     = null;
-let wtAudioChunks  = [];
-let wtIsRecording  = false;
-let wtRecTimer     = null;
+let wtMediaStream   = null;
+let wtRecorder      = null;
+let wtAudioChunks   = [];
+let wtIsRecording   = false;
+let wtRecTimer      = null;
+let wtPttHeld       = false;
+let wtMicRequesting = false;
 
 // Audio playback queue (owner side)
 let wtAudioQueue   = [];
@@ -2486,8 +2488,29 @@ function subscribeWtMessages() {
 // ── Owner PTT ────────────────────────────────────────────────
 function startOwnerRecording(e) {
   e.preventDefault();
-  if (wtIsRecording || !wtMediaStream) return;
+  if (wtIsRecording || wtMicRequesting || !wtMediaStream) return;
+  wtPttHeld = true;
+  wtMicRequesting = true;
 
+  // Re-request getUserMedia on every press — Chrome silently ends stream tracks
+  // after inactivity, causing MediaRecorder.start() to throw and leave
+  // wtIsRecording stuck at true, blocking all subsequent presses.
+  navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    .then(stream => {
+      wtMicRequesting = false;
+      wtMediaStream.getTracks().forEach(t => t.stop());
+      wtMediaStream = stream;
+      if (wtPttHeld && !wtIsRecording) beginOwnerRecording();
+    })
+    .catch(() => {
+      wtMicRequesting = false;
+      wtPttHeld = false;
+      const statusEl = qs('#wtOwnerStatus');
+      if (statusEl) statusEl.textContent = '⚠️ Mic unavailable — allow mic access and try again';
+    });
+}
+
+function beginOwnerRecording() {
   wtIsRecording = true;
   wtAudioChunks = [];
   qs('#wtOwnerPtt').classList.add('recording');
@@ -2501,14 +2524,22 @@ function startOwnerRecording(e) {
   }
   wtRecorder.ondataavailable = ev => { if (ev.data.size > 0) wtAudioChunks.push(ev.data); };
   wtRecorder.onstop = onOwnerRecordingStop;
-  wtRecorder.start(100);
-
-  // Auto-stop after 20 seconds
+  try {
+    wtRecorder.start(100);
+  } catch (err) {
+    console.error('[WT] recorder.start failed:', err);
+    wtIsRecording = false;
+    wtRecorder = null;
+    qs('#wtOwnerPtt')?.classList.remove('recording');
+    qs('#wtOwnerStatus').textContent = '⚠️ Recording failed — try again';
+    return;
+  }
   wtRecTimer = setTimeout(() => { if (wtIsRecording) stopOwnerRecording(); }, 20_000);
 }
 
 function stopOwnerRecording(e) {
   if (e) e.preventDefault();
+  wtPttHeld = false;
   if (!wtIsRecording) return;
   clearTimeout(wtRecTimer);
   wtIsRecording = false;
